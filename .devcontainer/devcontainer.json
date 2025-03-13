@@ -12,7 +12,8 @@
 		"vscode": {
 		  "extensions": [
 			"ms-python.python",
-			"esbenp.prettier-vscode"
+			"esbenp.prettier-vscode",
+			"platformio.platformio-ide"
 		  ]
 		}
 	}
