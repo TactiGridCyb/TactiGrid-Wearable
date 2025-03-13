@@ -5,7 +5,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     build-essential \
     wget curl \
+    && apt-get install -y python3-venv \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/* \
-    && npm install -g npm@latest
+    && npm install -g npm@latest \
+    && pip3 install platformio
