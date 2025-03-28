@@ -89,21 +89,24 @@ void listFiles(const char* dirname) {
 void lv_example_img_1(void)
 {
     
-    lv_obj_t *view = lv_obj_create(lv_scr_act());
-    lv_obj_set_style_pad_all(view, 0, 0);
-    lv_obj_set_size(view, 240, 240);
-    lv_obj_set_style_bg_color(view, lv_color_hex(0xffffff), 0);
-    
+    Serial.println("Creating LVGL image object...");
+    String file =  tileFile;
 
-    lv_obj_t *img1 = lv_img_create(view);
-    lv_img_set_src(img1, tileFile);
+
+    lv_obj_t * img1 = lv_img_create(lv_scr_act());
+    lv_obj_center(img1);
+    Serial.println("Setting image source to S:/tile.png...");
+    lv_img_set_src(img1, "A:/tile.png");
     lv_obj_align(img1, LV_ALIGN_CENTER, 0, 0);
 
-    LV_IMG_DECLARE(ilmap);
+    // Optional: scale up the image for better visibility if it's small
+    // lv_img_set_zoom(img1, 4096); // 200% zoom
 
-    lv_obj_t *img2 = lv_img_create(view);
-    lv_img_set_src(img2, &ilmap);
-    lv_obj_align(img1, LV_ALIGN_CENTER, 0, 0);
+    // Add a red border to see image boundaries
+    lv_obj_set_style_border_color(img1, lv_color_hex(0xff0000), 0);
+    lv_obj_set_style_border_width(img1, 2, 0);
+
+    Serial.println("Screen invalidated for redraw.");
 
 }
 
@@ -143,7 +146,6 @@ bool downloadTile() {
                                  "Chrome/134.0.0.0 Safari/537.36");
     http.addHeader("Referer", "https://www.openstreetmap.org/");
     http.addHeader("Accept", "image/png");
-    http.addHeader("Accept-Encoding", "identity");
 
     // Send HTTP GET request
     int httpCode = http.GET();
@@ -205,6 +207,9 @@ void setup() {
     Serial.begin(115200);
     watch.begin(&Serial);
 
+    beginLvglHelper();
+    lv_png_init();
+
     // Initialize FFat
     if (!FFat.begin(true)) {
         Serial.println("Failed to mount FFat!");
@@ -214,8 +219,6 @@ void setup() {
     Serial.println("Set PNG decoder!");
     deleteExistingTile();
 
-    beginLvglHelper();
-    lv_png_init();
     // Connect to WiFi
     connectToWiFi();
 
@@ -228,6 +231,8 @@ void setup() {
     } else {
         Serial.println("Failed to download the tile.");
     }
+
+
 }
 
 void loop() {
