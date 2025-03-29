@@ -109,20 +109,20 @@ void listFiles(const char* dirname) {
 
     File root = FFat.open(dirname);
     if (!root) {
-        Serial.println("Failed to open directory!");
+        //Serial.println("Failed to open directory!");
         return;
     }
     if (!root.isDirectory()) {
-        Serial.println("Not a directory!");
+        //Serial.println("Not a directory!");
         return;
     }
 
     File file = root.openNextFile();
     while (file) {
         if (file.isDirectory()) {
-            Serial.printf("DIR : %s\n", file.name());
+            //Serial.printf("DIR : %s\n", file.name());
         } else {
-            Serial.printf("FILE: %s - %d bytes\n", file.name(), file.size());
+            //Serial.printf("FILE: %s - %d bytes\n", file.name(), file.size());
         }
         file = root.openNextFile();
     }
@@ -178,6 +178,7 @@ bool downloadSingleTile(const std::string &tileURL, const char* fileName) {
 
     int httpCode = http.GET();
     if (httpCode == HTTP_CODE_OK) {
+        ballColor = lv_color_hex(0x000000);
         size_t fileSize = http.getSize();
         WiFiClient* stream = http.getStreamPtr();
         uint8_t* buffer = new uint8_t[fileSize];
@@ -205,8 +206,6 @@ bool downloadTileIfNeeded(std::string tileURL, const char* fileName)
 
 bool downloadTiles(const std::tuple<int, int, int> &tileLocation) {
 
-    ballColor = lv_color_hex(0x000000);
-
     std::string middleTile = tileUrlInitial + std::to_string(std::get<0>(tileLocation))
     + "/" + std::to_string(std::get<1>(tileLocation)) +
     "/" + std::to_string(std::get<2>(tileLocation)) + ".png";
@@ -227,11 +226,11 @@ bool downloadTiles(const std::tuple<int, int, int> &tileLocation) {
     + "/" + std::to_string(std::get<1>(tileLocation)) + "/" +
     std::to_string(std::get<2>(tileLocation) - 1) + ".png";
 
-    Serial.println(middleTile.c_str());
-    Serial.println(leftTile.c_str());
-    Serial.println(rightTile.c_str());
-    Serial.println(bottomTile.c_str());
-    Serial.println(topTile.c_str());
+    //Serial.println(middleTile.c_str());
+    //Serial.println(leftTile.c_str());
+    //Serial.println(rightTile.c_str());
+    //Serial.println(bottomTile.c_str());
+    //Serial.println(topTile.c_str());
 
     bool downloadMiddleTile = downloadTileIfNeeded(middleTile, "/middleTile.png");
     bool downloadLeftTile = downloadTileIfNeeded(leftTile, "/leftTile.png");
@@ -248,26 +247,31 @@ void showTiles(const char* middleTilePath, const char* leftTilePath, const char*
     lv_obj_t * centerTile = lv_img_create(mainPage);
     std::string TileSRC = std::string("A:") + middleTilePath + std::string(".png");
     lv_img_set_src(centerTile, TileSRC.c_str());
+    lv_obj_set_size(centerTile, 120, 120);
     lv_obj_align(centerTile, LV_ALIGN_CENTER, 0, 0);
 
     lv_obj_t * leftTile = lv_img_create(mainPage);
     TileSRC = std::string("A:") + leftTilePath + std::string(".png");
     lv_img_set_src(leftTile, TileSRC.c_str());
+    lv_obj_set_size(leftTile, 120, 120);
     lv_obj_align(leftTile, LV_ALIGN_LEFT_MID, 0, 0);
 
     lv_obj_t * rightTile = lv_img_create(mainPage);
     TileSRC = std::string("A:") + rightTilePath + std::string(".png");
     lv_img_set_src(rightTile, TileSRC.c_str());
+    lv_obj_set_size(rightTile, 120, 120);
     lv_obj_align(rightTile, LV_ALIGN_RIGHT_MID, 0, 0);
 
     lv_obj_t * bottomTile = lv_img_create(mainPage);
     TileSRC = std::string("A:") + bottomTilePath + std::string(".png");
     lv_img_set_src(bottomTile, TileSRC.c_str());
+    lv_obj_set_size(bottomTile, 120, 120);
     lv_obj_align(bottomTile, LV_ALIGN_BOTTOM_MID, 0, 0);
     
     lv_obj_t * topTile = lv_img_create(mainPage);
     TileSRC = std::string("A:") + topTilePath + std::string(".png");
     lv_img_set_src(topTile, TileSRC.c_str());
+    lv_obj_set_size(topTile, 120, 120);
     lv_obj_align(topTile, LV_ALIGN_TOP_MID, 0, 0);
     
     //Serial.println("Tile displayed on the screen!");
@@ -277,9 +281,9 @@ void deleteExistingTile(const char* tileFilePath) {
     if (FFat.exists(tileFilePath)) {
         //Serial.println("Pre Delete!");
         if (FFat.remove(tileFilePath)) {
-            Serial.println("Existing tile deleted successfully!");
+            //Serial.println("Existing tile deleted successfully!");
         } else {
-            Serial.println("Failed to delete existing tile.");
+            //Serial.println("Failed to delete existing tile.");
         }
     } else {
         //Serial.println("No existing tile found.");
@@ -308,8 +312,8 @@ void init_main_poc_page()
 {
     static std::tuple<int,int,int> soldiersPosition = positionToTile(31.967336875793308, 34.78519519036414, 19);
     
-    Serial.print("Address of soldiersPosition: 0x");
-    Serial.println((uintptr_t)&soldiersPosition, HEX);
+    //Serial.print("Address of soldiersPosition: 0x");
+    //Serial.println((uintptr_t)&soldiersPosition, HEX);
 
     clearMainPage();
 
@@ -338,16 +342,17 @@ void init_main_poc_page()
 
 }
 
+
 void setup() {
-    Serial.begin(115200);
-    watch.begin(&Serial);
-    Serial.println("HELLO");
+    //Serial.begin(115200);
+    watch.begin();
+    //Serial.println("HELLO");
 
     if (!FFat.begin(true)) {
-        Serial.println("Failed to mount FFat!");
+        //Serial.println("Failed to mount FFat!");
         return;
     }
-    Serial.println("WORLD");
+    //Serial.println("WORLD");
     //listFiles("/");
     deleteExistingTile("/middleTile.png");
     deleteExistingTile("/leftTile.png");
@@ -360,12 +365,12 @@ void setup() {
     beginLvglHelper();
     lv_png_init();
 
-    Serial.println("Set LVGL!");
+    //Serial.println("Set LVGL!");
 
     connectToWiFi();
     init_main_poc_page();
 
-    Serial.println("init_main_poc_page");
+    //Serial.println("init_main_poc_page");
     
     watch.attachPMU(onPmuInterrupt);
 
@@ -381,7 +386,7 @@ void setup() {
 
 void init_p2p_test(lv_event_t * event)
 {
-    Serial.println("init_p2p_test");
+    //Serial.println("init_p2p_test");
     std::tuple<int, int, int>* soldiersPosition = static_cast<std::tuple<int, int, int>*>(lv_event_get_user_data(event));
 
     bool tileExists = FFat.exists(tileFilePath);
@@ -392,9 +397,9 @@ void init_p2p_test(lv_event_t * event)
     if (downloadTiles(*soldiersPosition)) {
         //Serial.println(tileExists + " Tile download completed!");
         listFiles("/");
-        showTiles("/middleTile", "/leftTile", "/rightTile", "/bottomTile", "/topTile");
+        //showTiles("/middleTile", "/leftTile", "/rightTile", "/bottomTile", "/topTile");
     } else {
-        Serial.println("Failed to download the tile.");
+        //Serial.println("Failed to download the tile.");
     }
 
     create_fading_red_circle();
