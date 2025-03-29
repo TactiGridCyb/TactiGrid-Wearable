@@ -16,12 +16,9 @@
 const char* ssid = "XXX";
 const char* password = "XXX";
 
-const char* tileUrlInitial = "https://tile.openstreetmap.org/";
+const char* tileUrlInitial = "https://tile.openstreetmap.org/19/312787/212958.png";
 
 const char* tileFilePath = "/tile.png";
-
-lv_disp_draw_buf_t draw_buf;
-lv_color_t buf[LV_HOR_RES_MAX * 10];
 
 
 void anim_opacity_cb(void * obj, int32_t value) {
@@ -220,20 +217,58 @@ void deleteExistingTile() {
     }
 }
 
+
+
+void init_main_poc_page()
+{
+    lv_obj_t * mainPage = lv_scr_act();
+
+    lv_obj_t *mainLabel = lv_label_create(mainPage);
+    lv_label_set_text(mainLabel, "TactiGrid POC");
+    lv_obj_center(mainLabel);
+
+    lv_obj_set_style_bg_color(mainPage, lv_color_hex(0x000000), LV_STATE_DEFAULT);
+
+    lv_obj_t *p2pTestBtn = lv_btn_create(mainPage);
+    lv_obj_center(p2pTestBtn);
+    lv_obj_set_style_bg_color(p2pTestBtn, lv_color_hex(0x346eeb), LV_STATE_DEFAULT);
+    lv_obj_add_event_cb(p2pTestBtn, init_p2p_test, LV_EVENT_CLICKED, NULL);
+
+
+    lv_obj_t *P2PTestLabel = lv_label_create(p2pTestBtn);
+    lv_label_set_text(P2PTestLabel, "P2P Test");
+    lv_obj_center(P2PTestLabel);
+
+}
+
 void setup() {
     Serial.begin(115200);
     watch.begin(&Serial);
-
-    beginLvglHelper();
-    lv_png_init();
 
     if (!FFat.begin(true)) {
         Serial.println("Failed to mount FFat!");
         return;
     }
 
-    Serial.println("Set PNG decoder!");
+    beginLvglHelper();
+    lv_png_init();
+
+    Serial.println("Set LVGL!");
+
     deleteExistingTile();
+
+    init_main_poc_page();
+    Serial.println("init_main_poc_page");
+}
+
+void init_p2p_test(lv_event_t * event)
+{
+    Serial.println("init_p2p_test");
+
+    lv_obj_t * mainPage = lv_scr_act();
+
+    lv_obj_remove_style_all(mainPage);
+    lv_obj_clean(mainPage);
 
     connectToWiFi();
     
@@ -246,7 +281,7 @@ void setup() {
         Serial.println("Failed to download the tile.");
     }
 
-    //create_fading_red_circle();
+    create_fading_red_circle();
 }
 
 void loop() {
