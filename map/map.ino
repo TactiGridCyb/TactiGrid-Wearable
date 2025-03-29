@@ -13,22 +13,35 @@
 
 #include <LilyGoLib.h>
 
-const char* ssid = "XXX";
-const char* password = "XXX";
+const char* ssid = "default";
+const char* password = "1357924680";
 
-const char* tileUrlInitial = "https://tile.openstreetmap.org/19/312787/212958.png";
+const std::string tileUrlInitial = "https://tile.openstreetmap.org/";
 
 const char* tileFilePath = "/tile.png";
 
+volatile bool pmu_flag = false;
+lv_color_t ballColor = lv_color_hex(0xff0000);
+
+void IRAM_ATTR onPmuInterrupt() {
+    pmu_flag = true;
+  }
+  
 
 void anim_opacity_cb(void * obj, int32_t value) {
     lv_obj_set_style_opa((lv_obj_t *)obj, value, 0);
 }
 
-std::tuple<float, float> positionToTile(float lat, float lon, int zoom)
+std::tuple<int, int, int> positionToTile(float lat, float lon, int zoom)
 {
-    std::tuple<float, float> ans;
     
+    float lat_rad = radians(lat);
+    float n = pow(2.0, zoom);
+    
+    int x_tile = floor((lon + 180.0) / 360.0 * n);
+    int y_tile = floor((1.0 - log(tan(lat_rad) + 1.0 / cos(lat_rad)) / PI) / 2.0 * n);
+    
+    std::tuple<int, int, int> ans(zoom, x_tile, y_tile);
 
     return ans;
 }
@@ -38,7 +51,7 @@ void create_fading_red_circle() {
     lv_obj_set_size(circle, 40, 40);
     lv_obj_center(circle);           
 
-    lv_obj_set_style_bg_color(circle, lv_color_hex(0xff0000), 0);
+    lv_obj_set_style_bg_color(circle, ballColor, 0);
     lv_obj_set_style_radius(circle, LV_RADIUS_CIRCLE, 0);
 
     lv_anim_t a;
@@ -61,38 +74,38 @@ bool isPNG(File file) {
     if (header[0] == 0x89 && header[1] == 0x50 && header[2] == 0x4E &&
         header[3] == 0x47 && header[4] == 0x0D && header[5] == 0x0A &&
         header[6] == 0x1A && header[7] == 0x0A) {
-        Serial.println("Valid PNG file detected!");
+        //Serial.println("Valid PNG file detected!");
         return true;
     } else {
-        Serial.println("Invalid file! Not a PNG.");
+        //Serial.println("Invalid file! Not a PNG.");
         return false;
     }
 }
 
-void checkTileSize() {
+void checkTileSize(const char* tileFilePath) {
     if (FFat.exists(tileFilePath)) {
         File file = FFat.open(tileFilePath, FILE_READ);
         if (file) {
             size_t fileSize = file.size();
-            Serial.printf("Tile file size: %d bytes\n", fileSize);
+            //Serial.printf("Tile file size: %d bytes\n", fileSize);
 
             if (isPNG(file)) {
-                Serial.println("File is a valid PNG!");
+                //Serial.println("File is a valid PNG!");
             } else {
-                Serial.println("File is NOT a valid PNG.");
+                //Serial.println("File is NOT a valid PNG.");
             }
 
             file.close();
         } else {
-            Serial.println("Failed to open tile file for size check!");
+            //Serial.println("Failed to open tile file for size check!");
         }
     } else {
-        Serial.println("Tile file does not exist!");
+        //Serial.println("Tile file does not exist!");
     }
 }
 
 void listFiles(const char* dirname) {
-    Serial.printf("Listing files in: %s\n", dirname);
+    //Serial.printf("Listing files in: %s\n", dirname);
 
     File root = FFat.open(dirname);
     if (!root) {
@@ -118,11 +131,11 @@ void listFiles(const char* dirname) {
 void lv_example_img_1(void)
 {
     
-    Serial.println("Creating LVGL image object...");
+    //Serial.println("Creating LVGL image object...");
 
     lv_obj_t * img1 = lv_img_create(lv_scr_act());
     lv_obj_center(img1);
-    Serial.println("Setting image source to S:/tile.png...");
+    //Serial.println("Setting image source to S:/tile.png...");
     lv_img_set_src(img1, "A:/tile.png");
 
     lv_obj_align(img1, LV_ALIGN_CENTER, 0, 0);
@@ -131,33 +144,32 @@ void lv_example_img_1(void)
 
 void connectToWiFi() {
     
-    Serial.print("Connecting to WiFi...");
+    //Serial.print("Connecting to WiFi...");
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
-        Serial.print(".");
+        //Serial.print(".");
     }
-    Serial.println("\nConnected to WiFi!");
+    //Serial.println("\nConnected to WiFi!");
 }
 
-bool saveTileToFFat(const uint8_t* data, size_t len) {
+bool saveTileToFFat(const uint8_t* data, size_t len, const char* tileFilePath) {
     File file = FFat.open(tileFilePath, FILE_WRITE);
 
     if (!file) {
-        Serial.println("Failed to open file for writing!");
+        //Serial.println("Failed to open file for writing!");
         return false;
     }
 
     file.write(data, len);
     file.close();
-    Serial.println("Tile saved successfully to FFat!");
+    //Serial.println("Tile saved successfully to FFat!");
     return true;
 }
 
-bool downloadTile() {
+bool downloadSingleTile(const std::string &tileURL, const char* fileName) {
     HTTPClient http;
-
-    http.begin(tileUrlInitial);
+    http.begin(tileURL.c_str());
     http.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                                  "AppleWebKit/537.36 (KHTML, like Gecko) "
                                  "Chrome/134.0.0.0 Safari/537.36");
@@ -166,73 +178,158 @@ bool downloadTile() {
 
     int httpCode = http.GET();
     if (httpCode == HTTP_CODE_OK) {
-
         size_t fileSize = http.getSize();
         WiFiClient* stream = http.getStreamPtr();
-
         uint8_t* buffer = new uint8_t[fileSize];
         stream->readBytes(buffer, fileSize);
 
-        if (saveTileToFFat(buffer, fileSize)) {
-            Serial.println("Tile successfully downloaded and saved to FFat!");
-        } else {
-            Serial.println("Failed to save tile to FFat.");
-        }
+        bool success = saveTileToFFat(buffer, fileSize, fileName);
         delete[] buffer;
+        http.end();
+        return success;
     } else {
-        Serial.printf("HTTP request failed! Error: %s\n", http.errorToString(httpCode).c_str());
+        http.end();
         return false;
     }
+}
 
-    http.end();
+bool downloadTileIfNeeded(std::string tileURL, const char* fileName)
+{
+    if(!FFat.exists(fileName))
+    {
+        return downloadSingleTile(tileURL, fileName);
+    }
+
     return true;
 }
 
-void showTile() {
-    File file = FFat.open(tileFilePath, FILE_READ);
-    if (!file) {
-        Serial.println("Failed to open tile file from FFat!");
-        return;
-    }
+bool downloadTiles(const std::tuple<int, int, int> &tileLocation) {
 
-    file.close();
+    ballColor = lv_color_hex(0x000000);
 
-    lv_example_img_1();
-    
-    Serial.println("Tile displayed on the screen!");
+    std::string middleTile = tileUrlInitial + std::to_string(std::get<0>(tileLocation))
+    + "/" + std::to_string(std::get<1>(tileLocation)) +
+    "/" + std::to_string(std::get<2>(tileLocation)) + ".png";
+
+    std::string leftTile = tileUrlInitial + std::to_string(std::get<0>(tileLocation))
+    + "/" + std::to_string(std::get<1>(tileLocation) - 1) + "/" +
+    std::to_string(std::get<2>(tileLocation)) + ".png";
+
+    std::string rightTile = tileUrlInitial + std::to_string(std::get<0>(tileLocation))
+    + "/" + std::to_string(std::get<1>(tileLocation) + 1) + "/" +
+    std::to_string(std::get<2>(tileLocation)) + ".png";
+
+    std::string bottomTile = tileUrlInitial + std::to_string(std::get<0>(tileLocation))
+    + "/" + std::to_string(std::get<1>(tileLocation)) + "/" +
+    std::to_string(std::get<2>(tileLocation) + 1) + ".png";
+
+    std::string topTile = tileUrlInitial + std::to_string(std::get<0>(tileLocation))
+    + "/" + std::to_string(std::get<1>(tileLocation)) + "/" +
+    std::to_string(std::get<2>(tileLocation) - 1) + ".png";
+
+    Serial.println(middleTile.c_str());
+    Serial.println(leftTile.c_str());
+    Serial.println(rightTile.c_str());
+    Serial.println(bottomTile.c_str());
+    Serial.println(topTile.c_str());
+
+    bool downloadMiddleTile = downloadTileIfNeeded(middleTile, "/middleTile.png");
+    bool downloadLeftTile = downloadTileIfNeeded(leftTile, "/leftTile.png");
+    bool downloadRightTile = downloadTileIfNeeded(rightTile, "/rightTile.png");
+    bool downloadBottomTile = downloadTileIfNeeded(bottomTile, "/bottomTile.png");
+    bool downloadTopTile = downloadTileIfNeeded(topTile, "/topTile.png");
+
+    return downloadMiddleTile || downloadLeftTile || downloadRightTile || downloadBottomTile || downloadTopTile;
 }
 
+void showTiles(const char* middleTilePath, const char* leftTilePath, const char* rightTilePath, const char* bottomTilePath, const char* topTilePath) {
+    lv_obj_t * mainPage = lv_scr_act();
 
+    lv_obj_t * centerTile = lv_img_create(mainPage);
+    std::string TileSRC = std::string("A:") + middleTilePath + std::string(".png");
+    lv_img_set_src(centerTile, TileSRC.c_str());
+    lv_obj_align(centerTile, LV_ALIGN_CENTER, 0, 0);
 
-void deleteExistingTile() {
+    lv_obj_t * leftTile = lv_img_create(mainPage);
+    TileSRC = std::string("A:") + leftTilePath + std::string(".png");
+    lv_img_set_src(leftTile, TileSRC.c_str());
+    lv_obj_align(leftTile, LV_ALIGN_LEFT_MID, 0, 0);
+
+    lv_obj_t * rightTile = lv_img_create(mainPage);
+    TileSRC = std::string("A:") + rightTilePath + std::string(".png");
+    lv_img_set_src(rightTile, TileSRC.c_str());
+    lv_obj_align(rightTile, LV_ALIGN_RIGHT_MID, 0, 0);
+
+    lv_obj_t * bottomTile = lv_img_create(mainPage);
+    TileSRC = std::string("A:") + bottomTilePath + std::string(".png");
+    lv_img_set_src(bottomTile, TileSRC.c_str());
+    lv_obj_align(bottomTile, LV_ALIGN_BOTTOM_MID, 0, 0);
+    
+    lv_obj_t * topTile = lv_img_create(mainPage);
+    TileSRC = std::string("A:") + topTilePath + std::string(".png");
+    lv_img_set_src(topTile, TileSRC.c_str());
+    lv_obj_align(topTile, LV_ALIGN_TOP_MID, 0, 0);
+    
+    //Serial.println("Tile displayed on the screen!");
+}
+
+void deleteExistingTile(const char* tileFilePath) {
     if (FFat.exists(tileFilePath)) {
-        Serial.println("Pre Delete!");
+        //Serial.println("Pre Delete!");
         if (FFat.remove(tileFilePath)) {
             Serial.println("Existing tile deleted successfully!");
         } else {
             Serial.println("Failed to delete existing tile.");
         }
     } else {
-        Serial.println("No existing tile found.");
+        //Serial.println("No existing tile found.");
     }
 }
 
+void deleteExistingTiles(std::string middleTile, std::string topTile, std::string bottomTile, std::string leftTile, std::string rightTile) {
+    
+    deleteExistingTile(middleTile.c_str());
+    deleteExistingTile(topTile.c_str());
+    deleteExistingTile(bottomTile.c_str());
+    deleteExistingTile(leftTile.c_str());
+    deleteExistingTile(rightTile.c_str());
 
+}
 
-void init_main_poc_page()
+void clearMainPage()
 {
     lv_obj_t * mainPage = lv_scr_act();
 
+    lv_obj_remove_style_all(mainPage);
+    lv_obj_clean(mainPage);
+}
+
+void init_main_poc_page()
+{
+    static std::tuple<int,int,int> soldiersPosition = positionToTile(31.967336875793308, 34.78519519036414, 19);
+    
+    Serial.print("Address of soldiersPosition: 0x");
+    Serial.println((uintptr_t)&soldiersPosition, HEX);
+
+    clearMainPage();
+
+    ballColor = lv_color_hex(0xff0000);
+
+    lv_obj_t * mainPage = lv_scr_act();
+
+    lv_obj_set_style_bg_color(mainPage, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(mainPage, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+
     lv_obj_t *mainLabel = lv_label_create(mainPage);
     lv_label_set_text(mainLabel, "TactiGrid POC");
-    lv_obj_center(mainLabel);
+    lv_obj_align(mainLabel, LV_ALIGN_TOP_MID, 0, 0);
 
-    lv_obj_set_style_bg_color(mainPage, lv_color_hex(0x000000), LV_STATE_DEFAULT);
 
     lv_obj_t *p2pTestBtn = lv_btn_create(mainPage);
     lv_obj_center(p2pTestBtn);
     lv_obj_set_style_bg_color(p2pTestBtn, lv_color_hex(0x346eeb), LV_STATE_DEFAULT);
-    lv_obj_add_event_cb(p2pTestBtn, init_p2p_test, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(p2pTestBtn, init_p2p_test, LV_EVENT_CLICKED, (void*)&soldiersPosition);
 
 
     lv_obj_t *P2PTestLabel = lv_label_create(p2pTestBtn);
@@ -244,39 +341,58 @@ void init_main_poc_page()
 void setup() {
     Serial.begin(115200);
     watch.begin(&Serial);
+    Serial.println("HELLO");
 
     if (!FFat.begin(true)) {
         Serial.println("Failed to mount FFat!");
         return;
     }
+    Serial.println("WORLD");
+    //listFiles("/");
+    deleteExistingTile("/middleTile.png");
+    deleteExistingTile("/leftTile.png");
+    deleteExistingTile("/rightTile.png");
+    deleteExistingTile("/bottomTile.png");
+    deleteExistingTile("/topTile.png");
 
+
+    listFiles("/");
     beginLvglHelper();
     lv_png_init();
 
     Serial.println("Set LVGL!");
 
-    deleteExistingTile();
-
+    connectToWiFi();
     init_main_poc_page();
+
     Serial.println("init_main_poc_page");
+    
+    watch.attachPMU(onPmuInterrupt);
+
+    watch.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
+    watch.clearPMU();
+    watch.enableIRQ(
+        XPOWERS_AXP2101_PKEY_SHORT_IRQ | 
+        XPOWERS_AXP2101_PKEY_LONG_IRQ
+    );
 }
+
+
 
 void init_p2p_test(lv_event_t * event)
 {
     Serial.println("init_p2p_test");
+    std::tuple<int, int, int>* soldiersPosition = static_cast<std::tuple<int, int, int>*>(lv_event_get_user_data(event));
 
-    lv_obj_t * mainPage = lv_scr_act();
+    bool tileExists = FFat.exists(tileFilePath);
+    clearMainPage();
 
-    lv_obj_remove_style_all(mainPage);
-    lv_obj_clean(mainPage);
+    //deleteExistingTiles();
 
-    connectToWiFi();
-    
-    if (downloadTile()) {
-        Serial.println("Tile download completed!");
-        //listFiles("/");
-        checkTileSize();
-        showTile();
+    if (downloadTiles(*soldiersPosition)) {
+        //Serial.println(tileExists + " Tile download completed!");
+        listFiles("/");
+        showTiles("/middleTile", "/leftTile", "/rightTile", "/bottomTile", "/topTile");
     } else {
         Serial.println("Failed to download the tile.");
     }
@@ -284,7 +400,25 @@ void init_p2p_test(lv_event_t * event)
     create_fading_red_circle();
 }
 
+
+
 void loop() {
-    lv_timer_handler();
-    delay(5);
+  if (pmu_flag) {
+    pmu_flag = false;
+
+    uint32_t status = watch.readPMU();
+
+    if (watch.isPekeyShortPressIrq()) {
+      //Serial.println("Power key short press detected!");
+      init_main_poc_page();
+    }
+
+
+    watch.clearPMU();
+  }
+
+  lv_task_handler();
+  delay(10);
 }
+
+//TODO : Add state of current page to avoid power button presses when already on home page
