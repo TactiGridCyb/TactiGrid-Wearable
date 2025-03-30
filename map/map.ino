@@ -13,8 +13,8 @@
 
 #include <LilyGoLib.h>
 
-const char* ssid = "College of Management";
-const char* password = "";
+const char* ssid = "Xiaomi 13T dgaming";
+const char* password = "ctc5xwpwct";
 
 SX1262 lora = newModule();
 lv_obj_t *current_marker = NULL;
@@ -165,10 +165,13 @@ void lv_example_img_1(void)
 void connectToWiFi() {
     
     Serial.print("Connecting to WiFi...");
-    WiFi.begin(ssid);
+    uint8_t x = -61;
+    uint8_t* xp = &x;
+    WiFi.begin(ssid, password);
+
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
-        //Serial.print(".");
+        Serial.print(".");
     }
     Serial.println("\nConnected to WiFi!");
 }
@@ -409,7 +412,7 @@ void setup() {
 
     connectToWiFi();
     initializeLoRa();
-    init_main_poc_page();
+    //init_main_poc_page();
     
 
     //Serial.println("init_main_poc_page");
@@ -494,13 +497,13 @@ void loop() {
     }
   
     lv_task_handler();
-    delay(30);
+    delay(10);
 }
 
 // === Receive LoRa message ===
 bool receiveMessage(String &message) {
 
-    Serial.println(F("[LoRa] Listening for incoming message..."));
+    //Serial.println(F("[LoRa] Listening for incoming message..."));
     int state = lora.receive(message);
 
     if (state == RADIOLIB_ERR_NONE) {
@@ -509,7 +512,7 @@ bool receiveMessage(String &message) {
         Serial.println(message);
         return true;
     } else if (state == RADIOLIB_ERR_RX_TIMEOUT) {
-        Serial.println(F("[LoRa] Timeout – no message received."));
+        //Serial.println(F("[LoRa] Timeout – no message received."));
     } else {
         Serial.print(F("[LoRa] Receive failed, code "));
         Serial.println(state);

@@ -30,7 +30,7 @@ void loop() {
     GPSCoordTuple coords = parseCoordinates(incoming);
     black_box(coords);
   }
-
+  
   delay(2000);
   lv_task_handler();
 }
