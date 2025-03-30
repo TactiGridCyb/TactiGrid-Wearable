@@ -13,12 +13,16 @@
 
 #include <LilyGoLib.h>
 
-const char* ssid = "default";
-const char* password = "1357924680";
+const char* ssid = "College of Management";
+const char* password = "";
+
+SX1262 lora = newModule();
+lv_obj_t *current_marker = NULL;
 
 const std::string tileUrlInitial = "https://tile.openstreetmap.org/";
-
 const char* tileFilePath = "/tile.png";
+
+using GPSCoordTuple = std::tuple<float, float, float, float>;
 
 volatile bool pmu_flag = false;
 lv_color_t ballColor = lv_color_hex(0xff0000);
@@ -46,24 +50,40 @@ std::tuple<int, int, int> positionToTile(float lat, float lon, int zoom)
     return ans;
 }
 
-void create_fading_red_circle() {
-    lv_obj_t * circle = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(circle, 40, 40);
-    lv_obj_center(circle);           
+std::tuple<int,int> latlon_to_pixel(double lat, double lon, int zoom) {
+    double lat_rad = lat * M_PI / 180.0;
+    double n = pow(2.0, zoom);
 
-    lv_obj_set_style_bg_color(circle, ballColor, 0);
-    lv_obj_set_style_radius(circle, LV_RADIUS_CIRCLE, 0);
+    int pixel_x = (int)((lon + 180.0) / 360.0 * n * LV_HOR_RES_MAX) % LV_HOR_RES_MAX;
+    int pixel_y = (int)((1.0 - log(tan(lat_rad) + 1.0 / cos(lat_rad)) / M_PI) / 2.0 * n * LV_HOR_RES_MAX) % LV_HOR_RES_MAX;
+
+    return std::tuple<int,int>(pixel_x, pixel_y);
+}
+
+void create_fading_red_circle(double lat, double lon, int zoom) {
+    if (current_marker != NULL) {
+        lv_obj_del(current_marker);
+        current_marker = NULL;
+    }
+
+    int pixel_x, pixel_y;
+    std::tie(pixel_x, pixel_y) = latlon_to_pixel(lat, lon, zoom);
+
+    current_marker = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(current_marker, 10, 10);
+    lv_obj_set_style_bg_color(current_marker, ballColor, 0);
+    lv_obj_set_style_radius(current_marker, LV_RADIUS_CIRCLE, 0);
+
+    lv_obj_set_pos(current_marker, pixel_x, pixel_y);
 
     lv_anim_t a;
     lv_anim_init(&a);
-    lv_anim_set_var(&a, circle);
-
+    lv_anim_set_var(&a, current_marker);
     lv_anim_set_values(&a, 0, 255);
     lv_anim_set_time(&a, 1000);
     lv_anim_set_playback_time(&a, 1000);
     lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
     lv_anim_set_exec_cb(&a, anim_opacity_cb);
-
     lv_anim_start(&a);
 }
 
@@ -144,13 +164,13 @@ void lv_example_img_1(void)
 
 void connectToWiFi() {
     
-    //Serial.print("Connecting to WiFi...");
-    WiFi.begin(ssid, password);
+    Serial.print("Connecting to WiFi...");
+    WiFi.begin(ssid);
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         //Serial.print(".");
     }
-    //Serial.println("\nConnected to WiFi!");
+    Serial.println("\nConnected to WiFi!");
 }
 
 bool saveTileToFFat(const uint8_t* data, size_t len, const char* tileFilePath) {
@@ -279,16 +299,36 @@ void showTiles(const char* middleTilePath, const char* leftTilePath, const char*
 
 void deleteExistingTile(const char* tileFilePath) {
     if (FFat.exists(tileFilePath)) {
-        //Serial.println("Pre Delete!");
+        Serial.println("Pre Delete!");
         if (FFat.remove(tileFilePath)) {
-            //Serial.println("Existing tile deleted successfully!");
+            Serial.println("Existing tile deleted successfully!");
         } else {
-            //Serial.println("Failed to delete existing tile.");
+            Serial.println("Failed to delete existing tile.");
         }
     } else {
-        //Serial.println("No existing tile found.");
+        Serial.println("No existing tile found.");
     }
 }
+
+// === Initialize LoRa ===
+void initializeLoRa() {
+    Serial.print(F("[LoRa] Initializing... "));
+    int state = lora.begin();
+    if (state == RADIOLIB_ERR_NONE) {
+      Serial.println(F("success!"));
+    } else {
+      Serial.print(F("failed, code "));
+      Serial.println(state);
+      while (true);
+    }
+  
+    lora.setFrequency(868.0);
+    lora.setOutputPower(10);
+    lora.setSpreadingFactor(9);
+    lora.setBandwidth(125.0);
+    lora.setCodingRate(5);
+  }
+  
 
 void deleteExistingTiles(std::string middleTile, std::string topTile, std::string bottomTile, std::string leftTile, std::string rightTile) {
     
@@ -344,15 +384,15 @@ void init_main_poc_page()
 
 
 void setup() {
-    //Serial.begin(115200);
-    watch.begin();
-    //Serial.println("HELLO");
-
+    Serial.begin(115200);
+    watch.begin(&Serial);
+    Serial.println("HELLO");
+    
     if (!FFat.begin(true)) {
-        //Serial.println("Failed to mount FFat!");
+        Serial.println("Failed to mount FFat!");
         return;
     }
-    //Serial.println("WORLD");
+    Serial.println("WORLD");
     //listFiles("/");
     deleteExistingTile("/middleTile.png");
     deleteExistingTile("/leftTile.png");
@@ -365,10 +405,12 @@ void setup() {
     beginLvglHelper();
     lv_png_init();
 
-    //Serial.println("Set LVGL!");
+    Serial.println("Set LVGL!");
 
     connectToWiFi();
+    initializeLoRa();
     init_main_poc_page();
+    
 
     //Serial.println("init_main_poc_page");
     
@@ -386,6 +428,7 @@ void setup() {
 
 void init_p2p_test(lv_event_t * event)
 {
+
     //Serial.println("init_p2p_test");
     std::tuple<int, int, int>* soldiersPosition = static_cast<std::tuple<int, int, int>*>(lv_event_get_user_data(event));
 
@@ -402,28 +445,76 @@ void init_p2p_test(lv_event_t * event)
         //Serial.println("Failed to download the tile.");
     }
 
-    create_fading_red_circle();
+    //create_fading_red_circle();
 }
 
-
+// === Parse into std::tuple ===
+GPSCoordTuple parseCoordinates(const String &message) {
+    float lat1 = 0, lon1 = 0, lat2 = 0, lon2 = 0;
+    sscanf(message.c_str(), "%f,%f;%f,%f", &lat1, &lon1, &lat2, &lon2);
+    return std::make_tuple(lat1, lon1, lat2, lon2);
+}
 
 void loop() {
-  if (pmu_flag) {
-    pmu_flag = false;
-
-    uint32_t status = watch.readPMU();
-
-    if (watch.isPekeyShortPressIrq()) {
-      //Serial.println("Power key short press detected!");
-      init_main_poc_page();
+    if (pmu_flag) {
+      pmu_flag = false;
+      uint32_t status = watch.readPMU();
+      if (watch.isPekeyShortPressIrq()) {
+        // Reinitialize the main page on power key press
+        init_main_poc_page();
+      }
+      watch.clearPMU();
     }
+  
+    String incoming;
+    if (receiveMessage(incoming)) {
 
+        Serial.println("Received: " + incoming);
+        // Expecting a message like: "lat_tile,lon_tile;lat_marker,lon_marker"
+        GPSCoordTuple coords = parseCoordinates(incoming);
+        
+        // Extract the coordinates:
+        float tile_lat   = std::get<0>(coords);
+        float tile_lon   = std::get<1>(coords);
+        float marker_lat = std::get<2>(coords);
+        float marker_lon = std::get<3>(coords);
+    
+        // Download the tile only once (use the first coordinate as the center tile)
+        if (!FFat.exists("/middleTile")) {
+            std::tuple<int, int, int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
+            if (downloadTiles(tileLocation)) {
+                // Optionally, display the tile here (e.g., call your lv_example_img_1() or showTiles() function)
+                // lv_example_img_1();  // or showTiles(...);
+            }
+            
+        }
+        
+        // Create (or update) the marker on the map for the new marker coordinate
+        create_fading_red_circle(marker_lat, marker_lon, 19);
+    }
+  
+    lv_task_handler();
+    delay(30);
+}
 
-    watch.clearPMU();
-  }
+// === Receive LoRa message ===
+bool receiveMessage(String &message) {
 
-  lv_task_handler();
-  delay(10);
+    Serial.println(F("[LoRa] Listening for incoming message..."));
+    int state = lora.receive(message);
+
+    if (state == RADIOLIB_ERR_NONE) {
+        Serial.println(F("[LoRa] Message received!"));
+        Serial.print(F("[LoRa] Data: "));
+        Serial.println(message);
+        return true;
+    } else if (state == RADIOLIB_ERR_RX_TIMEOUT) {
+        Serial.println(F("[LoRa] Timeout – no message received."));
+    } else {
+        Serial.print(F("[LoRa] Receive failed, code "));
+        Serial.println(state);
+    }
+    return false;
 }
 
 //TODO : Add state of current page to avoid power button presses when already on home page
