@@ -1,136 +1,150 @@
-#include <Arduino.h>
-#include <tuple>              // ✅ For std::tuple
-#include "LilyGoLib.h"
+/*
+   RadioLib SX126x Receive with Interrupts Example
+
+   This example listens for LoRa transmissions and tries to
+   receive them. Once a packet is received, an interrupt is
+   triggered. To successfully receive data, the following
+   settings have to be the same on both transmitter
+   and receiver:
+    - carrier frequency
+    - bandwidth
+    - spreading factor
+    - coding rate
+    - sync word
+
+   Other modules from SX126x family can also be used.
+
+   For default module settings, see the wiki page
+   https://github.com/jgromes/RadioLib/wiki/Default-configuration#sx126x---lora-modem
+
+   For full API reference, see the GitHub Pages
+   https://jgromes.github.io/RadioLib/
+*/
+
+// include the library
+#include <LilyGoLib.h>
 #include <LV_Helper.h>
 
-// LoRa setup
-SX1262 lora = newModule();
+SX1262 radio = newModule();
 
-// Alias for coordinate tuple
-using GPSCoordTuple = std::tuple<float, float, float, float>;
+void setup()
+{
+    Serial.begin(115200);
 
-// Function declarations
-void initializeWatch();
-void initializeLoRa();
-bool receiveMessage(String &message);
-GPSCoordTuple parseCoordinates(const String &message);
-void black_box(const GPSCoordTuple &coords);
+    watch.begin(&Serial);
 
-void setup() {
-  Serial.begin(115200);
-  delay(1000);
+    beginLvglHelper();
 
-  initializeWatch();
-  initializeLoRa();
+    // initialize SX1262 with default settings
+    Serial.print(F("[SX1262] Receiver Initializing ... "));
+    int state = radio.begin();
+    if (state == RADIOLIB_ERR_NONE) {
+        Serial.println(F("success!"));
+    } else {
+        Serial.print(F("failed, code "));
+        Serial.println(state);
+        while (true);
+    }
+
+    // set carrier frequency to 433.5 MHz
+    if (radio.setFrequency(433.5) == RADIOLIB_ERR_INVALID_FREQUENCY) {
+        Serial.println(F("Selected frequency is invalid for this module!"));
+        while (true);
+    }
+
+    // set the function that will be called
+    // when new packet is received
+    radio.setDio1Action(setFlag);
+
+    // start listening for LoRa packets
+    Serial.print(F("[SX1262] Starting to listen ... "));
+    state = radio.startReceive();
+    if (state == RADIOLIB_ERR_NONE) {
+        Serial.println(F("success!"));
+    } else {
+        Serial.print(F("failed, code "));
+        Serial.println(state);
+        while (true);
+    }
+
+    // if needed, 'listen' mode can be disabled by calling
+    // any of the following methods:
+    //
+    // radio.standby()
+    // radio.sleep()
+    // radio.transmit();
+    // radio.receive();
+    // radio.readData();
+    // radio.scanChannel();
 }
 
-void loop() {
-  String incoming;
-  if (receiveMessage(incoming)) {
-    GPSCoordTuple coords = parseCoordinates(incoming);
-    black_box(coords);
-  }
-  
-  delay(2000);
-  lv_task_handler();
+// flag to indicate that a packet was received
+volatile bool receivedFlag = false;
+
+// this function is called when a complete packet
+// is received by the module
+// IMPORTANT: this function MUST be 'void' type
+//            and MUST NOT have any arguments!
+ICACHE_RAM_ATTR void setFlag(void)
+{
+    // we got a packet, set the flag
+    receivedFlag = true;
 }
 
-// === Initialize Watch ===
-void initializeWatch() {
-  watch.begin();
-  beginLvglHelper();
+void loop()
+{
+    // check if the flag is set
+    if (receivedFlag) {
+        // reset flag
+        receivedFlag = false;
+
+        // you can read received data as an Arduino String
+        String str;
+        int state = radio.readData(str);
+
+        // you can also read received data as byte array
+        /*
+          byte byteArr[8];
+          int state = radio.readData(byteArr, 8);
+        */
+
+        if (state == RADIOLIB_ERR_NONE) {
+            // packet was successfully received
+            Serial.println(F("[SX1262] Received packet!"));
+
+            // print data of the packet
+            Serial.print(F("[SX1262] Data:\t\t"));
+            Serial.println(str);
+
+            // print RSSI (Received Signal Strength Indicator)
+            Serial.print(F("[SX1262] RSSI:\t\t"));
+            Serial.print(radio.getRSSI());
+            Serial.println(F(" dBm"));
+
+            // print SNR (Signal-to-Noise Ratio)
+            Serial.print(F("[SX1262] SNR:\t\t"));
+            Serial.print(radio.getSNR());
+            Serial.println(F(" dB"));
+
+            // print frequency error
+            Serial.print(F("[SX1262] Frequency error:\t"));
+            Serial.print(radio.getFrequencyError());
+            Serial.println(F(" Hz"));
+
+        } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
+            // packet was received, but is malformed
+            Serial.println(F("CRC error!"));
+
+        } else {
+            // some other error occurred
+            Serial.print(F("failed, code "));
+            Serial.println(state);
+
+        }
+
+        // put module back to listen mode
+        radio.startReceive();
+    }
+    lv_task_handler();
+    delay(5);
 }
-
-// === Initialize LoRa ===
-void initializeLoRa() {
-  Serial.print(F("[LoRa] Initializing... "));
-  int state = lora.begin();
-  if (state == RADIOLIB_ERR_NONE) {
-    Serial.println(F("success!"));
-  } else {
-    Serial.print(F("failed, code "));
-    Serial.println(state);
-    while (true);
-  }
-
-  lora.setFrequency(868.0);
-  lora.setOutputPower(10);
-  lora.setSpreadingFactor(9);
-  lora.setBandwidth(125.0);
-  lora.setCodingRate(5);
-}
-
-// === Receive LoRa message ===
-bool receiveMessage(String &message) {
-  Serial.println(F("[LoRa] Listening for incoming message..."));
-  int state = lora.receive(message);
-
-  if (state == RADIOLIB_ERR_NONE) {
-    Serial.println(F("[LoRa] Message received!"));
-    Serial.print(F("[LoRa] Data: "));
-    Serial.println(message);
-    return true;
-  } else if (state == RADIOLIB_ERR_RX_TIMEOUT) {
-    Serial.println(F("[LoRa] Timeout – no message received."));
-  } else {
-    Serial.print(F("[LoRa] Receive failed, code "));
-    Serial.println(state);
-  }
-  return false;
-}
-
-// === Parse into std::tuple ===
-GPSCoordTuple parseCoordinates(const String &message) {
-  float lat1 = 0, lon1 = 0, lat2 = 0, lon2 = 0;
-  sscanf(message.c_str(), "%f,%f;%f,%f", &lat1, &lon1, &lat2, &lon2);
-  return std::make_tuple(lat1, lon1, lat2, lon2);
-}
-
-// === Print tuple contents ===
-void black_box(const GPSCoordTuple &coords) {
-  float lat1, lon1, lat2, lon2;
-  std::tie(lat1, lon1, lat2, lon2) = coords;
-
-  Serial.println("[black_box] Tuple received:");
-  Serial.printf("  GPS 1: %.4f, %.4f\n", lat1, lon1);
-  Serial.printf("  GPS 2: %.4f, %.4f\n", lat2, lon2);
-}
-
-// ******************************printing on screen**********************************************
-
-// #include <LilyGoLib.h>
-
-// int counter = 1;
-// int y = 0;  // Y position for text
-
-// void setup() {
-//   watch.begin();
-//   watch.fillScreen(TFT_BLACK);
-//   watch.setRotation(2);
-
-//   // Print initial text
-//   watch.setTextFont(4);
-//   watch.setTextColor(TFT_PURPLE, TFT_BLACK);
-//   watch.setCursor(0, y);
-//   watch.println("Hello!");
-//   y += 30;  // Move cursor down for next line
-//   watch.println("Forget Bazov!");
-//   y += 30;
-// }
-
-// void loop() {
-//   if (counter <= 10) {
-//     watch.setCursor(0, y);
-//     watch.setTextColor(TFT_YELLOW, TFT_BLACK);
-//     watch.print("Number: ");
-//     watch.println(counter);
-//     y += 30; // Move down for next line
-//     counter++;
-//     delay(1000);  // Wait 1 second before next
-//   } else {
-//     // Do nothing after 1-5
-//     while (true) delay(100);
-//   }
-// }
-
-

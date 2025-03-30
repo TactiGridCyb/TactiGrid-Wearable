@@ -13,27 +13,36 @@ struct GPSCoord {
 };
 
 GPSCoord coords[] = {
-  {32.0853, 34.7818, 32.0855, 34.7820},
-  {32.0854, 34.7819, 32.0856, 34.7821},
-  {32.0855, 34.7820, 32.0857, 34.7822},
-  {32.0856, 34.7821, 32.0858, 34.7823},
-  {32.0857, 34.7822, 32.0859, 34.7824}
+  {32.08530, 34.78180, 32.08548, 34.78201},
+  {32.08560, 34.78210, 32.08578, 34.78231},
+  {32.08590, 34.78240, 32.08608, 34.78261},
+  {32.08620, 34.78270, 32.08638, 34.78291},
+  {32.08650, 34.78300, 32.08668, 34.78321}
 };
 
 const int coordCount = sizeof(coords) / sizeof(coords[0]);
 int currentIndex = 0;
 bool alreadyTouched = false;
+int transmissionState = RADIOLIB_ERR_NONE;
 
 // === Function Prototypes ===
 void setupLoRa();
 void sendCoordinate(int index);
 bool screenTouched();
 
+volatile bool transmittedFlag = false;
+
+ICACHE_RAM_ATTR void setFlag(void)
+{
+    // we sent a packet, set the flag
+    transmittedFlag = true;
+}
+
 // === Setup ===
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  watch.begin();
+  watch.begin(&Serial);
   beginLvglHelper();
 
   setupLoRa();
@@ -43,32 +52,53 @@ void setup() {
 
 // === Loop ===
 void loop() {
-  lv_task_handler();  // Update LVGL UI
+   
 
-  if (screenTouched() && currentIndex < coordCount) { //calling to screen event and waiting for touch
+  if (transmittedFlag) {
+    transmittedFlag = false;
+
+    if (transmissionState == RADIOLIB_ERR_NONE) {
+      Serial.println(F("transmission finished!"));
+    } else {
+      Serial.print(F("failed, code "));
+      Serial.println(transmissionState);
+    }
+
+    lora.finishTransmit();
+
+  }
+
+  if (screenTouched() && currentIndex < coordCount) {
     sendCoordinate(currentIndex++);
   }
 
-  delay(10);  // CPU-friendly delay
+  lv_task_handler();
+  delay(10);
 }
 
 // === LoRa Setup ===
 void setupLoRa() {
   Serial.print(F("[LoRa] Initializing... "));
+
   int state = lora.begin();
+
   if (state == RADIOLIB_ERR_NONE) {
-    Serial.println(F("success!"));
+      Serial.println(F("success!"));
   } else {
-    Serial.print(F("failed, code "));
-    Serial.println(state);
+      Serial.print(F("failed, code "));
+      Serial.println(state);
+      while (true);
+  }
+
+
+  if (lora.setFrequency(433.5) == RADIOLIB_ERR_INVALID_FREQUENCY) {
+    Serial.println(F("Selected frequency is invalid for this module!"));
     while (true);
   }
 
-  lora.setFrequency(868.0);
-  lora.setOutputPower(10);
-  lora.setSpreadingFactor(7);
-  lora.setBandwidth(125.0);
-  lora.setCodingRate(5);
+  lora.setDio1Action(setFlag);
+
+  Serial.print(F("[SX1262] Sending first packet ... "));
 }
 
 // === Touch Detection ===
@@ -111,7 +141,7 @@ void sendCoordinate(int index) {
   Serial.print(F("[LoRa] Sending message: "));
   Serial.println(message);
 
-  int state = lora.transmit(message);
+  int state = lora.startTransmit(message);
   if (state == RADIOLIB_ERR_NONE) {
     Serial.println(F("✅ Message sent successfully!"));
   } else {

@@ -13,8 +13,8 @@
 
 #include <LilyGoLib.h>
 
-const char* ssid = "Xiaomi 13T dgaming";
-const char* password = "ctc5xwpwct";
+const char* ssid = "default";
+const char* password = "1357924680";
 
 SX1262 lora = newModule();
 lv_obj_t *current_marker = NULL;
@@ -25,6 +25,14 @@ const char* tileFilePath = "/tile.png";
 using GPSCoordTuple = std::tuple<float, float, float, float>;
 
 volatile bool pmu_flag = false;
+volatile bool receivedFlag = false;
+
+ICACHE_RAM_ATTR void setFlag(void)
+{
+    // we got a packet, set the flag
+    receivedFlag = true;
+}
+
 lv_color_t ballColor = lv_color_hex(0xff0000);
 
 void IRAM_ATTR onPmuInterrupt() {
@@ -315,22 +323,37 @@ void deleteExistingTile(const char* tileFilePath) {
 
 // === Initialize LoRa ===
 void initializeLoRa() {
-    Serial.print(F("[LoRa] Initializing... "));
+    Serial.print(F("[SX1262] Receiver Initializing ... "));
     int state = lora.begin();
     if (state == RADIOLIB_ERR_NONE) {
-      Serial.println(F("success!"));
+        Serial.println(F("success!"));
     } else {
-      Serial.print(F("failed, code "));
-      Serial.println(state);
-      while (true);
+        Serial.print(F("failed, code "));
+        Serial.println(state);
+        while (true);
     }
-  
-    lora.setFrequency(868.0);
-    lora.setOutputPower(10);
-    lora.setSpreadingFactor(9);
-    lora.setBandwidth(125.0);
-    lora.setCodingRate(5);
-  }
+
+    // set carrier frequency to 433.5 MHz
+    if (lora.setFrequency(433.5) == RADIOLIB_ERR_INVALID_FREQUENCY) {
+        Serial.println(F("Selected frequency is invalid for this module!"));
+        while (true);
+    }
+
+    // set the function that will be called
+    // when new packet is received
+    lora.setDio1Action(setFlag);
+
+    // start listening for LoRa packets
+    Serial.print(F("[SX1262] Starting to listen ... "));
+    state = lora.startReceive();
+    if (state == RADIOLIB_ERR_NONE) {
+        Serial.println(F("success!"));
+    } else {
+        Serial.print(F("failed, code "));
+        Serial.println(state);
+        while (true);
+    }
+}
   
 
 void deleteExistingTiles(std::string middleTile, std::string topTile, std::string bottomTile, std::string leftTile, std::string rightTile) {
@@ -470,54 +493,38 @@ void loop() {
     }
   
     String incoming;
-    if (receiveMessage(incoming)) {
+    if (receivedFlag) {
+        receivedFlag = false;
+
+        int state = lora.readData(incoming);
 
         Serial.println("Received: " + incoming);
-        // Expecting a message like: "lat_tile,lon_tile;lat_marker,lon_marker"
-        GPSCoordTuple coords = parseCoordinates(incoming);
+
+        if (state == RADIOLIB_ERR_NONE) {
+            Serial.println(F("[SX1262] Received packet!"));
+
+            GPSCoordTuple coords = parseCoordinates(incoming);
+            
+            float tile_lat   = std::get<0>(coords);
+            float tile_lon   = std::get<1>(coords);
+            float marker_lat = std::get<2>(coords);
+            float marker_lon = std::get<3>(coords);
         
-        // Extract the coordinates:
-        float tile_lat   = std::get<0>(coords);
-        float tile_lon   = std::get<1>(coords);
-        float marker_lat = std::get<2>(coords);
-        float marker_lon = std::get<3>(coords);
-    
-        // Download the tile only once (use the first coordinate as the center tile)
-        if (!FFat.exists("/middleTile")) {
-            std::tuple<int, int, int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
-            if (downloadTiles(tileLocation)) {
-                // Optionally, display the tile here (e.g., call your lv_example_img_1() or showTiles() function)
-                // lv_example_img_1();  // or showTiles(...);
+            if (!FFat.exists("/middleTile.png")) {
+                std::tuple<int, int, int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
+                if (downloadTiles(tileLocation)) {
+
+                }
+                
             }
             
+            // Create (or update) the marker on the map for the new marker coordinate
+            create_fading_red_circle(marker_lat, marker_lon, 19);
         }
-        
-        // Create (or update) the marker on the map for the new marker coordinate
-        create_fading_red_circle(marker_lat, marker_lon, 19);
+
+        lora.startReceive();
     }
   
     lv_task_handler();
     delay(10);
 }
-
-// === Receive LoRa message ===
-bool receiveMessage(String &message) {
-
-    //Serial.println(F("[LoRa] Listening for incoming message..."));
-    int state = lora.receive(message);
-
-    if (state == RADIOLIB_ERR_NONE) {
-        Serial.println(F("[LoRa] Message received!"));
-        Serial.print(F("[LoRa] Data: "));
-        Serial.println(message);
-        return true;
-    } else if (state == RADIOLIB_ERR_RX_TIMEOUT) {
-        //Serial.println(F("[LoRa] Timeout – no message received."));
-    } else {
-        Serial.print(F("[LoRa] Receive failed, code "));
-        Serial.println(state);
-    }
-    return false;
-}
-
-//TODO : Add state of current page to avoid power button presses when already on home page
