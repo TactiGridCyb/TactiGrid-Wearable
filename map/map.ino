@@ -4,13 +4,10 @@
 #include <tuple>
 #include <FFat.h>
 #include <FS.h>
-
 #include <WiFi.h>
 #include <HTTPClient.h>
-
 #include <lvgl.h>
 #include <LV_Helper.h>
-
 #include <LilyGoLib.h>
 
 const char* ssid = "default";
@@ -20,7 +17,7 @@ SX1262 lora = newModule();
 lv_obj_t *current_marker = NULL;
 
 const std::string tileUrlInitial = "https://tile.openstreetmap.org/";
-const char* tileFilePath = "/tile.png";
+const char* tileFilePath = "/middleTile.png";
 
 using GPSCoordTuple = std::tuple<float, float, float, float>;
 
@@ -37,45 +34,86 @@ lv_color_t ballColor = lv_color_hex(0xff0000);
 
 void IRAM_ATTR onPmuInterrupt() {
     pmu_flag = true;
-  }
-  
+}
 
 void anim_opacity_cb(void * obj, int32_t value) {
     lv_obj_set_style_opa((lv_obj_t *)obj, value, 0);
 }
 
+/**
+ * Given a lat,lon and zoom, compute the tile indices.
+ * Returns a tuple: (zoom, x_tile, y_tile)
+ */
 std::tuple<int, int, int> positionToTile(float lat, float lon, int zoom)
 {
-    
     float lat_rad = radians(lat);
     float n = pow(2.0, zoom);
     
     int x_tile = floor((lon + 180.0) / 360.0 * n);
     int y_tile = floor((1.0 - log(tan(lat_rad) + 1.0 / cos(lat_rad)) / PI) / 2.0 * n);
     
-    std::tuple<int, int, int> ans(zoom, x_tile, y_tile);
-
-    return ans;
+    return std::make_tuple(zoom, x_tile, y_tile);
 }
 
-std::tuple<int,int> latlon_to_pixel(double lat, double lon, int zoom) {
-    double lat_rad = lat * M_PI / 180.0;
-    double n = pow(2.0, zoom);
+/**
+ * Convert (lat, lon) to local pixel coordinates on the display,
+ * assuming that the tile's center (centerLat, centerLon) should be
+ * drawn at the center of the 240x240 display.
+ *
+ * We use standard OSM global pixel formulas (with TILE_SIZE=256).
+ */
+std::tuple<int,int> latlon_to_pixel(double lat, double lon, double centerLat, double centerLon, int zoom)
+{
+    static constexpr double TILE_SIZE = 256.0;
 
-    int pixel_x = (int)((lon + 180.0) / 360.0 * n * LV_HOR_RES_MAX) % LV_HOR_RES_MAX;
-    int pixel_y = (int)((1.0 - log(tan(lat_rad) + 1.0 / cos(lat_rad)) / M_PI) / 2.0 * n * LV_HOR_RES_MAX) % LV_HOR_RES_MAX;
+    auto toGlobal = [&](double la, double lo) {
+        double rad = la * M_PI / 180.0;
+        double n   = std::pow(2.0, zoom);
+        int xg = (int) std::floor((lo + 180.0) / 360.0 * n * TILE_SIZE);
+        int yg = (int) std::floor((1.0 - std::log(std::tan(rad) + 1.0 / std::cos(rad)) / M_PI) / 2.0 * n * TILE_SIZE);
+        return std::make_pair(xg, yg);
+    };
 
-    return std::tuple<int,int>(pixel_x, pixel_y);
+    auto [markerX, markerY] = toGlobal(lat, lon);
+    auto [centerX, centerY] = toGlobal(centerLat, centerLon);
+
+    int localX = markerX - centerX + (LV_HOR_RES_MAX / 2);
+    int localY = markerY - centerY + (LV_VER_RES_MAX / 2);
+
+    return std::make_tuple(localX, localY);
 }
 
-void create_fading_red_circle(double lat, double lon, int zoom) {
+/**
+ * Given a tile's zoom and tile indices, compute the center lat/lon
+ * of that tile. (Using standard inverse formulas.)
+ */
+std::pair<double,double> tileCenterLatLon(int zoom, int x_tile, int y_tile)
+{
+    static constexpr double TILE_SIZE = 256.0;
+    // Compute the center pixel of the tile
+    int centerX = x_tile * TILE_SIZE + TILE_SIZE / 2;
+    int centerY = y_tile * TILE_SIZE + TILE_SIZE / 2;
+    
+    double n = std::pow(2.0, zoom);
+    double lon_deg = (double)centerX / (n * TILE_SIZE) * 360.0 - 180.0;
+    double lat_rad = std::atan(std::sinh(M_PI * (1 - 2.0 * centerY / (n * TILE_SIZE))));
+    double lat_deg = lat_rad * 180.0 / M_PI;
+    
+    return {lat_deg, lon_deg};
+}
+
+/**
+ * Create (or update) the marker on the map.
+ * The marker will be drawn relative to the tile's center (centerLat, centerLon).
+ */
+void create_fading_red_circle(double markerLat, double markerLon, double centerLat, double centerLon, int zoom) {
     if (current_marker != NULL) {
         lv_obj_del(current_marker);
         current_marker = NULL;
     }
 
     int pixel_x, pixel_y;
-    std::tie(pixel_x, pixel_y) = latlon_to_pixel(lat, lon, zoom);
+    std::tie(pixel_x, pixel_y) = latlon_to_pixel(markerLat, markerLon, centerLat, centerLon, zoom);
 
     current_marker = lv_obj_create(lv_scr_act());
     lv_obj_set_size(current_marker, 10, 10);
@@ -95,109 +133,22 @@ void create_fading_red_circle(double lat, double lon, int zoom) {
     lv_anim_start(&a);
 }
 
-bool isPNG(File file) {
-    uint8_t header[8];
-    file.read(header, sizeof(header));
-
-    if (header[0] == 0x89 && header[1] == 0x50 && header[2] == 0x4E &&
-        header[3] == 0x47 && header[4] == 0x0D && header[5] == 0x0A &&
-        header[6] == 0x1A && header[7] == 0x0A) {
-        //Serial.println("Valid PNG file detected!");
-        return true;
-    } else {
-        //Serial.println("Invalid file! Not a PNG.");
-        return false;
-    }
-}
-
-void checkTileSize(const char* tileFilePath) {
-    if (FFat.exists(tileFilePath)) {
-        File file = FFat.open(tileFilePath, FILE_READ);
-        if (file) {
-            size_t fileSize = file.size();
-            //Serial.printf("Tile file size: %d bytes\n", fileSize);
-
-            if (isPNG(file)) {
-                //Serial.println("File is a valid PNG!");
-            } else {
-                //Serial.println("File is NOT a valid PNG.");
-            }
-
-            file.close();
-        } else {
-            //Serial.println("Failed to open tile file for size check!");
-        }
-    } else {
-        //Serial.println("Tile file does not exist!");
-    }
-}
-
-void listFiles(const char* dirname) {
-    //Serial.printf("Listing files in: %s\n", dirname);
-
-    File root = FFat.open(dirname);
-    if (!root) {
-        //Serial.println("Failed to open directory!");
-        return;
-    }
-    if (!root.isDirectory()) {
-        //Serial.println("Not a directory!");
-        return;
-    }
-
-    File file = root.openNextFile();
-    while (file) {
-        if (file.isDirectory()) {
-            //Serial.printf("DIR : %s\n", file.name());
-        } else {
-            //Serial.printf("FILE: %s - %d bytes\n", file.name(), file.size());
-        }
-        file = root.openNextFile();
-    }
-}
-
-void lv_example_img_1(void)
-{
-    
-    //Serial.println("Creating LVGL image object...");
-
-    lv_obj_t * img1 = lv_img_create(lv_scr_act());
-    lv_obj_center(img1);
-    //Serial.println("Setting image source to S:/tile.png...");
-    lv_img_set_src(img1, "A:/tile.png");
-
-    lv_obj_align(img1, LV_ALIGN_CENTER, 0, 0);
-
-}
-
-void connectToWiFi() {
-    
-    Serial.print("Connecting to WiFi...");
-    uint8_t x = -61;
-    uint8_t* xp = &x;
-    WiFi.begin(ssid, password);
-
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("\nConnected to WiFi!");
-}
-
+/**
+ * Save a downloaded tile to FFat.
+ */
 bool saveTileToFFat(const uint8_t* data, size_t len, const char* tileFilePath) {
     File file = FFat.open(tileFilePath, FILE_WRITE);
-
     if (!file) {
-        //Serial.println("Failed to open file for writing!");
         return false;
     }
-
     file.write(data, len);
     file.close();
-    //Serial.println("Tile saved successfully to FFat!");
     return true;
 }
 
+/**
+ * Download a single tile from the given URL.
+ */
 bool downloadSingleTile(const std::string &tileURL, const char* fileName) {
     HTTPClient http;
     http.begin(tileURL.c_str());
@@ -214,7 +165,6 @@ bool downloadSingleTile(const std::string &tileURL, const char* fileName) {
         WiFiClient* stream = http.getStreamPtr();
         uint8_t* buffer = new uint8_t[fileSize];
         stream->readBytes(buffer, fileSize);
-
         bool success = saveTileToFFat(buffer, fileSize, fileName);
         delete[] buffer;
         http.end();
@@ -225,103 +175,57 @@ bool downloadSingleTile(const std::string &tileURL, const char* fileName) {
     }
 }
 
-bool downloadTileIfNeeded(std::string tileURL, const char* fileName)
+/**
+ * Download the middle tile if needed.
+ */
+bool downloadMiddleTile(const std::tuple<int, int, int> &tileLocation)
 {
-    if(!FFat.exists(fileName))
-    {
-        return downloadSingleTile(tileURL, fileName);
+    std::string middleTile = tileUrlInitial +
+        std::to_string(std::get<0>(tileLocation)) + "/" +
+        std::to_string(std::get<1>(tileLocation)) + "/" +
+        std::to_string(std::get<2>(tileLocation)) + ".png";
+    return downloadSingleTile(middleTile, tileFilePath);
+}
+
+/**
+ * Simple LVGL image example to display the middle tile.
+ */
+void showMiddleTile() {
+    lv_obj_t * img1 = lv_img_create(lv_scr_act());
+    lv_obj_center(img1);
+    // Assumes the file was saved to "A:/middleTile.png" on FFat.
+    lv_img_set_src(img1, "A:/middleTile.png");
+    lv_obj_align(img1, LV_ALIGN_CENTER, 0, 0);
+
+    Serial.println("Showing middle tile");
+}
+
+/**
+ * Connect to WiFi.
+ */
+void connectToWiFi() {
+    Serial.print("Connecting to WiFi...");
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
     }
-
-    return true;
+    Serial.println("\nConnected to WiFi!");
 }
 
-bool downloadTiles(const std::tuple<int, int, int> &tileLocation) {
-
-    std::string middleTile = tileUrlInitial + std::to_string(std::get<0>(tileLocation))
-    + "/" + std::to_string(std::get<1>(tileLocation)) +
-    "/" + std::to_string(std::get<2>(tileLocation)) + ".png";
-
-    std::string leftTile = tileUrlInitial + std::to_string(std::get<0>(tileLocation))
-    + "/" + std::to_string(std::get<1>(tileLocation) - 1) + "/" +
-    std::to_string(std::get<2>(tileLocation)) + ".png";
-
-    std::string rightTile = tileUrlInitial + std::to_string(std::get<0>(tileLocation))
-    + "/" + std::to_string(std::get<1>(tileLocation) + 1) + "/" +
-    std::to_string(std::get<2>(tileLocation)) + ".png";
-
-    std::string bottomTile = tileUrlInitial + std::to_string(std::get<0>(tileLocation))
-    + "/" + std::to_string(std::get<1>(tileLocation)) + "/" +
-    std::to_string(std::get<2>(tileLocation) + 1) + ".png";
-
-    std::string topTile = tileUrlInitial + std::to_string(std::get<0>(tileLocation))
-    + "/" + std::to_string(std::get<1>(tileLocation)) + "/" +
-    std::to_string(std::get<2>(tileLocation) - 1) + ".png";
-
-    //Serial.println(middleTile.c_str());
-    //Serial.println(leftTile.c_str());
-    //Serial.println(rightTile.c_str());
-    //Serial.println(bottomTile.c_str());
-    //Serial.println(topTile.c_str());
-
-    bool downloadMiddleTile = downloadTileIfNeeded(middleTile, "/middleTile.png");
-    bool downloadLeftTile = downloadTileIfNeeded(leftTile, "/leftTile.png");
-    bool downloadRightTile = downloadTileIfNeeded(rightTile, "/rightTile.png");
-    bool downloadBottomTile = downloadTileIfNeeded(bottomTile, "/bottomTile.png");
-    bool downloadTopTile = downloadTileIfNeeded(topTile, "/topTile.png");
-
-    return downloadMiddleTile || downloadLeftTile || downloadRightTile || downloadBottomTile || downloadTopTile;
-}
-
-void showTiles(const char* middleTilePath, const char* leftTilePath, const char* rightTilePath, const char* bottomTilePath, const char* topTilePath) {
-    lv_obj_t * mainPage = lv_scr_act();
-
-    lv_obj_t * centerTile = lv_img_create(mainPage);
-    std::string TileSRC = std::string("A:") + middleTilePath + std::string(".png");
-    lv_img_set_src(centerTile, TileSRC.c_str());
-    lv_obj_set_size(centerTile, 120, 120);
-    lv_obj_align(centerTile, LV_ALIGN_CENTER, 0, 0);
-
-    lv_obj_t * leftTile = lv_img_create(mainPage);
-    TileSRC = std::string("A:") + leftTilePath + std::string(".png");
-    lv_img_set_src(leftTile, TileSRC.c_str());
-    lv_obj_set_size(leftTile, 120, 120);
-    lv_obj_align(leftTile, LV_ALIGN_LEFT_MID, 0, 0);
-
-    lv_obj_t * rightTile = lv_img_create(mainPage);
-    TileSRC = std::string("A:") + rightTilePath + std::string(".png");
-    lv_img_set_src(rightTile, TileSRC.c_str());
-    lv_obj_set_size(rightTile, 120, 120);
-    lv_obj_align(rightTile, LV_ALIGN_RIGHT_MID, 0, 0);
-
-    lv_obj_t * bottomTile = lv_img_create(mainPage);
-    TileSRC = std::string("A:") + bottomTilePath + std::string(".png");
-    lv_img_set_src(bottomTile, TileSRC.c_str());
-    lv_obj_set_size(bottomTile, 120, 120);
-    lv_obj_align(bottomTile, LV_ALIGN_BOTTOM_MID, 0, 0);
-    
-    lv_obj_t * topTile = lv_img_create(mainPage);
-    TileSRC = std::string("A:") + topTilePath + std::string(".png");
-    lv_img_set_src(topTile, TileSRC.c_str());
-    lv_obj_set_size(topTile, 120, 120);
-    lv_obj_align(topTile, LV_ALIGN_TOP_MID, 0, 0);
-    
-    //Serial.println("Tile displayed on the screen!");
-}
-
+/**
+ * Delete an existing file.
+ */
 void deleteExistingTile(const char* tileFilePath) {
     if (FFat.exists(tileFilePath)) {
-        Serial.println("Pre Delete!");
-        if (FFat.remove(tileFilePath)) {
-            Serial.println("Existing tile deleted successfully!");
-        } else {
-            Serial.println("Failed to delete existing tile.");
-        }
-    } else {
-        Serial.println("No existing tile found.");
+        Serial.println("Deleting existing tile...");
+        FFat.remove(tileFilePath);
     }
 }
 
-// === Initialize LoRa ===
+/**
+ * Initialize LoRa.
+ */
 void initializeLoRa() {
     Serial.print(F("[SX1262] Receiver Initializing ... "));
     int state = lora.begin();
@@ -333,17 +237,12 @@ void initializeLoRa() {
         while (true);
     }
 
-    // set carrier frequency to 433.5 MHz
     if (lora.setFrequency(433.5) == RADIOLIB_ERR_INVALID_FREQUENCY) {
         Serial.println(F("Selected frequency is invalid for this module!"));
         while (true);
     }
 
-    // set the function that will be called
-    // when new packet is received
     lora.setDio1Action(setFlag);
-
-    // start listening for LoRa packets
     Serial.print(F("[SX1262] Starting to listen ... "));
     state = lora.startReceive();
     if (state == RADIOLIB_ERR_NONE) {
@@ -354,60 +253,100 @@ void initializeLoRa() {
         while (true);
     }
 }
-  
 
-void deleteExistingTiles(std::string middleTile, std::string topTile, std::string bottomTile, std::string leftTile, std::string rightTile) {
-    
-    deleteExistingTile(middleTile.c_str());
-    deleteExistingTile(topTile.c_str());
-    deleteExistingTile(bottomTile.c_str());
-    deleteExistingTile(leftTile.c_str());
-    deleteExistingTile(rightTile.c_str());
-
-}
-
+/**
+ * Clear the LVGL main screen.
+ */
 void clearMainPage()
 {
     lv_obj_t * mainPage = lv_scr_act();
-
     lv_obj_remove_style_all(mainPage);
     lv_obj_clean(mainPage);
+
+    current_marker = NULL;
+
+    deleteExistingTile(tileFilePath);
 }
 
+/**
+ * Initialize the main page.
+ */
 void init_main_poc_page()
 {
-    static std::tuple<int,int,int> soldiersPosition = positionToTile(31.967336875793308, 34.78519519036414, 19);
-    
-    //Serial.print("Address of soldiersPosition: 0x");
-    //Serial.println((uintptr_t)&soldiersPosition, HEX);
-
+    Serial.println("init_main_poc_page");
     clearMainPage();
 
     ballColor = lv_color_hex(0xff0000);
-
     lv_obj_t * mainPage = lv_scr_act();
-
     lv_obj_set_style_bg_color(mainPage, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(mainPage, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
-
 
     lv_obj_t *mainLabel = lv_label_create(mainPage);
     lv_label_set_text(mainLabel, "TactiGrid POC");
     lv_obj_align(mainLabel, LV_ALIGN_TOP_MID, 0, 0);
-
-
-    lv_obj_t *p2pTestBtn = lv_btn_create(mainPage);
-    lv_obj_center(p2pTestBtn);
-    lv_obj_set_style_bg_color(p2pTestBtn, lv_color_hex(0x346eeb), LV_STATE_DEFAULT);
-    lv_obj_add_event_cb(p2pTestBtn, init_p2p_test, LV_EVENT_CLICKED, (void*)&soldiersPosition);
-
-
-    lv_obj_t *P2PTestLabel = lv_label_create(p2pTestBtn);
-    lv_label_set_text(P2PTestLabel, "P2P Test");
-    lv_obj_center(P2PTestLabel);
+    lv_obj_set_style_text_color(mainLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
 
 }
 
+/**
+ * Parse an incoming message into four float coordinates.
+ */
+GPSCoordTuple parseCoordinates(const String &message) {
+    float lat1 = 0, lon1 = 0, lat2 = 0, lon2 = 0;
+    sscanf(message.c_str(), "%f,%f;%f,%f", &lat1, &lon1, &lat2, &lon2);
+    return std::make_tuple(lat1, lon1, lat2, lon2);
+}
+
+/**
+ * Called when a LoRa packet is received.
+ * Expected message format: "tileLat,tileLon;markerLat,markerLon"
+ */
+void init_p2p_test(lv_event_t * event)
+{
+    // The LoRa packet is handled here.
+    Serial.println("init_p2p_test");
+    String incoming;
+    int state = lora.readData(incoming);
+    Serial.println("Received: " + incoming);
+
+    if (state == RADIOLIB_ERR_NONE) {
+        Serial.println(F("[SX1262] Received packet!"));
+        GPSCoordTuple coords = parseCoordinates(incoming);
+        float tile_lat   = std::get<0>(coords);
+        float tile_lon   = std::get<1>(coords);
+        float marker_lat = std::get<2>(coords);
+        float marker_lon = std::get<3>(coords);
+        
+        // Determine the tile for the given tile_lat,tile_lon.
+        std::tuple<int, int, int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
+        
+        // Download the middle tile if not present.
+        if (!FFat.exists(tileFilePath)) {
+            if (downloadMiddleTile(tileLocation)) {
+                Serial.println("Middle tile downloaded.");
+            } else {
+                Serial.println("Failed to download middle tile.");
+            }
+        }
+        // Display the tile.
+
+        if (!current_marker)
+        {
+            showMiddleTile();
+        }
+        
+        
+        // Compute the tile's center lat/lon.
+        int zoom, x_tile, y_tile;
+        std::tie(zoom, x_tile, y_tile) = tileLocation;
+        auto [centerLat, centerLon] = tileCenterLatLon(zoom, x_tile, y_tile);
+        
+        // Create (or update) the marker relative to the tile center.
+        create_fading_red_circle(marker_lat, marker_lon, centerLat, centerLon, 19);
+    }
+    
+    lora.startReceive();
+}
 
 void setup() {
     Serial.begin(115200);
@@ -419,110 +358,48 @@ void setup() {
         return;
     }
     Serial.println("WORLD");
-    //listFiles("/");
-    deleteExistingTile("/middleTile.png");
-    deleteExistingTile("/leftTile.png");
-    deleteExistingTile("/rightTile.png");
-    deleteExistingTile("/bottomTile.png");
-    deleteExistingTile("/topTile.png");
-
-
-    listFiles("/");
+    
+    // Clean up any previous tile.
+    deleteExistingTile(tileFilePath);
+    
     beginLvglHelper();
     lv_png_init();
-
-    Serial.println("Set LVGL!");
+    Serial.println("LVGL set!");
 
     connectToWiFi();
     initializeLoRa();
-    //init_main_poc_page();
     
+    Serial.println("After LORA INIT");
 
-    //Serial.println("init_main_poc_page");
-    
+    init_main_poc_page();
+
     watch.attachPMU(onPmuInterrupt);
-
     watch.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
     watch.clearPMU();
     watch.enableIRQ(
         XPOWERS_AXP2101_PKEY_SHORT_IRQ | 
         XPOWERS_AXP2101_PKEY_LONG_IRQ
     );
-}
+    
+    // Optionally, initialize the main page UI.
+    
 
-
-
-void init_p2p_test(lv_event_t * event)
-{
-
-    //Serial.println("init_p2p_test");
-    std::tuple<int, int, int>* soldiersPosition = static_cast<std::tuple<int, int, int>*>(lv_event_get_user_data(event));
-
-    bool tileExists = FFat.exists(tileFilePath);
-    clearMainPage();
-
-    //deleteExistingTiles();
-
-    if (downloadTiles(*soldiersPosition)) {
-        //Serial.println(tileExists + " Tile download completed!");
-        listFiles("/");
-        //showTiles("/middleTile", "/leftTile", "/rightTile", "/bottomTile", "/topTile");
-    } else {
-        //Serial.println("Failed to download the tile.");
-    }
-
-    //create_fading_red_circle();
-}
-
-// === Parse into std::tuple ===
-GPSCoordTuple parseCoordinates(const String &message) {
-    float lat1 = 0, lon1 = 0, lat2 = 0, lon2 = 0;
-    sscanf(message.c_str(), "%f,%f;%f,%f", &lat1, &lon1, &lat2, &lon2);
-    return std::make_tuple(lat1, lon1, lat2, lon2);
+    Serial.println("End of setup");
 }
 
 void loop() {
     if (pmu_flag) {
-      pmu_flag = false;
-      uint32_t status = watch.readPMU();
-      if (watch.isPekeyShortPressIrq()) {
-        // Reinitialize the main page on power key press
-        init_main_poc_page();
-      }
-      watch.clearPMU();
+        pmu_flag = false;
+        uint32_t status = watch.readPMU();
+        if (watch.isPekeyShortPressIrq()) {
+            init_main_poc_page();
+        }
+        watch.clearPMU();
     }
   
-    String incoming;
     if (receivedFlag) {
         receivedFlag = false;
-
-        int state = lora.readData(incoming);
-
-        Serial.println("Received: " + incoming);
-
-        if (state == RADIOLIB_ERR_NONE) {
-            Serial.println(F("[SX1262] Received packet!"));
-
-            GPSCoordTuple coords = parseCoordinates(incoming);
-            
-            float tile_lat   = std::get<0>(coords);
-            float tile_lon   = std::get<1>(coords);
-            float marker_lat = std::get<2>(coords);
-            float marker_lon = std::get<3>(coords);
-        
-            if (!FFat.exists("/middleTile.png")) {
-                std::tuple<int, int, int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
-                if (downloadTiles(tileLocation)) {
-
-                }
-                
-            }
-            
-            // Create (or update) the marker on the map for the new marker coordinate
-            create_fading_red_circle(marker_lat, marker_lon, 19);
-        }
-
-        lora.startReceive();
+        init_p2p_test(nullptr);  // Call the handler (user_data not needed here)
     }
   
     lv_task_handler();

@@ -13,11 +13,11 @@ struct GPSCoord {
 };
 
 GPSCoord coords[] = {
-  {32.08530, 34.78180, 32.08548, 34.78201},
-  {32.08560, 34.78210, 32.08578, 34.78231},
-  {32.08590, 34.78240, 32.08608, 34.78261},
-  {32.08620, 34.78270, 32.08638, 34.78291},
-  {32.08650, 34.78300, 32.08668, 34.78321}
+  {32.08530, 34.78180, 32.08539,   34.78180},
+  {32.08530, 34.78180, 32.0853278, 34.7819010},
+  {32.08530, 34.78180, 32.0852272, 34.7818623},
+  {32.08530, 34.78180, 32.0852272, 34.7817377},
+  {32.08530, 34.78180, 32.0853278, 34.7816990}
 };
 
 const int coordCount = sizeof(coords) / sizeof(coords[0]);
@@ -68,8 +68,12 @@ void loop() {
 
   }
 
-  if (screenTouched() && currentIndex < coordCount) {
+  if (screenTouched()) {
     sendCoordinate(currentIndex++);
+    if (currentIndex >= coordCount)
+    {
+      currentIndex = 0;
+    }
   }
 
   lv_task_handler();
@@ -134,7 +138,7 @@ bool screenTouched() {
 void sendCoordinate(int index) {
   char message[64];
   snprintf(message, sizeof(message),
-           "%.2f,%.2f;%.2f,%.2f",
+           "%.5f,%.5f;%.5f,%.5f",
            coords[index].lat1, coords[index].lon1,
            coords[index].lat2, coords[index].lon2);
 
