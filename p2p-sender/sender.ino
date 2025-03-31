@@ -87,35 +87,36 @@ bool downloadFile(const std::string &tileURL, const char* fileName) {
 }
 
 void connectToWiFi() {
-  Serial.print("Connecting to WiFi...");
+  // Serial.print("Connecting to WiFi...");
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
       delay(500);
-      Serial.print(".");
+      // Serial.print(".");
   }
-  Serial.println("\nConnected to WiFi!");
+  // Serial.println("\nConnected to WiFi!");
 }
 
 void showHelment() {
   lv_obj_t * helmetIMG = lv_img_create(lv_scr_act());
-  lv_obj_center(helmetIMG);
 
   lv_img_set_src(helmetIMG, "A:/helmet.png");
-  lv_obj_align(helmetIMG, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_align(helmetIMG, LV_ALIGN_BOTTOM_MID, 0, 70);
 
-  Serial.println("Showing middle tile");
+  lv_img_set_zoom(helmetIMG, 64);
+
+  // Serial.println("Showing middle tile");
 }
 
 // === Setup ===
 void setup() {
-  Serial.begin(115200);
-  delay(1000);
-  watch.begin(&Serial);
-  beginLvglHelper();
+  // Serial.begin(115200);
 
+  watch.begin();
+  beginLvglHelper();
+  
   setupLoRa();
 
-  Serial.println("Touch screen to send next coordinate.");
+  // Serial.println("Touch screen to send next coordinate.");
   if(!FFat.exists("/helmet.png"))
   {
     connectToWiFi();
@@ -147,7 +148,7 @@ void clearMainPage()
 
 void deleteExistingTile(const char* tileFilePath) {
   if (FFat.exists(tileFilePath)) {
-      Serial.println("Deleting existing tile...");
+      // Serial.println("Deleting existing tile...");
       FFat.remove(tileFilePath);
   }
 }
@@ -174,7 +175,7 @@ void listFiles(const char* dirname) {
 
 void init_main_poc_page()
 {
-    Serial.println("init_main_poc_page");
+    // Serial.println("init_main_poc_page");
     clearMainPage();
 
     lv_obj_t * mainPage = lv_scr_act();
@@ -184,7 +185,7 @@ void init_main_poc_page()
     showHelment();
 
     lv_obj_t *mainLabel = lv_label_create(mainPage);
-    lv_label_set_text(mainLabel, "TactiGrid");
+    lv_label_set_text(mainLabel, "TactiGrid Soldier");
     lv_obj_align(mainLabel, LV_ALIGN_TOP_MID, 0, 0);
     lv_obj_set_style_text_color(mainLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
 
@@ -202,7 +203,7 @@ void init_main_poc_page()
 
 void init_send_coords_page(lv_event_t * event)
 {
-  Serial.println("init_send_coords_page");
+  // Serial.println("init_send_coords_page");
   clearMainPage();
 
   lv_obj_t * mainPage = lv_scr_act();
@@ -210,7 +211,7 @@ void init_send_coords_page(lv_event_t * event)
   lv_obj_set_style_bg_opa(mainPage, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
 
   lv_obj_t *mainLabel = lv_label_create(mainPage);
-  lv_label_set_text(mainLabel, "TactiGrid");
+  lv_label_set_text(mainLabel, "TactiGrid Soldier");
   lv_obj_align(mainLabel, LV_ALIGN_TOP_MID, 0, 0);
   lv_obj_set_style_text_color(mainLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
 
@@ -220,27 +221,37 @@ void init_send_coords_page(lv_event_t * event)
   lv_obj_set_style_text_color(sendLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
   lv_label_set_text(sendLabel, "");
 
+  lv_obj_set_width(sendLabel, lv_disp_get_hor_res(NULL) - 20);
+  lv_label_set_long_mode(sendLabel, LV_LABEL_LONG_WRAP);
+
   sendTimer = lv_timer_create(sendTimerCallback, 1500, NULL);
 
 }
 
 void sendTimerCallback(lv_timer_t *timer) {
   if(currentIndex < 9) {
-      unsigned long timestamp = millis();
-      
-      sendCoordinate(currentIndex % coordCount);
-      
-      const char *current_text = lv_label_get_text(sendLabel);
-      
-      lv_label_set_text_fmt(sendLabel, "%s%lu - sent coords {%.5f, %.5f}\n", 
-                            current_text, timestamp, 
-                            coords[currentIndex % coordCount].lat2, 
-                            coords[currentIndex % coordCount].lon2);
-                            
-                            currentIndex++;
+
+    struct tm timeInfo;
+    char timeStr[9];
+
+    if(getLocalTime(&timeInfo)) {
+        strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeInfo);
+    } else {
+        strcpy(timeStr, "00:00:00");
+    }
+    
+    sendCoordinate(currentIndex % coordCount);
+    
+    const char *current_text = lv_label_get_text(sendLabel);
+    
+    lv_label_set_text_fmt(sendLabel, "%s%s - sent coords {%.5f, %.5f}\n", 
+                          current_text, timeStr, 
+                          coords[currentIndex % coordCount].lat2, 
+                          coords[currentIndex % coordCount].lon2);
+                          
+    currentIndex++;
   } else {
       lv_timer_del(timer);
-
       currentIndex = 0;
   }
 }
@@ -261,10 +272,10 @@ void loop() {
     transmittedFlag = false;
 
     if (transmissionState == RADIOLIB_ERR_NONE) {
-      Serial.println(F("transmission finished!"));
+      // Serial.println(F("transmission finished!"));
     } else {
-      Serial.print(F("failed, code "));
-      Serial.println(transmissionState);
+      // Serial.print(F("failed, code "));
+      // Serial.println(transmissionState);
     }
 
     lora.finishTransmit();
@@ -288,27 +299,27 @@ void loop() {
 
 // === LoRa Setup ===
 void setupLoRa() {
-  Serial.print(F("[LoRa] Initializing... "));
+  // Serial.print(F("[LoRa] Initializing... "));
 
   int state = lora.begin();
 
   if (state == RADIOLIB_ERR_NONE) {
-      Serial.println(F("success!"));
+      // Serial.println(F("success!"));
   } else {
-      Serial.print(F("failed, code "));
-      Serial.println(state);
+      // Serial.print(F("failed, code "));
+      // Serial.println(state);
       while (true);
   }
 
 
   if (lora.setFrequency(433.5) == RADIOLIB_ERR_INVALID_FREQUENCY) {
-    Serial.println(F("Selected frequency is invalid for this module!"));
+    // Serial.println(F("Selected frequency is invalid for this module!"));
     while (true);
   }
 
   lora.setDio1Action(setFlag);
 
-  Serial.print(F("[SX1262] Sending first packet ... "));
+  // Serial.print(F("[SX1262] Sending first packet ... "));
 }
 
 // === Touch Detection ===
@@ -326,10 +337,10 @@ bool screenTouched() {
   if (isPressed && !alreadyTouched) {
     alreadyTouched = true;
     lv_indev_get_point(indev, &point);
-    Serial.print("📍 Touch detected at x=");
-    Serial.print(point.x);
-    Serial.print(" y=");
-    Serial.println(point.y);
+    // Serial.print("📍 Touch detected at x=");
+    // Serial.print(point.x);
+    // Serial.print(" y=");
+    // Serial.println(point.y);
     return true;
   }
 
@@ -348,20 +359,20 @@ void sendCoordinate(int index) {
            coords[index].lat1, coords[index].lon1,
            coords[index].lat2, coords[index].lon2);
 
-  Serial.print(F("[LoRa] Sending message: "));
-  Serial.println(message);
+  // Serial.print(F("[LoRa] Sending message: "));
+  // Serial.println(message);
 
   int state = lora.startTransmit(message);
   if (state == RADIOLIB_ERR_NONE) {
-    Serial.println(F("✅ Message sent successfully!"));
+    // Serial.println(F("✅ Message sent successfully!"));
 
 
   } else {
-    Serial.print(F("❌ Send failed, code "));
-    Serial.println(state);
+    // Serial.print(F("❌ Send failed, code "));
+    // Serial.println(state);
   }
 
   if (index == coordCount - 1) {
-    Serial.println(F("✅ All coordinates sent. Further taps are ignored."));
+    // Serial.println(F("✅ All coordinates sent. Further taps are ignored."));
   }
 }

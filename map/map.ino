@@ -24,6 +24,8 @@ using GPSCoordTuple = std::tuple<float, float, float, float>;
 volatile bool pmu_flag = false;
 volatile bool receivedFlag = false;
 
+lv_obj_t* soldiersNameLabel = NULL;
+
 ICACHE_RAM_ATTR void setFlag(void)
 {
     // we got a packet, set the flag
@@ -112,6 +114,15 @@ void create_fading_red_circle(double markerLat, double markerLon, double centerL
     lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
     lv_anim_set_exec_cb(&a, anim_opacity_cb);
     lv_anim_start(&a);
+
+    if(!soldiersNameLabel)
+    {
+        soldiersNameLabel = lv_label_create(lv_scr_act());
+        lv_label_set_text(soldiersNameLabel, "Soldier 1");
+    }
+    
+    
+    lv_obj_align_to(soldiersNameLabel, current_marker, LV_ALIGN_TOP_MID, 0, -35);
 }
 
 bool saveTileToFFat(const uint8_t* data, size_t len, const char* tileFilePath) {
@@ -162,55 +173,55 @@ bool downloadMiddleTile(const std::tuple<int, int, int> &tileLocation)
 void showMiddleTile() {
     lv_obj_t * img1 = lv_img_create(lv_scr_act());
     lv_obj_center(img1);
-    // Assumes the file was saved to "A:/middleTile.png" on FFat.
+
     lv_img_set_src(img1, "A:/middleTile.png");
     lv_obj_align(img1, LV_ALIGN_CENTER, 0, 0);
 
-    Serial.println("Showing middle tile");
+    // Serial.println("Showing middle tile");
 }
 
 void connectToWiFi() {
-    Serial.print("Connecting to WiFi...");
+    // Serial.print("Connecting to WiFi...");
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
-        Serial.print(".");
+        // Serial.print(".");
     }
-    Serial.println("\nConnected to WiFi!");
+    // Serial.println("\nConnected to WiFi!");
 }
 
 void deleteExistingTile(const char* tileFilePath) {
     if (FFat.exists(tileFilePath)) {
-        Serial.println("Deleting existing tile...");
+        // Serial.println("Deleting existing tile...");
         FFat.remove(tileFilePath);
     }
 }
 
 
 void initializeLoRa() {
-    Serial.print(F("[SX1262] Receiver Initializing ... "));
+    // Serial.print(F("[SX1262] Receiver Initializing ... "));
     int state = lora.begin();
     if (state == RADIOLIB_ERR_NONE) {
-        Serial.println(F("success!"));
+        // Serial.println(F("success!"));
     } else {
-        Serial.print(F("failed, code "));
-        Serial.println(state);
+        // Serial.print(F("failed, code "));
+        // Serial.println(state);
         while (true);
     }
 
     if (lora.setFrequency(433.5) == RADIOLIB_ERR_INVALID_FREQUENCY) {
-        Serial.println(F("Selected frequency is invalid for this module!"));
+        // Serial.println(F("Selected frequency is invalid for this module!"));
         while (true);
     }
 
     lora.setDio1Action(setFlag);
-    Serial.print(F("[SX1262] Starting to listen ... "));
+    // Serial.print(F("[SX1262] Starting to listen ... "));
     state = lora.startReceive();
     if (state == RADIOLIB_ERR_NONE) {
-        Serial.println(F("success!"));
+        // Serial.println(F("success!"));
     } else {
-        Serial.print(F("failed, code "));
-        Serial.println(state);
+        // Serial.print(F("failed, code "));
+        // Serial.println(state);
         while (true);
     }
 }
@@ -223,24 +234,31 @@ void clearMainPage()
     lv_obj_clean(mainPage);
 
     current_marker = NULL;
+    soldiersNameLabel = NULL;
 
     deleteExistingTile(tileFilePath);
 }
 
-void init_main_poc_page()
+void init_main_poc_page(lv_event_t * event)
 {
-    Serial.println("init_main_poc_page");
+    //Serial.println("init_main_poc_page");
     clearMainPage();
 
     ballColor = lv_color_hex(0xff0000);
     lv_obj_t * mainPage = lv_scr_act();
+
     lv_obj_set_style_bg_color(mainPage, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(mainPage, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     lv_obj_t *mainLabel = lv_label_create(mainPage);
-    lv_label_set_text(mainLabel, "TactiGrid POC");
+    lv_label_set_text(mainLabel, "TactiGrid Commander");
     lv_obj_align(mainLabel, LV_ALIGN_TOP_MID, 0, 0);
     lv_obj_set_style_text_color(mainLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    lv_obj_t* waitingLabel = lv_label_create(mainPage);
+    lv_obj_center(waitingLabel);
+    lv_label_set_text(waitingLabel, "Waiting For Initial Coords");
+    lv_obj_set_style_text_color(waitingLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
 
 }
 
@@ -252,26 +270,41 @@ GPSCoordTuple parseCoordinates(const String &message) {
 
 void init_p2p_test(lv_event_t * event)
 {
-    Serial.println("init_p2p_test");
+    // Serial.println("init_p2p_test");
     String incoming;
     int state = lora.readData(incoming);
-    Serial.println("Received: " + incoming);
+    // Serial.println("Received: " + incoming);
 
     if (state == RADIOLIB_ERR_NONE) {
-        Serial.println(F("[SX1262] Received packet!"));
+        // Serial.println(F("[SX1262] Received packet!"));
         GPSCoordTuple coords = parseCoordinates(incoming);
+
         float tile_lat   = std::get<0>(coords);
         float tile_lon   = std::get<1>(coords);
         float marker_lat = std::get<2>(coords);
         float marker_lon = std::get<3>(coords);
+
+        struct tm timeInfo;
+        char timeStr[9];
+
+        if(getLocalTime(&timeInfo)) {
+            strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeInfo);
+        } else {
+            strcpy(timeStr, "00:00:00");
+        }
+
+        char result[128];
+
+        snprintf(result, sizeof(result), "%s - Soldier 1: {%.5f, %.5f}", timeStr, tile_lat, tile_lon);
         
         std::tuple<int, int, int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
         
         if (!FFat.exists(tileFilePath)) {
+
             if (downloadMiddleTile(tileLocation)) {
-                Serial.println("Middle tile downloaded.");
+                // Serial.println("Middle tile downloaded.");
             } else {
-                Serial.println("Failed to download middle tile.");
+                // Serial.println("Failed to download middle tile.");
             }
         }
 
@@ -286,35 +319,93 @@ void init_p2p_test(lv_event_t * event)
         auto [centerLat, centerLon] = tileCenterLatLon(zoom, x_tile, y_tile);
         
         create_fading_red_circle(marker_lat, marker_lon, centerLat, centerLon, 19);
+
     }
     
     lora.startReceive();
 }
 
+void init_main_menu()
+{   
+    clearMainPage();
+
+    lv_obj_t * mainPage = lv_scr_act();
+    lv_obj_set_style_bg_color(mainPage, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(mainPage, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+
+    lv_obj_t *mainLabel = lv_label_create(mainPage);
+    lv_label_set_text(mainLabel, "Main Menu");
+    lv_obj_align(mainLabel, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_set_style_text_color(mainLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    lv_obj_t *cont = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(cont, 240, 60);
+    lv_obj_center(cont);
+    lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_flex_flow(cont, LV_FLEX_FLOW_ROW, 0);
+    lv_obj_set_size(cont, lv_disp_get_hor_res(NULL), 60);
+
+    lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
+
+    lv_obj_t *receiveCoordsBtn = lv_btn_create(cont);
+    lv_obj_center(receiveCoordsBtn);
+    lv_obj_set_style_bg_color(receiveCoordsBtn, lv_color_hex(0x346eeb), LV_STATE_DEFAULT);
+    lv_obj_set_style_flex_grow(receiveCoordsBtn, 1, 0);
+    lv_obj_add_event_cb(receiveCoordsBtn, init_main_poc_page, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *receiveCoordsLabel = lv_label_create(receiveCoordsBtn);
+    lv_label_set_text(receiveCoordsLabel, "Receive Pos");
+    lv_obj_center(receiveCoordsLabel);
+
+
+    lv_obj_t *uploadLogsBtn = lv_btn_create(cont);
+    lv_obj_center(uploadLogsBtn);
+    lv_obj_set_style_flex_grow(uploadLogsBtn, 1, 0);
+    lv_obj_set_style_bg_color(uploadLogsBtn, lv_color_hex(0x346eeb), LV_STATE_DEFAULT);
+    lv_obj_add_event_cb(uploadLogsBtn, init_main_poc_page, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *uploadLogsLabel = lv_label_create(uploadLogsBtn);
+    lv_label_set_text(uploadLogsLabel, "Upload Logs");
+    lv_obj_center(uploadLogsLabel);
+}
+
+void writeToLogFile(const char* content, const char* filePath)
+{
+    File file = FFat.open(filePath, FILE_WRITE);
+
+    if (!file) {
+        //Serial.println("Failed to open file for writing!");
+    } else {
+        file.println(content);
+        file.close();
+    }
+}
+
 void setup() {
-    Serial.begin(115200);
-    watch.begin(&Serial);
-    Serial.println("HELLO");
+    // Serial.begin(115200);
+    watch.begin();
+    // Serial.println("HELLO");
     
     if (!FFat.begin(true)) {
-        Serial.println("Failed to mount FFat!");
+        // Serial.println("Failed to mount FFat!");
         return;
     }
 
-    Serial.println("WORLD");
+    // Serial.println("WORLD");
     
     deleteExistingTile(tileFilePath);
     
     beginLvglHelper();
     lv_png_init();
-    Serial.println("LVGL set!");
+    // Serial.println("LVGL set!");
 
     connectToWiFi();
     initializeLoRa();
     
-    Serial.println("After LORA INIT");
+    // Serial.println("After LORA INIT");
 
-    init_main_poc_page();
+    init_main_menu();
 
     watch.attachPMU(onPmuInterrupt);
     watch.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
@@ -325,7 +416,7 @@ void setup() {
     );
         
 
-    Serial.println("End of setup");
+    // Serial.println("End of setup");
 }
 
 void loop() {
@@ -333,7 +424,7 @@ void loop() {
         pmu_flag = false;
         uint32_t status = watch.readPMU();
         if (watch.isPekeyShortPressIrq()) {
-            init_main_poc_page();
+            init_main_menu();
         }
         watch.clearPMU();
     }
