@@ -12,8 +12,8 @@
 
 WiFiUDP udp;
 
-const char* ssid = "default";
-const char* password = "1357924680";
+const char* ssid = "XXX";
+const char* password = "XXX";
 
 SX1262 lora = newModule();
 lv_obj_t *current_marker = NULL;
@@ -219,7 +219,9 @@ void init_upload_log_page(lv_event_t * event)
     lv_label_set_text(logContentLabel, loadFileContent(logFilePath).c_str());
     lv_obj_align(logContentLabel, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_text_color(logContentLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-
+    
+    lv_obj_set_width(logContentLabel, lv_disp_get_hor_res(NULL) - 20);
+    lv_label_set_long_mode(logContentLabel, LV_LABEL_LONG_WRAP);
 
     lv_obj_t *uploadBtn = lv_btn_create(mainPage);
     lv_obj_align(uploadBtn, LV_ALIGN_BOTTOM_MID, 0, -10);
@@ -238,9 +240,9 @@ void upload_log_event_callback(lv_event_t * e)
     Serial.println("Starting sending log file");
     String logContent = loadFileContent(logFilePath);
 
-    udp.begin(5050);
+    udp.begin(5555);
 
-    udp.beginPacket("192.168.0.133", 5050);
+    udp.beginPacket("192.168.0.133", 5555);
     udp.write((const uint8_t *)logContent.c_str(), logContent.length());
     udp.endPacket();
 
@@ -266,7 +268,7 @@ void msgbox_event_handler(lv_event_t * e) {
 void create_popup(lv_obj_t * parent) {
     static const char * btns[] = {"OK", ""};
     
-    lv_obj_t * mbox = lv_msgbox_create(parent, "Info", "Uploaded using UDP, port 5050!", btns, true);
+    lv_obj_t * mbox = lv_msgbox_create(parent, "Info", "Uploaded using UDP, port 5555!", btns, true);
     lv_obj_center(mbox);
     
     lv_obj_add_event_cb(mbox, msgbox_event_handler, LV_EVENT_VALUE_CHANGED, NULL);
