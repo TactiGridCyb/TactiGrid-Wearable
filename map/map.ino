@@ -40,10 +40,6 @@ void anim_opacity_cb(void * obj, int32_t value) {
     lv_obj_set_style_opa((lv_obj_t *)obj, value, 0);
 }
 
-/**
- * Given a lat,lon and zoom, compute the tile indices.
- * Returns a tuple: (zoom, x_tile, y_tile)
- */
 std::tuple<int, int, int> positionToTile(float lat, float lon, int zoom)
 {
     float lat_rad = radians(lat);
@@ -55,13 +51,6 @@ std::tuple<int, int, int> positionToTile(float lat, float lon, int zoom)
     return std::make_tuple(zoom, x_tile, y_tile);
 }
 
-/**
- * Convert (lat, lon) to local pixel coordinates on the display,
- * assuming that the tile's center (centerLat, centerLon) should be
- * drawn at the center of the 240x240 display.
- *
- * We use standard OSM global pixel formulas (with TILE_SIZE=256).
- */
 std::tuple<int,int> latlon_to_pixel(double lat, double lon, double centerLat, double centerLon, int zoom)
 {
     static constexpr double TILE_SIZE = 256.0;
@@ -83,10 +72,6 @@ std::tuple<int,int> latlon_to_pixel(double lat, double lon, double centerLat, do
     return std::make_tuple(localX, localY);
 }
 
-/**
- * Given a tile's zoom and tile indices, compute the center lat/lon
- * of that tile. (Using standard inverse formulas.)
- */
 std::pair<double,double> tileCenterLatLon(int zoom, int x_tile, int y_tile)
 {
     static constexpr double TILE_SIZE = 256.0;
@@ -102,10 +87,6 @@ std::pair<double,double> tileCenterLatLon(int zoom, int x_tile, int y_tile)
     return {lat_deg, lon_deg};
 }
 
-/**
- * Create (or update) the marker on the map.
- * The marker will be drawn relative to the tile's center (centerLat, centerLon).
- */
 void create_fading_red_circle(double markerLat, double markerLon, double centerLat, double centerLon, int zoom) {
     if (current_marker != NULL) {
         lv_obj_del(current_marker);
@@ -133,9 +114,6 @@ void create_fading_red_circle(double markerLat, double markerLon, double centerL
     lv_anim_start(&a);
 }
 
-/**
- * Save a downloaded tile to FFat.
- */
 bool saveTileToFFat(const uint8_t* data, size_t len, const char* tileFilePath) {
     File file = FFat.open(tileFilePath, FILE_WRITE);
     if (!file) {
@@ -146,9 +124,6 @@ bool saveTileToFFat(const uint8_t* data, size_t len, const char* tileFilePath) {
     return true;
 }
 
-/**
- * Download a single tile from the given URL.
- */
 bool downloadSingleTile(const std::string &tileURL, const char* fileName) {
     HTTPClient http;
     http.begin(tileURL.c_str());
@@ -175,9 +150,6 @@ bool downloadSingleTile(const std::string &tileURL, const char* fileName) {
     }
 }
 
-/**
- * Download the middle tile if needed.
- */
 bool downloadMiddleTile(const std::tuple<int, int, int> &tileLocation)
 {
     std::string middleTile = tileUrlInitial +
@@ -187,9 +159,6 @@ bool downloadMiddleTile(const std::tuple<int, int, int> &tileLocation)
     return downloadSingleTile(middleTile, tileFilePath);
 }
 
-/**
- * Simple LVGL image example to display the middle tile.
- */
 void showMiddleTile() {
     lv_obj_t * img1 = lv_img_create(lv_scr_act());
     lv_obj_center(img1);
@@ -200,9 +169,6 @@ void showMiddleTile() {
     Serial.println("Showing middle tile");
 }
 
-/**
- * Connect to WiFi.
- */
 void connectToWiFi() {
     Serial.print("Connecting to WiFi...");
     WiFi.begin(ssid, password);
@@ -213,9 +179,6 @@ void connectToWiFi() {
     Serial.println("\nConnected to WiFi!");
 }
 
-/**
- * Delete an existing file.
- */
 void deleteExistingTile(const char* tileFilePath) {
     if (FFat.exists(tileFilePath)) {
         Serial.println("Deleting existing tile...");
@@ -223,9 +186,7 @@ void deleteExistingTile(const char* tileFilePath) {
     }
 }
 
-/**
- * Initialize LoRa.
- */
+
 void initializeLoRa() {
     Serial.print(F("[SX1262] Receiver Initializing ... "));
     int state = lora.begin();
@@ -254,9 +215,7 @@ void initializeLoRa() {
     }
 }
 
-/**
- * Clear the LVGL main screen.
- */
+
 void clearMainPage()
 {
     lv_obj_t * mainPage = lv_scr_act();
@@ -268,9 +227,6 @@ void clearMainPage()
     deleteExistingTile(tileFilePath);
 }
 
-/**
- * Initialize the main page.
- */
 void init_main_poc_page()
 {
     Serial.println("init_main_poc_page");
@@ -288,22 +244,14 @@ void init_main_poc_page()
 
 }
 
-/**
- * Parse an incoming message into four float coordinates.
- */
 GPSCoordTuple parseCoordinates(const String &message) {
     float lat1 = 0, lon1 = 0, lat2 = 0, lon2 = 0;
     sscanf(message.c_str(), "%f,%f;%f,%f", &lat1, &lon1, &lat2, &lon2);
     return std::make_tuple(lat1, lon1, lat2, lon2);
 }
 
-/**
- * Called when a LoRa packet is received.
- * Expected message format: "tileLat,tileLon;markerLat,markerLon"
- */
 void init_p2p_test(lv_event_t * event)
 {
-    // The LoRa packet is handled here.
     Serial.println("init_p2p_test");
     String incoming;
     int state = lora.readData(incoming);
@@ -317,10 +265,8 @@ void init_p2p_test(lv_event_t * event)
         float marker_lat = std::get<2>(coords);
         float marker_lon = std::get<3>(coords);
         
-        // Determine the tile for the given tile_lat,tile_lon.
         std::tuple<int, int, int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
         
-        // Download the middle tile if not present.
         if (!FFat.exists(tileFilePath)) {
             if (downloadMiddleTile(tileLocation)) {
                 Serial.println("Middle tile downloaded.");
@@ -328,7 +274,6 @@ void init_p2p_test(lv_event_t * event)
                 Serial.println("Failed to download middle tile.");
             }
         }
-        // Display the tile.
 
         if (!current_marker)
         {
@@ -336,12 +281,10 @@ void init_p2p_test(lv_event_t * event)
         }
         
         
-        // Compute the tile's center lat/lon.
         int zoom, x_tile, y_tile;
         std::tie(zoom, x_tile, y_tile) = tileLocation;
         auto [centerLat, centerLon] = tileCenterLatLon(zoom, x_tile, y_tile);
         
-        // Create (or update) the marker relative to the tile center.
         create_fading_red_circle(marker_lat, marker_lon, centerLat, centerLon, 19);
     }
     
@@ -357,9 +300,9 @@ void setup() {
         Serial.println("Failed to mount FFat!");
         return;
     }
+
     Serial.println("WORLD");
     
-    // Clean up any previous tile.
     deleteExistingTile(tileFilePath);
     
     beginLvglHelper();
@@ -380,9 +323,7 @@ void setup() {
         XPOWERS_AXP2101_PKEY_SHORT_IRQ | 
         XPOWERS_AXP2101_PKEY_LONG_IRQ
     );
-    
-    // Optionally, initialize the main page UI.
-    
+        
 
     Serial.println("End of setup");
 }
@@ -399,7 +340,7 @@ void loop() {
   
     if (receivedFlag) {
         receivedFlag = false;
-        init_p2p_test(nullptr);  // Call the handler (user_data not needed here)
+        init_p2p_test(nullptr);
     }
   
     lv_task_handler();
