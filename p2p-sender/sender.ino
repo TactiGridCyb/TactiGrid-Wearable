@@ -113,7 +113,7 @@ void setup() {
 
   watch.begin();
   beginLvglHelper();
-  
+
   setupLoRa();
 
   // Serial.println("Touch screen to send next coordinate.");
@@ -146,7 +146,7 @@ void clearMainPage()
 
 }
 
-void deleteExistingTile(const char* tileFilePath) {
+void deleteExistingFile(const char* tileFilePath) {
   if (FFat.exists(tileFilePath)) {
       // Serial.println("Deleting existing tile...");
       FFat.remove(tileFilePath);

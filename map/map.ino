@@ -10,6 +10,8 @@
 #include <LV_Helper.h>
 #include <LilyGoLib.h>
 
+WiFiUDP udp;
+
 const char* ssid = "default";
 const char* password = "1357924680";
 
@@ -18,6 +20,7 @@ lv_obj_t *current_marker = NULL;
 
 const std::string tileUrlInitial = "https://tile.openstreetmap.org/";
 const char* tileFilePath = "/middleTile.png";
+const char* logFilePath = "/log.txt";
 
 using GPSCoordTuple = std::tuple<float, float, float, float>;
 
@@ -177,35 +180,124 @@ void showMiddleTile() {
     lv_img_set_src(img1, "A:/middleTile.png");
     lv_obj_align(img1, LV_ALIGN_CENTER, 0, 0);
 
-    // Serial.println("Showing middle tile");
+    Serial.println("Showing middle tile");
 }
 
 void connectToWiFi() {
-    // Serial.print("Connecting to WiFi...");
+    Serial.print("Connecting to WiFi...");
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
-        // Serial.print(".");
+        Serial.print(".");
     }
-    // Serial.println("\nConnected to WiFi!");
+    Serial.println("\nConnected to WiFi!");
 }
 
-void deleteExistingTile(const char* tileFilePath) {
+void deleteExistingFile(const char* tileFilePath) {
     if (FFat.exists(tileFilePath)) {
-        // Serial.println("Deleting existing tile...");
+        Serial.println("Deleting existing tile...");
         FFat.remove(tileFilePath);
     }
 }
 
 
+void init_upload_log_page(lv_event_t * event)
+{
+    clearMainPage();
+    Serial.println("Content:" + loadFileContent(logFilePath));
+    lv_obj_t * mainPage = lv_scr_act();
+
+    lv_obj_set_style_bg_color(mainPage, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(mainPage, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    lv_obj_t *mainLabel = lv_label_create(mainPage);
+    lv_label_set_text(mainLabel, "Log File Content");
+    lv_obj_align(mainLabel, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_set_style_text_color(mainLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    lv_obj_t *logContentLabel = lv_label_create(mainPage);
+    lv_label_set_text(logContentLabel, loadFileContent(logFilePath).c_str());
+    lv_obj_align(logContentLabel, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_text_color(logContentLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+
+
+    lv_obj_t *uploadBtn = lv_btn_create(mainPage);
+    lv_obj_align(uploadBtn, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_set_style_bg_color(uploadBtn, lv_color_hex(0x346eeb), LV_STATE_DEFAULT);
+    lv_obj_add_event_cb(uploadBtn, upload_log_event_callback, LV_EVENT_CLICKED, NULL);
+
+
+    lv_obj_t *uploadBtnLabel = lv_label_create(uploadBtn);
+    lv_label_set_text(uploadBtnLabel, "Upload Log");
+    lv_obj_center(uploadBtnLabel);
+
+}
+
+void upload_log_event_callback(lv_event_t * e)
+{
+    Serial.println("Starting sending log file");
+    String logContent = loadFileContent(logFilePath);
+
+    udp.begin(5050);
+
+    udp.beginPacket("192.168.0.133", 5050);
+    udp.write((const uint8_t *)logContent.c_str(), logContent.length());
+    udp.endPacket();
+
+    Serial.println("File sent over UDP.");
+
+    init_main_menu();
+    //create_popup(lv_scr_act());
+
+}
+
+void msgbox_event_handler(lv_event_t * e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    if(code == LV_EVENT_VALUE_CHANGED) {
+        lv_obj_t * mbox = lv_event_get_target(e);
+        const char * btn_txt = lv_msgbox_get_active_btn_text(mbox);
+        if(strcmp(btn_txt, "OK") == 0) {
+            lv_obj_del_async(mbox);
+            init_main_menu();
+        }
+    }
+}
+
+void create_popup(lv_obj_t * parent) {
+    static const char * btns[] = {"OK", ""};
+    
+    lv_obj_t * mbox = lv_msgbox_create(parent, "Info", "Uploaded using UDP, port 5050!", btns, true);
+    lv_obj_center(mbox);
+    
+    lv_obj_add_event_cb(mbox, msgbox_event_handler, LV_EVENT_VALUE_CHANGED, NULL);
+}
+
+String loadFileContent(const char* filePath)
+{
+    File file = FFat.open(filePath, FILE_READ);
+    if (!file) {
+        Serial.println("Failed to open file for reading!");
+        return "";
+    }
+    
+    String fileContent;
+    while (file.available()) {
+        fileContent += (char)file.read();
+    }
+
+    file.close();
+
+    return fileContent;
+}
+
 void initializeLoRa() {
-    // Serial.print(F("[SX1262] Receiver Initializing ... "));
+    Serial.print(F("[SX1262] Receiver Initializing ... "));
     int state = lora.begin();
     if (state == RADIOLIB_ERR_NONE) {
         // Serial.println(F("success!"));
     } else {
-        // Serial.print(F("failed, code "));
-        // Serial.println(state);
+        Serial.print(F("failed, code "));
+        Serial.println(state);
         while (true);
     }
 
@@ -236,13 +328,15 @@ void clearMainPage()
     current_marker = NULL;
     soldiersNameLabel = NULL;
 
-    deleteExistingTile(tileFilePath);
+    deleteExistingFile(tileFilePath);
 }
 
 void init_main_poc_page(lv_event_t * event)
 {
-    //Serial.println("init_main_poc_page");
+    Serial.println("init_main_poc_page");
     clearMainPage();
+
+    deleteExistingFile(logFilePath);
 
     ballColor = lv_color_hex(0xff0000);
     lv_obj_t * mainPage = lv_scr_act();
@@ -270,13 +364,13 @@ GPSCoordTuple parseCoordinates(const String &message) {
 
 void init_p2p_test(lv_event_t * event)
 {
-    // Serial.println("init_p2p_test");
+    Serial.println("init_p2p_test");
     String incoming;
     int state = lora.readData(incoming);
-    // Serial.println("Received: " + incoming);
+    Serial.println("Received: " + incoming);
 
     if (state == RADIOLIB_ERR_NONE) {
-        // Serial.println(F("[SX1262] Received packet!"));
+        Serial.println(F("[SX1262] Received packet!"));
         GPSCoordTuple coords = parseCoordinates(incoming);
 
         float tile_lat   = std::get<0>(coords);
@@ -296,15 +390,20 @@ void init_p2p_test(lv_event_t * event)
         char result[128];
 
         snprintf(result, sizeof(result), "%s - Soldier 1: {%.5f, %.5f}", timeStr, tile_lat, tile_lon);
-        
+        Serial.println("SOME");
+        writeToLogFile(logFilePath, result);
+        Serial.println("SOME1");
+        Serial.println(loadFileContent(logFilePath));
+        Serial.println("SOME2");
+
         std::tuple<int, int, int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
         
         if (!FFat.exists(tileFilePath)) {
 
             if (downloadMiddleTile(tileLocation)) {
-                // Serial.println("Middle tile downloaded.");
+                Serial.println("Middle tile downloaded.");
             } else {
-                // Serial.println("Failed to download middle tile.");
+                Serial.println("Failed to download middle tile.");
             }
         }
 
@@ -363,38 +462,42 @@ void init_main_menu()
     lv_obj_center(uploadLogsBtn);
     lv_obj_set_style_flex_grow(uploadLogsBtn, 1, 0);
     lv_obj_set_style_bg_color(uploadLogsBtn, lv_color_hex(0x346eeb), LV_STATE_DEFAULT);
-    lv_obj_add_event_cb(uploadLogsBtn, init_main_poc_page, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(uploadLogsBtn, init_upload_log_page, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *uploadLogsLabel = lv_label_create(uploadLogsBtn);
     lv_label_set_text(uploadLogsLabel, "Upload Logs");
     lv_obj_center(uploadLogsLabel);
 }
 
-void writeToLogFile(const char* content, const char* filePath)
+
+
+void writeToLogFile(const char* filePath, const char* content)
 {
-    File file = FFat.open(filePath, FILE_WRITE);
+    File file = FFat.open(filePath, FILE_APPEND);
 
     if (!file) {
-        //Serial.println("Failed to open file for writing!");
+        Serial.println("Failed to open file for writing!");
     } else {
+        
         file.println(content);
         file.close();
     }
 }
 
 void setup() {
-    // Serial.begin(115200);
-    watch.begin();
-    // Serial.println("HELLO");
+    Serial.begin(115200);
+    watch.begin(&Serial);
+    Serial.println("HELLO");
     
     if (!FFat.begin(true)) {
-        // Serial.println("Failed to mount FFat!");
+        Serial.println("Failed to mount FFat!");
         return;
     }
 
-    // Serial.println("WORLD");
+    Serial.println("WORLD");
     
-    deleteExistingTile(tileFilePath);
+
+    deleteExistingFile(tileFilePath);
     
     beginLvglHelper();
     lv_png_init();
@@ -403,7 +506,7 @@ void setup() {
     connectToWiFi();
     initializeLoRa();
     
-    // Serial.println("After LORA INIT");
+    Serial.println("After LORA INIT");
 
     init_main_menu();
 
@@ -416,7 +519,7 @@ void setup() {
     );
         
 
-    // Serial.println("End of setup");
+    Serial.println("End of setup");
 }
 
 void loop() {
