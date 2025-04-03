@@ -1,29 +1,4 @@
-/*
-   RadioLib SX126x Receive with Interrupts Example
-
-   This example listens for LoRa transmissions and tries to
-   receive them. Once a packet is received, an interrupt is
-   triggered. To successfully receive data, the following
-   settings have to be the same on both transmitter
-   and receiver:
-    - carrier frequency
-    - bandwidth
-    - spreading factor
-    - coding rate
-    - sync word
-
-   Other modules from SX126x family can also be used.
-
-   For default module settings, see the wiki page
-   https://github.com/jgromes/RadioLib/wiki/Default-configuration#sx126x---lora-modem
-
-   For full API reference, see the GitHub Pages
-   https://jgromes.github.io/RadioLib/
-*/
-
-// include the library
-#include <LilyGoLib.h>
-#include <LV_Helper.h>
+#include "LoraModule.h"
 
 SX1262 radio = newModule();
 
