@@ -1,12 +1,17 @@
 #include "LoraModule.h"
 
 
-ICACHE_RAM_ATTR void LoraModule::setFlag()
+ICACHE_RAM_ATTR void LoraModule::setReceivedFlag()
 {
     LoraModule::receivedFlag = true;
 }
 
-int16_t LoraModule::setup()
+ICACHE_RAM_ATTR void LoraModule::setTransmittedFlag()
+{
+    LoraModule::transmittedFlag = true;
+}
+
+int16_t LoraModule::setup(bool transmissionMode)
 {
     int16_t state = this->loraDevice.begin();
 
@@ -17,15 +22,66 @@ int16_t LoraModule::setup()
 
     state = this->loraDevice.setFrequency(this->freq);
 
-    if (state == RADIOLIB_ERR_INVALID_FREQUENCY)
+    if(transmissionMode)
     {
-        return state;
+        this->loraDevice.setDio1Action(LoraModule::setTransmittedFlag);
+    }
+    else
+    {
+        this->loraDevice.setDio1Action(LoraModule::setReceivedFlag);
     }
 
-    this->loraDevice.setDio1Action(LoraModule::setFlag);
+    return state;
 }
 
+int16_t LoraModule::setupListening()
+{
+    int16_t state = this->loraDevice.startReceive();
+    if (state != RADIOLIB_ERR_NONE) {
+        return state;
+    }
+}
 
+int16_t LoraModule::setupListening()
+{
+    int16_t state = this->loraDevice.startReceive();
+
+    return state;
+}
+
+int16_t LoraModule::readData()
+{
+    if(this->receivedFlag)
+    {
+        this->receivedFlag = false;
+
+        String data;
+
+        int16_t state = this->loraDevice.readData(data);
+
+        if(state != RADIOLIB_ERR_NONE)
+        {
+            return state;
+        }
+
+        this->onReadData(data);
+        this->loraDevice.startReceive();
+    }
+}
+
+int16_t LoraModule::cleanUpTransmissions()
+{
+    if(this->transmittedFlag)
+    {
+        this->transmittedFlag = false;
+        return this->loraDevice.finishTransmit();
+    }
+}
+
+int16_t LoraModule::sendData(const char* data)
+{
+    return this->loraDevice.startTransmit(data);
+}
 
 LoraModule::LoraModule(float frequency)
 {

@@ -4,14 +4,23 @@
 class LoraModule
 {
 private:
-    inline static SX1262 loraDevice = newModule();
+    SX1262 loraDevice = newModule();
+
     inline static volatile bool receivedFlag = false;
+    inline static volatile bool transmittedFlag = false;
+
+    std::function<void(const String&)> onReadData;
     float freq;
 public:
     LoraModule(float);
 
-    int16_t setup();
-    static ICACHE_RAM_ATTR void setFlag();
+    static ICACHE_RAM_ATTR void setReceivedFlag();
+    static ICACHE_RAM_ATTR void setTransmittedFlag();
+    
+    int16_t setup(bool);
+    int16_t readData();
+    int16_t sendData(const char*);
+    int16_t setupListening();
     
     ~LoraModule();
 };
