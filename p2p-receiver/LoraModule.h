@@ -18,8 +18,9 @@ public:
     static ICACHE_RAM_ATTR void setTransmittedFlag();
     
     int16_t setup(bool);
-    int16_t readData();
     int16_t sendData(const char*);
+    int16_t readData();
+    int16_t cleanUpTransmissions();
     int16_t setupListening();
     
     ~LoraModule();
