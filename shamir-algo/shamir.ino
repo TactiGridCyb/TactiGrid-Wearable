@@ -122,14 +122,15 @@
 #define THRESHOLD 2
 
 // connect to wifi - in order to then upload the files to the webapp
-const char* ssid = "*****";             // Wi-Fi name 
-const char* password = "*********";     // Wi-Fi password 
+const char* ssid = "peretz1";             // Wi-Fi name 
+const char* password = "box17box";     // Wi-Fi password 
 const char* serverUrl = "http://192.168.1.141:5000/upload";  // server IP
 
 lv_obj_t* send_btn;                               // GUI button object
 lv_obj_t* upload_btn;                             // Second button object
 lv_obj_t* view_btn;                               // Button to view saved files
-String secret = "this is a secret file containing mission's log";
+lv_obj_t* delete_btn;                             // Button to delete share files
+String secret = "this is a secret file that contains the mission's log";
 
 // Evaluate a polynomial at a given x, for secret sharing
 uint8_t evalPolynomial(uint8_t x, uint8_t secret, uint8_t randomCoeff) {
@@ -161,21 +162,32 @@ void splitSecret() {
   Serial.println("Secret split and saved to FFat.");
 }
 
-// Print the contents of the generated share files
-void printShareFiles() {
+// List all file names stored on FFat
+void listFileNames() {
+  File root = FFat.open("/");
+  if (!root) {
+    Serial.println("Failed to open root directory.");
+    return;
+  }
+
+  File entry = root.openNextFile();
+  Serial.println("Files on FFat:");
+  while (entry) {
+    Serial.println(entry.name());
+    entry = root.openNextFile();
+  }
+  root.close();
+}
+
+// Delete share files from FFat
+void deleteShareFiles() {
   for (int i = 1; i <= SHARES; i++) {
     String filename = "/file" + String(i) + ".txt";
-    File file = FFat.open(filename);
-    if (!file) {
-      Serial.printf("Failed to open %s\n", filename.c_str());
-      continue;
+    if (FFat.remove(filename)) {
+      Serial.printf("Deleted %s\n", filename.c_str());
+    } else {
+      Serial.printf("Failed to delete %s or file not found\n", filename.c_str());
     }
-    Serial.printf("--- Contents of %s ---\n", filename.c_str());
-    while (file.available()) {
-      Serial.write(file.read());
-    }
-    file.close();
-    Serial.println("\n-------------------------\n");
   }
 }
 
@@ -252,7 +264,13 @@ void on_upload_btn_event(lv_event_t* e) {
 // Handle "View Files" button press
 void on_view_btn_event(lv_event_t* e) {
   Serial.println("--- View Files button pressed ---");
-  printShareFiles();
+  listFileNames();
+}
+
+// Handle "Delete Files" button press
+void on_delete_btn_event(lv_event_t* e) {
+  Serial.println("--- Delete Shares button pressed ---");
+  deleteShareFiles();
 }
 
 // Setup the watch, LVGL button UI, and FFat filesystem
@@ -302,6 +320,15 @@ void setup() {
   lv_obj_add_event_cb(view_btn, on_view_btn_event, LV_EVENT_CLICKED, NULL);
   label = lv_label_create(view_btn);
   lv_label_set_text(label, "View Files");
+  lv_obj_center(label);
+
+  // Create "Delete Files" button
+  delete_btn = lv_btn_create(lv_scr_act());
+  lv_obj_set_size(delete_btn, 200, 60);
+  lv_obj_align(delete_btn, LV_ALIGN_BOTTOM_MID, 0, 70);
+  lv_obj_add_event_cb(delete_btn, on_delete_btn_event, LV_EVENT_CLICKED, NULL);
+  label = lv_label_create(delete_btn);
+  lv_label_set_text(label, "Delete Shares");
   lv_obj_center(label);
 }
 
