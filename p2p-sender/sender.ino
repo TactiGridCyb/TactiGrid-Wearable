@@ -1,13 +1,27 @@
 #include <LilyGoLib.h>
 #include <LV_Helper.h>
+#include <WiFiUdp.h> 
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include "../encryption/CryptoModule.h"
+#include <cstring>
 
 // === LoRa Setup ===
 SX1262 lora = newModule();
 
 const char* ssid = "default";
 const char* password = "1357924680";
+
+const char *udpAddress = "192.168.0.133";
+const int udpPort = 3333;
+
+const crypto::Key256 SHARED_KEY = []() {
+  crypto::Key256 key{};
+  const char* raw = "0123456789abcdef0123456789abcdef"; 
+  std::memcpy(key.data(), raw, 32);
+  return key;
+}();
+
 // === Coordinates ===
 struct GPSCoord {
   float lat1;
@@ -30,7 +44,7 @@ bool alreadyTouched = false;
 int transmissionState = RADIOLIB_ERR_NONE;
 lv_obj_t* sendLabel = NULL;
 lv_timer_t * sendTimer;
-
+WiFiUDP udp;
 const char* helmentDownloadLink = "https://iconduck.com/api/v2/vectors/vctr0xb8urkk/media/png/256/download";
 
 // === Function Prototypes ===
@@ -93,7 +107,9 @@ void connectToWiFi() {
       delay(500);
       // Serial.print(".");
   }
-  // Serial.println("\nConnected to WiFi!");
+
+  udp.begin(WiFi.localIP(), udpPort);
+  Serial.println("\nConnected to WiFi!");
 }
 
 void showHelment() {
@@ -104,25 +120,26 @@ void showHelment() {
 
   lv_img_set_zoom(helmetIMG, 64);
 
-  // Serial.println("Showing middle tile");
+  Serial.println("Showing middle tile");
 }
 
 // === Setup ===
 void setup() {
-  // Serial.begin(115200);
+  Serial.begin(115200);
 
-  watch.begin();
+  watch.begin(&Serial);
   beginLvglHelper();
 
   setupLoRa();
 
-  // Serial.println("Touch screen to send next coordinate.");
+  Serial.println("Touch screen to send next coordinate.");
   if(!FFat.exists("/helmet.png"))
   {
-    connectToWiFi();
+    
     downloadFile(helmentDownloadLink, "/helmet.png");
   }
-
+  connectToWiFi();
+  crypto::CryptoModule::init();
   listFiles("/");
 
   watch.attachPMU(onPmuInterrupt);
@@ -148,7 +165,7 @@ void clearMainPage()
 
 void deleteExistingFile(const char* tileFilePath) {
   if (FFat.exists(tileFilePath)) {
-      // Serial.println("Deleting existing tile...");
+      Serial.println("Deleting existing tile...");
       FFat.remove(tileFilePath);
   }
 }
@@ -175,7 +192,7 @@ void listFiles(const char* dirname) {
 
 void init_main_poc_page()
 {
-    // Serial.println("init_main_poc_page");
+    Serial.println("init_main_poc_page");
     clearMainPage();
 
     lv_obj_t * mainPage = lv_scr_act();
@@ -203,7 +220,7 @@ void init_main_poc_page()
 
 void init_send_coords_page(lv_event_t * event)
 {
-  // Serial.println("init_send_coords_page");
+  Serial.println("init_send_coords_page");
   clearMainPage();
 
   lv_obj_t * mainPage = lv_scr_act();
@@ -272,10 +289,10 @@ void loop() {
     transmittedFlag = false;
 
     if (transmissionState == RADIOLIB_ERR_NONE) {
-      // Serial.println(F("transmission finished!"));
+      Serial.println(F("transmission finished!"));
     } else {
       // Serial.print(F("failed, code "));
-      // Serial.println(transmissionState);
+      Serial.println(transmissionState);
     }
 
     lora.finishTransmit();
@@ -304,16 +321,16 @@ void setupLoRa() {
   int state = lora.begin();
 
   if (state == RADIOLIB_ERR_NONE) {
-      // Serial.println(F("success!"));
+      Serial.println(F("success!"));
   } else {
       // Serial.print(F("failed, code "));
-      // Serial.println(state);
+      Serial.println(state);
       while (true);
   }
 
 
   if (lora.setFrequency(433.5) == RADIOLIB_ERR_INVALID_FREQUENCY) {
-    // Serial.println(F("Selected frequency is invalid for this module!"));
+    Serial.println(F("Selected frequency is invalid for this module!"));
     while (true);
   }
 
@@ -340,7 +357,7 @@ bool screenTouched() {
     // Serial.print("📍 Touch detected at x=");
     // Serial.print(point.x);
     // Serial.print(" y=");
-    // Serial.println(point.y);
+    Serial.println(point.y);
     return true;
   }
 
@@ -351,28 +368,30 @@ bool screenTouched() {
   return false;
 }
 
-// === Send Coordinate ===
+
 void sendCoordinate(int index) {
-  char message[64];
-  snprintf(message, sizeof(message),
-           "%.5f,%.5f;%.5f,%.5f",
-           coords[index].lat1, coords[index].lon1,
-           coords[index].lat2, coords[index].lon2);
+  Serial.printf("sendCoordinate");
+  GPSCoord coord = coords[index];
+  crypto::ByteVec payload;
+  payload.resize(sizeof(GPSCoord));
+  std::memcpy(payload.data(), &coord, sizeof(GPSCoord));
+  
+  crypto::Ciphertext ct = crypto::CryptoModule::encrypt(SHARED_KEY, payload);
 
-  // Serial.print(F("[LoRa] Sending message: "));
-  // Serial.println(message);
+  auto appendHex = [](String& s, uint8_t b) {
+    if (b < 0x10) s += "0";
+    s += String(b, HEX);
+  };
 
-  int state = lora.startTransmit(message);
-  if (state == RADIOLIB_ERR_NONE) {
-    // Serial.println(F("✅ Message sent successfully!"));
+  String msg;
+  for (auto b : ct.nonce) appendHex(msg, b);
+  msg += "|";
+  for (auto b : ct.data)  appendHex(msg, b);
+  msg += "|";
+  for (auto b : ct.tag)   appendHex(msg, b);
 
-
-  } else {
-    // Serial.print(F("❌ Send failed, code "));
-    // Serial.println(state);
-  }
-
-  if (index == coordCount - 1) {
-    // Serial.println(F("✅ All coordinates sent. Further taps are ignored."));
-  }
+  udp.beginPacket(udpAddress, udpPort);
+  udp.printf(msg.c_str());
+  udp.endPacket();
+  transmissionState = lora.startTransmit(msg.c_str());
 }

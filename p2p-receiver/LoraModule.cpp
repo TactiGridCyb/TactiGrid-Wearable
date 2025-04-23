@@ -1,6 +1,5 @@
 #include "LoraModule.h"
 
-
 ICACHE_RAM_ATTR void LoraModule::setReceivedFlag()
 {
     LoraModule::receivedFlag = true;
@@ -42,12 +41,6 @@ int16_t LoraModule::setupListening()
     }
 }
 
-int16_t LoraModule::setupListening()
-{
-    int16_t state = this->loraDevice.startReceive();
-
-    return state;
-}
 
 int16_t LoraModule::readData()
 {

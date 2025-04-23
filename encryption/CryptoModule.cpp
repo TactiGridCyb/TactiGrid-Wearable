@@ -5,9 +5,9 @@
 namespace crypto {
 
 namespace {
-constexpr size_t KEY_LEN   = 32;
-constexpr size_t NONCE_LEN = crypto_aead_chacha20poly1305_ietf_NPUBBYTES;
-constexpr size_t TAG_LEN   = crypto_aead_chacha20poly1305_ietf_ABYTES;
+constexpr size_t KEY_LEN   = crypto_aead_xchacha20poly1305_ietf_KEYBYTES;
+constexpr size_t NONCE_LEN = crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;
+constexpr size_t TAG_LEN   = crypto_aead_xchacha20poly1305_ietf_ABYTES;
 
 void chk(int ok, const char* msg) {
     if (ok != 0) throw std::runtime_error(msg);
@@ -57,12 +57,12 @@ Ciphertext CryptoModule::encrypt(const Key256& gk, const ByteVec& pt) {
 
     ct.data.resize(pt.size() + TAG_LEN);
     unsigned long long clen = 0;
-
+    
     chk(crypto_aead_chacha20poly1305_ietf_encrypt(
         ct.data.data(), &clen,
         pt.data(), pt.size(),
         nullptr, 0,
-        nullptr, ct.nonce.data(), gk.data()), "encrypt");
+        NULL, ct.nonce.data(), gk.data()), "encrypt");
 
     ct.tag.assign(ct.data.end() - TAG_LEN, ct.data.end());
     ct.data.resize(pt.size());
@@ -78,7 +78,7 @@ ByteVec CryptoModule::decrypt(const Key256& gk, const Ciphertext& ct) {
 
     if (crypto_aead_chacha20poly1305_ietf_decrypt(
         pt.data(), &ptlen,
-        nullptr,
+        NULL,
         full.data(), full.size(),
         nullptr, 0,
         ct.nonce.data(), gk.data()) != 0)

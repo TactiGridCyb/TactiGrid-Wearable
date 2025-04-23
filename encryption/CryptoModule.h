@@ -8,7 +8,7 @@
 
 namespace crypto {
 
-using Key256 = std::array<unsigned char, 32>;
+using Key256 = std::array<unsigned char, crypto_aead_xchacha20poly1305_ietf_KEYBYTES>;
 using ByteVec = std::vector<unsigned char>;
 
 struct Ciphertext {

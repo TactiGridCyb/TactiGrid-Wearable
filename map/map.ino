@@ -9,11 +9,28 @@
 #include <lvgl.h>
 #include <LV_Helper.h>
 #include <LilyGoLib.h>
+#include "../encryption/CryptoModule.h"
+#include <cstring>
+
+const crypto::Key256 SHARED_KEY = []() {
+    crypto::Key256 key{};
+
+    const char* raw = "0123456789abcdef0123456789abcdef"; 
+    std::memcpy(key.data(), raw, 32);
+    return key;
+}();
+
+struct GPSCoord {
+    float lat1;
+    float lon1;
+    float lat2;
+    float lon2;
+};
 
 WiFiUDP udp;
 
-const char* ssid = "XXX";
-const char* password = "XXX";
+const char* ssid = "default";
+const char* password = "1357924680";
 
 SX1262 lora = newModule();
 lv_obj_t *current_marker = NULL;
@@ -28,6 +45,15 @@ volatile bool pmu_flag = false;
 volatile bool receivedFlag = false;
 
 lv_obj_t* soldiersNameLabel = NULL;
+
+static inline crypto::ByteVec hexToBytes(const String& hex) {
+    crypto::ByteVec out;
+    out.reserve(hex.length() >> 1);
+    for (int i = 0; i < hex.length(); i += 2) {
+        out.push_back(strtoul(hex.substring(i, i + 2).c_str(), nullptr, 16));
+    }
+    return out;
+}
 
 ICACHE_RAM_ATTR void setFlag(void)
 {
@@ -296,7 +322,7 @@ void initializeLoRa() {
     Serial.print(F("[SX1262] Receiver Initializing ... "));
     int state = lora.begin();
     if (state == RADIOLIB_ERR_NONE) {
-        // Serial.println(F("success!"));
+        Serial.println(F("success!"));
     } else {
         Serial.print(F("failed, code "));
         Serial.println(state);
@@ -304,7 +330,7 @@ void initializeLoRa() {
     }
 
     if (lora.setFrequency(433.5) == RADIOLIB_ERR_INVALID_FREQUENCY) {
-        // Serial.println(F("Selected frequency is invalid for this module!"));
+        Serial.println(F("Selected frequency is invalid for this module!"));
         while (true);
     }
 
@@ -312,10 +338,10 @@ void initializeLoRa() {
     // Serial.print(F("[SX1262] Starting to listen ... "));
     state = lora.startReceive();
     if (state == RADIOLIB_ERR_NONE) {
-        // Serial.println(F("success!"));
+        Serial.println(F("success!"));
     } else {
         // Serial.print(F("failed, code "));
-        // Serial.println(state);
+        Serial.println(state);
         while (true);
     }
 }
@@ -364,65 +390,89 @@ GPSCoordTuple parseCoordinates(const String &message) {
     return std::make_tuple(lat1, lon1, lat2, lon2);
 }
 
-void init_p2p_test(lv_event_t * event)
+void init_p2p_test(lv_event_t* event)
 {
     Serial.println("init_p2p_test");
+
     String incoming;
     int state = lora.readData(incoming);
-    Serial.println("Received: " + incoming);
+    Serial.println("Received RAW: " + incoming);
 
-    if (state == RADIOLIB_ERR_NONE) {
-        Serial.println(F("[SX1262] Received packet!"));
-        GPSCoordTuple coords = parseCoordinates(incoming);
-
-        float tile_lat   = std::get<0>(coords);
-        float tile_lon   = std::get<1>(coords);
-        float marker_lat = std::get<2>(coords);
-        float marker_lon = std::get<3>(coords);
-
-        struct tm timeInfo;
-        char timeStr[9];
-
-        if(getLocalTime(&timeInfo)) {
-            strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeInfo);
-        } else {
-            strcpy(timeStr, "00:00:00");
-        }
-
-        char result[128];
-
-        snprintf(result, sizeof(result), "%s - Soldier 1: {%.5f, %.5f}", timeStr, tile_lat, tile_lon);
-        Serial.println("SOME");
-        writeToLogFile(logFilePath, result);
-        Serial.println("SOME1");
-        Serial.println(loadFileContent(logFilePath));
-        Serial.println("SOME2");
-
-        std::tuple<int, int, int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
-        
-        if (!FFat.exists(tileFilePath)) {
-
-            if (downloadMiddleTile(tileLocation)) {
-                Serial.println("Middle tile downloaded.");
-            } else {
-                Serial.println("Failed to download middle tile.");
-            }
-        }
-
-        if (!current_marker)
-        {
-            showMiddleTile();
-        }
-        
-        
-        int zoom, x_tile, y_tile;
-        std::tie(zoom, x_tile, y_tile) = tileLocation;
-        auto [centerLat, centerLon] = tileCenterLatLon(zoom, x_tile, y_tile);
-        
-        create_fading_red_circle(marker_lat, marker_lon, centerLat, centerLon, 19);
-
+    if (state != RADIOLIB_ERR_NONE) {            
+        lora.startReceive();
+        return;
     }
+
+    int p1 = incoming.indexOf('|');
+    int p2 = incoming.indexOf('|', p1 + 1);
+    if (p1 < 0 || p2 < 0) {                      
+        Serial.println("Bad ciphertext format");
+        lora.startReceive();
+        return;
+    }
+
+    crypto::Ciphertext ct;
+    ct.nonce = hexToBytes(incoming.substring(0,       p1));
+    ct.data  = hexToBytes(incoming.substring(p1 + 1, p2));
+    ct.tag   = hexToBytes(incoming.substring(p2 + 1));
+
+    Serial.printf("Nonce size: %d\n", ct.nonce.size());
+    Serial.printf("Data size:  %d\n", ct.data.size());
+    Serial.printf("Tag size:   %d\n", ct.tag.size());
     
+    if (ct.nonce.size() != 12 || ct.tag.size() != 16 || ct.data.size() != sizeof(GPSCoord)) {
+        Serial.println("❌ Incorrect sizes: nonce=" + String(ct.nonce.size()) + ", tag=" + String(ct.tag.size()) + ", data=" + String(ct.data.size()));
+        lora.startReceive();
+        return;
+    }
+
+    crypto::ByteVec pt;
+    try {
+        pt = crypto::CryptoModule::decrypt(SHARED_KEY, ct);
+    } catch (const std::exception& e) {
+        Serial.printf("Decryption failed: %s\n", e.what());
+        lora.startReceive();
+        return;
+    }
+
+    String plainStr;
+    plainStr.reserve(pt.size());
+    for (unsigned char b : pt) plainStr += (char)b;
+
+    Serial.println("Decrypted: " + plainStr);
+
+    GPSCoordTuple coords = parseCoordinates(plainStr);
+
+    float tile_lat   = std::get<0>(coords);
+    float tile_lon   = std::get<1>(coords);
+    float marker_lat = std::get<2>(coords);
+    float marker_lon = std::get<3>(coords);
+
+    struct tm timeInfo;
+    char timeStr[9];
+    if (getLocalTime(&timeInfo))
+        strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeInfo);
+    else
+        strcpy(timeStr, "00:00:00");
+
+    char result[128];
+    snprintf(result, sizeof(result), "%s - Soldier 1: {%.5f, %.5f}", 
+             timeStr, tile_lat, tile_lon);
+    writeToLogFile(logFilePath, result);
+
+    std::tuple<int,int,int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
+
+    if (!FFat.exists(tileFilePath) && downloadMiddleTile(tileLocation))
+        Serial.println("Middle tile downloaded.");
+
+    if (!current_marker)
+        showMiddleTile();
+
+    auto [zoom, x_tile, y_tile] = tileLocation;
+    auto [centerLat, centerLon] = tileCenterLatLon(zoom, x_tile, y_tile);
+    create_fading_red_circle(marker_lat, marker_lon, centerLat, centerLon, 19);
+
+    /* 6. ready for next packet ------------------------------------------------*/
     lora.startReceive();
 }
 
@@ -495,7 +545,7 @@ void setup() {
         Serial.println("Failed to mount FFat!");
         return;
     }
-
+    crypto::CryptoModule::init();
     Serial.println("WORLD");
     
 
@@ -503,7 +553,7 @@ void setup() {
     
     beginLvglHelper();
     lv_png_init();
-    // Serial.println("LVGL set!");
+    Serial.println("LVGL set!");
 
     connectToWiFi();
     initializeLoRa();
