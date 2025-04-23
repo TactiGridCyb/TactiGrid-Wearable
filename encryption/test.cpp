@@ -1,8 +1,6 @@
 #include "CryptoModule.h"
-#include "Serialization.h"
 #include <iostream>
 #include <iomanip>
-#include <sodium.h>
 #include <tuple>
 #include <cstring>
 
@@ -11,17 +9,25 @@ using namespace crypto;
 ByteVec serialize_floats(float lat, float lon);
 std::tuple<float, float> deserialize_floats(const ByteVec& buffer);
 
+struct GPSCoord {
+    float lat1;
+    float lon1;
+    float lat2;
+    float lon2;
+};
+
 int main() {
     CryptoModule::init();
+    GPSCoord g = {2.1f, 3.2f, 4.8f, 4.5f};
 
     Key256 gmk = CryptoModule::generateGMK();
     ByteVec salt(16); randombytes_buf(salt.data(), salt.size());
     Key256 gk = CryptoModule::deriveGK(gmk, time(nullptr), "Mission-X", salt, 42);
 
-    float lat = 37.7749f;
-    float lon = -122.4194f;
+    
+    char* serializedStruct = reinterpret_cast<char*>(&g);
+    ByteVec location_data(serializedStruct, serializedStruct + sizeof(GPSCoord));
 
-    ByteVec location_data = serialize_floats(lat, lon);
     Ciphertext encrypted_location = CryptoModule::encrypt(gk, location_data);
 
     auto printHex = [](const std::string& label, const ByteVec& data) {
@@ -37,8 +43,9 @@ int main() {
 
     try {
         ByteVec decrypted_bytes = CryptoModule::decrypt(gk, encrypted_location);
-        auto [decoded_lat, decoded_lon] = deserialize_floats(decrypted_bytes);
-        std::cout << "Decrypted Location: (" << decoded_lat << ", " << decoded_lon << ")\n";
+        GPSCoord* newG = reinterpret_cast<GPSCoord*>(decrypted_bytes.data());
+
+        std::cout << "NEW VALUE:" << " " << newG->lon1 << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Decryption failed: " << e.what() << "\n";
     }
