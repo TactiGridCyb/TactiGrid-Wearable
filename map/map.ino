@@ -420,12 +420,6 @@ void init_p2p_test(lv_event_t* event)
     Serial.printf("Data size:  %d\n", ct.data.size());
     Serial.printf("Tag size:   %d\n", ct.tag.size());
     
-    if (ct.nonce.size() != 12 || ct.tag.size() != 16 || ct.data.size() != sizeof(GPSCoord)) {
-        Serial.println("❌ Incorrect sizes: nonce=" + String(ct.nonce.size()) + ", tag=" + String(ct.tag.size()) + ", data=" + String(ct.data.size()));
-        lora.startReceive();
-        return;
-    }
-
     crypto::ByteVec pt;
     try {
         pt = crypto::CryptoModule::decrypt(SHARED_KEY, ct);
@@ -435,6 +429,9 @@ void init_p2p_test(lv_event_t* event)
         return;
     }
 
+
+    GPSCoord* newG = reinterpret_cast<GPSCoord*>(pt.data());
+    Serial.printf("%.5f %.5f %.5f %.5f\n", newG->lat1, newG->lat2, newG->lon1, newG->lon2);
     String plainStr;
     plainStr.reserve(pt.size());
     for (unsigned char b : pt) plainStr += (char)b;
@@ -443,10 +440,10 @@ void init_p2p_test(lv_event_t* event)
 
     GPSCoordTuple coords = parseCoordinates(plainStr);
 
-    float tile_lat   = std::get<0>(coords);
-    float tile_lon   = std::get<1>(coords);
-    float marker_lat = std::get<2>(coords);
-    float marker_lon = std::get<3>(coords);
+    float tile_lat   = newG->lat1;
+    float tile_lon   = newG->lon1;
+    float marker_lat = newG->lat2;
+    float marker_lon = newG->lon2;
 
     struct tm timeInfo;
     char timeStr[9];
@@ -472,7 +469,6 @@ void init_p2p_test(lv_event_t* event)
     auto [centerLat, centerLon] = tileCenterLatLon(zoom, x_tile, y_tile);
     create_fading_red_circle(marker_lat, marker_lon, centerLat, centerLon, 19);
 
-    /* 6. ready for next packet ------------------------------------------------*/
     lora.startReceive();
 }
 
@@ -550,7 +546,8 @@ void setup() {
     
 
     deleteExistingFile(tileFilePath);
-    
+
+
     beginLvglHelper();
     lv_png_init();
     Serial.println("LVGL set!");
