@@ -5,17 +5,20 @@ class WifiModule {
     private:
     bool connected = false;
     uint16_t port = 3333;
+
     WiFiUDP udpModule;
     IPAddress ipAddress;
 
+    String wifiName;
+    String password;
+
+    WiFiUDP udp;
+
     public:
     WifiModule(String wifiName, String password);
-    void connect();
+    void connect(uint32_t);
     void disconnect();
-    void sendFile(String filePath, String destinationIP, uint16_t destinationPort);
-    void sendString(String data, String destinationIP, uint16_t destinationPort);
+    void sendFile(String filePath, const char* destinationIP, uint16_t destinationPort);
+    void sendString(String data, const char* destinationIP, uint16_t destinationPort);
+    bool isConnected();
 };
-void connectToWiFi(const char *ssid, const char *pwd, void(*onConnectEvent) (WiFiEvent_t));
-
-void disconnectFromWiFi();
-

@@ -5,7 +5,6 @@
 #include <memory>
 #include <FFat.h>
 #include <FS.h>
-#include <WiFi.h>
 #include <HTTPClient.h>
 #include <lvgl.h>
 #include <LV_Helper.h>
@@ -13,8 +12,9 @@
 #include <cstring>
 
 #include "../encryption/CryptoModule.h"
-#include "../envLoader.cpp"
 #include "../LoraModule/LoraModule.h"
+#include "../wifi-connection/WifiModule.h"
+#include "../envLoader.cpp"
 
 const crypto::Key256 SHARED_KEY = []() {
     crypto::Key256 key{};
@@ -31,10 +31,11 @@ struct GPSCoord {
     float lon2;
 };
 
-WiFiUDP udp;
 
 lv_obj_t *current_marker = NULL;
+
 std::unique_ptr<LoraModule> loraModule;
+std::unique_ptr<WifiModule> wifiModule;
 
 const std::string tileUrlInitial = "https://tile.openstreetmap.org/";
 const char* tileFilePath = "/middleTile.png";
@@ -204,23 +205,6 @@ void showMiddleTile() {
     Serial.println("Showing middle tile");
 }
 
-void connectToWiFi() {
-    Serial.print("Connecting to WiFi...");
-
-    const char* ssid = env_map["WIFI_SSID"].c_str();
-    const char* password = env_map["WIFI_PASS"].c_str();
-
-    Serial.printf("SSID from env %s\n",ssid);
-    Serial.printf("PASSWORD from env %s\n",password);
-
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("\nConnected to WiFi!");
-    delay(1000);
-}
 
 void deleteExistingFile(const char* tileFilePath) {
     if (FFat.exists(tileFilePath)) {
@@ -269,11 +253,7 @@ void upload_log_event_callback(lv_event_t * e)
     Serial.println("Starting sending log file");
     String logContent = loadFileContent(logFilePath);
 
-    udp.begin(5555);
-
-    udp.beginPacket("192.168.0.133", 5555);
-    udp.write((const uint8_t *)logContent.c_str(), logContent.length());
-    udp.endPacket();
+    wifiModule->sendString(logContent.c_str(), "192.168.0.133", 5555);
 
     Serial.println("File sent over UDP.");
 
@@ -549,8 +529,12 @@ void setup() {
     lv_png_init();
     Serial.println("LVGL set!");
 
-    connectToWiFi();
-    
+    const char* ssid = env_map["WIFI_SSID"].c_str();
+    const char* password = env_map["WIFI_PASS"].c_str();
+
+    wifiModule = std::make_unique<WifiModule>(ssid, password);
+    wifiModule->connect(60000);
+
     loraModule = std::make_unique<LoraModule>(433.5);
     loraModule->setup(false);
     loraModule->setOnReadData(init_p2p_test);
