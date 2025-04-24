@@ -56,12 +56,6 @@ static inline crypto::ByteVec hexToBytes(const String& hex) {
     return out;
 }
 
-ICACHE_RAM_ATTR void setFlag(void)
-{
-    // we got a packet, set the flag
-    receivedFlag = true;
-}
-
 lv_color_t ballColor = lv_color_hex(0xff0000);
 
 void IRAM_ATTR onPmuInterrupt() {
@@ -119,7 +113,7 @@ std::pair<double,double> tileCenterLatLon(int zoom, int x_tile, int y_tile)
     return {lat_deg, lon_deg};
 }
 
-void create_fading_red_circle(double markerLat, double markerLon, double centerLat, double centerLon, int zoom) {
+void create_fading_red_circle(double markerLat, double markerLon, double centerLat, double centerLon, int zoom, lv_color_t ballColor) {
     if (current_marker != NULL) {
         lv_obj_del(current_marker);
         current_marker = NULL;
@@ -225,6 +219,7 @@ void connectToWiFi() {
         Serial.print(".");
     }
     Serial.println("\nConnected to WiFi!");
+    delay(1000);
 }
 
 void deleteExistingFile(const char* tileFilePath) {
@@ -349,34 +344,6 @@ void listFiles(const char* path = "/", uint8_t depth = 0) {
     }
 }
 
-// void initializeLoRa() {
-//     Serial.print(F("[SX1262] Receiver Initializing ... "));
-//     int state = lora.begin();
-//     if (state == RADIOLIB_ERR_NONE) {
-//         Serial.println(F("success!"));
-//     } else {
-//         Serial.print(F("failed, code "));
-//         Serial.println(state);
-//         while (true);
-//     }
-
-//     if (lora.setFrequency(433.5) == RADIOLIB_ERR_INVALID_FREQUENCY) {
-//         Serial.println(F("Selected frequency is invalid for this module!"));
-//         while (true);
-//     }
-
-//     lora.setDio1Action(setFlag);
-//     // Serial.print(F("[SX1262] Starting to listen ... "));
-//     state = lora.startReceive();
-//     if (state == RADIOLIB_ERR_NONE) {
-//         Serial.println(F("success!"));
-//     } else {
-//         // Serial.print(F("failed, code "));
-//         Serial.println(state);
-//         while (true);
-//     }
-// }
-
 
 void clearMainPage()
 {
@@ -413,6 +380,8 @@ void init_main_poc_page(lv_event_t * event)
     lv_label_set_text(waitingLabel, "Waiting For Initial Coords");
     lv_obj_set_style_text_color(waitingLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
 
+
+    loraModule->setupListening();
 }
 
 GPSCoordTuple parseCoordinates(const String &message) {
@@ -461,8 +430,8 @@ void init_p2p_test(String incoming)
 
     GPSCoordTuple coords = parseCoordinates(plainStr);
 
-    float tile_lat   = newG->lat1;
-    float tile_lon   = newG->lon1;
+    float tile_lat = newG->lat1;
+    float tile_lon = newG->lon1;
     float marker_lat = newG->lat2;
     float marker_lon = newG->lon2;
     
@@ -488,7 +457,7 @@ void init_p2p_test(String incoming)
 
     auto [zoom, x_tile, y_tile] = tileLocation;
     auto [centerLat, centerLon] = tileCenterLatLon(zoom, x_tile, y_tile);
-    create_fading_red_circle(marker_lat, marker_lon, centerLat, centerLon, 19);
+    create_fading_red_circle(marker_lat, marker_lon, centerLat, centerLon, 19, ballColor);
 
 }
 
@@ -562,9 +531,11 @@ void setup() {
         Serial.println("Failed to mount FFat!");
         return;
     }
+
+    
     listFiles();
     load_env();
-    
+
     Serial.println("load_env");
 
     crypto::CryptoModule::init();
@@ -583,11 +554,32 @@ void setup() {
     loraModule = std::make_unique<LoraModule>(433.5);
     loraModule->setup(false);
     loraModule->setOnReadData(init_p2p_test);
-    loraModule->setupListening();
 
     Serial.println("After LORA INIT");
 
     init_main_menu();
+
+    Serial.println(WiFi.localIP());
+    setenv("TZ", "GMT-3", 1);
+    tzset();
+
+    configTime(0, 0, "pool.ntp.org");
+
+    Serial.println("Configured time zone!");
+
+
+    struct tm timeInfo;
+
+    while (!getLocalTime(&timeInfo)) {
+        Serial.println("Waiting for time sync...");
+        delay(500);
+    }
+
+    if (getLocalTime(&timeInfo)) {
+        char timeStr[20];
+        strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeInfo);
+        Serial.println(timeStr);
+    }
 
     watch.attachPMU(onPmuInterrupt);
     watch.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);

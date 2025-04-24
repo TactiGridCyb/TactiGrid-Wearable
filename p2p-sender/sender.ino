@@ -139,6 +139,23 @@ void setup() {
     downloadFile(helmentDownloadLink, "/helmet.png");
   }
   connectToWiFi();
+
+  struct tm timeInfo;
+
+  setenv("TZ", "GMT-3", 1);
+  tzset();
+
+  configTime(0, 0, "pool.ntp.org");
+  while (!getLocalTime(&timeInfo)) {
+      Serial.println("Waiting for time sync...");
+      delay(500);
+  }
+
+  if (getLocalTime(&timeInfo)) {
+      char timeStr[20];
+      strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeInfo);
+      Serial.println(timeStr);
+  }
   crypto::CryptoModule::init();
   listFiles("/");
 
