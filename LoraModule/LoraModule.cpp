@@ -36,11 +36,14 @@ int16_t LoraModule::setup(bool transmissionMode)
 int16_t LoraModule::setupListening()
 {
     int16_t state = this->loraDevice.startReceive();
-    if (state != RADIOLIB_ERR_NONE) {
-        return state;
-    }
+    return state;
 }
 
+
+void LoraModule::setOnReadData(std::function<void(const String&)> callback)
+{
+    this->onReadData = callback;
+}
 
 int16_t LoraModule::readData()
 {
@@ -60,6 +63,8 @@ int16_t LoraModule::readData()
         this->onReadData(data);
         this->loraDevice.startReceive();
     }
+
+    return RADIOLIB_ERR_NONE;
 }
 
 int16_t LoraModule::cleanUpTransmissions()
@@ -69,6 +74,8 @@ int16_t LoraModule::cleanUpTransmissions()
         this->transmittedFlag = false;
         return this->loraDevice.finishTransmit();
     }
+
+    return 1;
 }
 
 int16_t LoraModule::sendData(const char* data)

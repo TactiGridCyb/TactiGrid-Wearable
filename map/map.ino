@@ -2,6 +2,7 @@
 #define LV_VER_RES_MAX 240
 
 #include <tuple>
+#include <memory>
 #include <FFat.h>
 #include <FS.h>
 #include <WiFi.h>
@@ -13,6 +14,7 @@
 
 #include "../encryption/CryptoModule.h"
 #include "../envLoader.cpp"
+#include "../LoraModule/LoraModule.h"
 
 const crypto::Key256 SHARED_KEY = []() {
     crypto::Key256 key{};
@@ -31,9 +33,8 @@ struct GPSCoord {
 
 WiFiUDP udp;
 
-
-SX1262 lora = newModule();
 lv_obj_t *current_marker = NULL;
+std::unique_ptr<LoraModule> loraModule;
 
 const std::string tileUrlInitial = "https://tile.openstreetmap.org/";
 const char* tileFilePath = "/middleTile.png";
@@ -348,33 +349,33 @@ void listFiles(const char* path = "/", uint8_t depth = 0) {
     }
 }
 
-void initializeLoRa() {
-    Serial.print(F("[SX1262] Receiver Initializing ... "));
-    int state = lora.begin();
-    if (state == RADIOLIB_ERR_NONE) {
-        Serial.println(F("success!"));
-    } else {
-        Serial.print(F("failed, code "));
-        Serial.println(state);
-        while (true);
-    }
+// void initializeLoRa() {
+//     Serial.print(F("[SX1262] Receiver Initializing ... "));
+//     int state = lora.begin();
+//     if (state == RADIOLIB_ERR_NONE) {
+//         Serial.println(F("success!"));
+//     } else {
+//         Serial.print(F("failed, code "));
+//         Serial.println(state);
+//         while (true);
+//     }
 
-    if (lora.setFrequency(433.5) == RADIOLIB_ERR_INVALID_FREQUENCY) {
-        Serial.println(F("Selected frequency is invalid for this module!"));
-        while (true);
-    }
+//     if (lora.setFrequency(433.5) == RADIOLIB_ERR_INVALID_FREQUENCY) {
+//         Serial.println(F("Selected frequency is invalid for this module!"));
+//         while (true);
+//     }
 
-    lora.setDio1Action(setFlag);
-    // Serial.print(F("[SX1262] Starting to listen ... "));
-    state = lora.startReceive();
-    if (state == RADIOLIB_ERR_NONE) {
-        Serial.println(F("success!"));
-    } else {
-        // Serial.print(F("failed, code "));
-        Serial.println(state);
-        while (true);
-    }
-}
+//     lora.setDio1Action(setFlag);
+//     // Serial.print(F("[SX1262] Starting to listen ... "));
+//     state = lora.startReceive();
+//     if (state == RADIOLIB_ERR_NONE) {
+//         Serial.println(F("success!"));
+//     } else {
+//         // Serial.print(F("failed, code "));
+//         Serial.println(state);
+//         while (true);
+//     }
+// }
 
 
 void clearMainPage()
@@ -420,24 +421,14 @@ GPSCoordTuple parseCoordinates(const String &message) {
     return std::make_tuple(lat1, lon1, lat2, lon2);
 }
 
-void init_p2p_test(lv_event_t* event)
+void init_p2p_test(String incoming)
 {
     Serial.println("init_p2p_test");
-
-    String incoming;
-    int state = lora.readData(incoming);
-    Serial.println("Received RAW: " + incoming);
-
-    if (state != RADIOLIB_ERR_NONE) {            
-        lora.startReceive();
-        return;
-    }
 
     int p1 = incoming.indexOf('|');
     int p2 = incoming.indexOf('|', p1 + 1);
     if (p1 < 0 || p2 < 0) {                      
         Serial.println("Bad ciphertext format");
-        lora.startReceive();
         return;
     }
 
@@ -451,11 +442,11 @@ void init_p2p_test(lv_event_t* event)
     Serial.printf("Tag size:   %d\n", ct.tag.size());
     
     crypto::ByteVec pt;
+
     try {
         pt = crypto::CryptoModule::decrypt(SHARED_KEY, ct);
     } catch (const std::exception& e) {
         Serial.printf("Decryption failed: %s\n", e.what());
-        lora.startReceive();
         return;
     }
 
@@ -499,7 +490,6 @@ void init_p2p_test(lv_event_t* event)
     auto [centerLat, centerLon] = tileCenterLatLon(zoom, x_tile, y_tile);
     create_fading_red_circle(marker_lat, marker_lon, centerLat, centerLon, 19);
 
-    lora.startReceive();
 }
 
 void init_main_menu()
@@ -575,7 +565,6 @@ void setup() {
     listFiles();
     load_env();
     
-
     Serial.println("load_env");
 
     crypto::CryptoModule::init();
@@ -590,8 +579,12 @@ void setup() {
     Serial.println("LVGL set!");
 
     connectToWiFi();
-    initializeLoRa();
     
+    loraModule = std::make_unique<LoraModule>(433.5);
+    loraModule->setup(false);
+    loraModule->setOnReadData(init_p2p_test);
+    loraModule->setupListening();
+
     Serial.println("After LORA INIT");
 
     init_main_menu();
@@ -618,10 +611,7 @@ void loop() {
         watch.clearPMU();
     }
   
-    if (receivedFlag) {
-        receivedFlag = false;
-        init_p2p_test(nullptr);
-    }
+    loraModule->readData();
   
     lv_task_handler();
     delay(10);

@@ -1,6 +1,7 @@
 #include <LilyGoLib.h>
 #include <LV_Helper.h>
 
+
 class LoraModule
 {
 private:
@@ -22,6 +23,7 @@ public:
     int16_t readData();
     int16_t cleanUpTransmissions();
     int16_t setupListening();
+    void setOnReadData(std::function<void(const String&)>);
     
     ~LoraModule();
 };
