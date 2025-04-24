@@ -9,8 +9,10 @@
 #include <lvgl.h>
 #include <LV_Helper.h>
 #include <LilyGoLib.h>
-#include "../encryption/CryptoModule.h"
 #include <cstring>
+
+#include "../encryption/CryptoModule.h"
+#include "../envLoader.cpp"
 
 const crypto::Key256 SHARED_KEY = []() {
     crypto::Key256 key{};
@@ -29,8 +31,6 @@ struct GPSCoord {
 
 WiFiUDP udp;
 
-const char* ssid = "default";
-const char* password = "1357924680";
 
 SX1262 lora = newModule();
 lv_obj_t *current_marker = NULL;
@@ -211,6 +211,13 @@ void showMiddleTile() {
 
 void connectToWiFi() {
     Serial.print("Connecting to WiFi...");
+
+    const char* ssid = env_map["WIFI_SSID"].c_str();
+    const char* password = env_map["WIFI_PASS"].c_str();
+
+    Serial.printf("SSID from env %s\n",ssid);
+    Serial.printf("PASSWORD from env %s\n",password);
+
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
@@ -316,6 +323,29 @@ String loadFileContent(const char* filePath)
     file.close();
 
     return fileContent;
+}
+
+void listFiles(const char* path = "/", uint8_t depth = 0) {
+    File dir = FFat.open(path);
+    if (!dir || !dir.isDirectory()) {
+        Serial.printf("Failed to open directory: %s\n", path);
+        return;
+    }
+
+    File file = dir.openNextFile();
+    while (file) {
+        for (uint8_t i = 0; i < depth; i++) Serial.print("  ");
+
+        if (file.isDirectory()) {
+            Serial.printf("[DIR]  %s\n", file.name());
+
+            listFiles(file.name(), depth + 1);
+        } else {
+            Serial.printf("FILE:  %s  SIZE: %d\n", file.name(), file.size());
+        }
+
+        file = dir.openNextFile();
+    }
 }
 
 void initializeLoRa() {
@@ -444,7 +474,7 @@ void init_p2p_test(lv_event_t* event)
     float tile_lon   = newG->lon1;
     float marker_lat = newG->lat2;
     float marker_lon = newG->lon2;
-
+    
     struct tm timeInfo;
     char timeStr[9];
     if (getLocalTime(&timeInfo))
@@ -537,12 +567,19 @@ void setup() {
     watch.begin(&Serial);
     Serial.println("HELLO");
     
+    
     if (!FFat.begin(true)) {
         Serial.println("Failed to mount FFat!");
         return;
     }
+    listFiles();
+    load_env();
+    
+
+    Serial.println("load_env");
+
     crypto::CryptoModule::init();
-    Serial.println("WORLD");
+    Serial.println("init cryptoModule");
     
 
     deleteExistingFile(tileFilePath);

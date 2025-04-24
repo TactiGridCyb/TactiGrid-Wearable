@@ -1,26 +1,36 @@
-#include <fstream>
-#include <string>
-#include <cstdlib>
+#include <FFat.h>
+#include <map>
+#include <LilyGoLib.h>
 
-void load_env(const std::string& path = ".env") {
-    std::ifstream file(path);
-    if (!file.is_open()) return;
+std::map<std::string, std::string> env_map;
 
-    std::string line;
-    while (std::getline(file, line)) {
-        if (line.empty() || line[0] == '#') continue;
 
-        size_t pos = line.find('=');
-        if (pos == std::string::npos) continue;
+void load_env(const char* path = "/.env") {
 
-        std::string key = line.substr(0, pos);
-        std::string value = line.substr(pos + 1);
+        File file = FFat.open(path, FILE_READ);
+        if (!file) {
+                Serial.println("File Not Existing!");
+                return;
+        }
+        Serial.println("File Existing!");
 
-#ifdef _WIN32
-        std::string env_entry = key + "=" + value;
-        _putenv(env_entry.c_str()); // works with MinGW g++
-#else
-        setenv(key.c_str(), value.c_str(), 1);
-#endif
-    }
+        while (file.available()) {
+                String line = file.readStringUntil('\n');
+                line.trim();
+
+                if (line.length() == 0 || line.startsWith("#")) continue;
+
+                int separator = line.indexOf('=');
+                if (separator == -1) continue;
+
+                String key = line.substring(0, separator);
+                String value = line.substring(separator + 1);
+
+                Serial.println("Found! " + key + " " + value);
+
+                env_map[std::string(key.c_str())] = std::string(value.c_str());
+
+        }
+
+        file.close();
 }
