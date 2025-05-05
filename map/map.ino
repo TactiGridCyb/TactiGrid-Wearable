@@ -262,7 +262,7 @@ void upload_log_event_callback(lv_event_t * e)
     Serial.println("Starting sending log file");
     String logContent = loadFileContent(logFilePath);
 
-    wifiModule->sendString(logContent.c_str(), "192.168.0.133", 5555);
+    wifiModule->sendString(logContent.c_str(), "192.168.0.44", 5555);
 
     Serial.println("File sent over UDP.");
 
@@ -379,6 +379,11 @@ GPSCoordTuple parseCoordinates(const String &message) {
     return std::make_tuple(lat1, lon1, lat2, lon2);
 }
 
+bool isZero(double x)
+{
+    return std::fabs(x) < 1e-9;
+}
+
 void init_p2p_test(String incoming)
 {
     Serial.println("init_p2p_test");
@@ -423,6 +428,11 @@ void init_p2p_test(String incoming)
     float tile_lon = newG->lon1;
     float marker_lat = newG->lat2;
     float marker_lon = newG->lon2;
+
+    if(isZero(tile_lat) || isZero(tile_lon) || isZero(marker_lat) || isZero(marker_lon))
+    {
+        return;
+    }
     
     struct tm timeInfo;
     char timeStr[9];

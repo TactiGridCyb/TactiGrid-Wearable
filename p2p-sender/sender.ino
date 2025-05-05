@@ -32,11 +32,11 @@ struct GPSCoord {
 };
 
 GPSCoord coords[] = {
-  {32.08530, 34.78180, 32.08539,   34.78180, 78},  // healthy
-  {32.08530, 34.78180, 32.0853278, 34.7819010, 100},  // borderline
-  {32.08530, 34.78180, 32.0852272, 34.7818623, 55},  // low
-  {32.08530, 34.78180, 32.0852272, 34.7817377, 0},   // dead
-  {32.08530, 34.78180, 32.0853278, 34.7816990, 120}  // high
+  {0, 0, 32.08539, 34.78180, 78},  // healthy
+  {0, 0, 32.0853278, 34.7819010, 100},  // borderline
+  {0, 0, 32.0852272, 34.7818623, 55},  // low
+  {0, 0, 32.0852272, 34.7817377, 0},   // dead
+  {0, 0, 32.0853278, 34.7816990, 120}  // high
 };
 
 const int coordCount = sizeof(coords) / sizeof(coords[0]);
@@ -171,6 +171,24 @@ void setup() {
   init_main_poc_page();
 }
 
+std::pair<float, float> getTileCenterLatLon(float lat, float lon, int zoomLevel, float tileSize) {
+
+  double lat_rad = lat * M_PI / 180.0;
+  double n = std::pow(2.0, zoomLevel);
+
+  int x_tile = static_cast<int>(std::floor((lon + 180.0) / 360.0 * n));
+  int y_tile = static_cast<int>(std::floor((1.0 - std::log(std::tan(lat_rad) + 1.0 / std::cos(lat_rad)) / M_PI) / 2.0 * n));
+
+  int centerX = x_tile * tileSize + tileSize / 2;
+  int centerY = y_tile * tileSize + tileSize / 2;
+
+  double lon_deg = centerX / (n * tileSize) * 360.0 - 180.0;
+  double lat_rad_center = std::atan(std::sinh(M_PI * (1 - 2.0 * centerY / (n * tileSize))));
+  double lat_deg = lat_rad_center * 180.0 / M_PI;
+
+  return {static_cast<float>(lat_deg), static_cast<float>(lon_deg)};
+}
+
 void clearMainPage()
 {
     lv_obj_t * mainPage = lv_scr_act();
@@ -259,7 +277,7 @@ void init_send_coords_page(lv_event_t * event)
   lv_obj_set_width(sendLabel, lv_disp_get_hor_res(NULL) - 20);
   lv_label_set_long_mode(sendLabel, LV_LABEL_LONG_WRAP);
 
-  sendTimer = lv_timer_create(sendTimerCallback, 1500, NULL);
+  sendTimer = lv_timer_create(sendTimerCallback, 5000, NULL);
 
 }
 
@@ -445,9 +463,17 @@ bool screenTouched() {
 }
 
 
+
+
 void sendCoordinate(int index) {
   Serial.printf("sendCoordinate");
   GPSCoord coord = coords[index];
+  Serial.printf("BEFORE SENDING: %.7f %.7f %.7f %.7f %d\n",coord.lat1, coord.lon1, coord.lat2, coord.lon2, coord.heartRate);
+  auto [tileLat, tileLon] = getTileCenterLatLon(coord.lat2, coord.lon2, 19, 256);
+
+  coord.lat1 = tileLat;
+  coord.lon1 = tileLon;
+  Serial.printf("SENDING: %.7f %.7f %.7f %.7f %d\n",coord.lat1, coord.lon1, coord.lat2, coord.lon2, coord.heartRate);
   crypto::ByteVec payload;
   payload.resize(sizeof(GPSCoord));
   std::memcpy(payload.data(), &coord, sizeof(GPSCoord));
