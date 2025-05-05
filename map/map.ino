@@ -53,7 +53,7 @@ lv_color_t getColorFromHeartRate(int hr) {
     if (hr < 40) return lv_color_hex(0x550000); // dark red
     if (hr < 60) return lv_color_hex(0xff0000); // red
     if (hr < 100) return lv_color_hex(0xffff00); // yellow
-    if (hr < 140) return lv_color_hex(0x00ff00); // green
+    if (hr < 140) return lv_color_hex(0x00f519); // green
     return lv_color_hex(0x555555); // greyish
 }
 
@@ -211,13 +211,13 @@ void showMiddleTile() {
     lv_img_set_src(img1, "A:/middleTile.png");
     lv_obj_align(img1, LV_ALIGN_CENTER, 0, 0);
 
-    Serial.println("Showing middle tile");
+    // Serial.println("Showing middle tile");
 }
 
 
 void deleteExistingFile(const char* tileFilePath) {
     if (FFat.exists(tileFilePath)) {
-        Serial.println("Deleting existing tile...");
+        // Serial.println("Deleting existing tile...");
         FFat.remove(tileFilePath);
     }
 }
@@ -226,7 +226,7 @@ void deleteExistingFile(const char* tileFilePath) {
 void init_upload_log_page(lv_event_t * event)
 {
     clearMainPage();
-    Serial.println("Content:" + loadFileContent(logFilePath));
+    // Serial.println("Content:" + loadFileContent(logFilePath));
     lv_obj_t * mainPage = lv_scr_act();
 
     lv_obj_set_style_bg_color(mainPage, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -259,12 +259,12 @@ void init_upload_log_page(lv_event_t * event)
 
 void upload_log_event_callback(lv_event_t * e)
 {
-    Serial.println("Starting sending log file");
+    // Serial.println("Starting sending log file");
     String logContent = loadFileContent(logFilePath);
 
     wifiModule->sendString(logContent.c_str(), "192.168.0.44", 5555);
 
-    Serial.println("File sent over UDP.");
+    // Serial.println("File sent over UDP.");
 
     init_main_menu();
     //create_popup(lv_scr_act());
@@ -296,7 +296,7 @@ String loadFileContent(const char* filePath)
 {
     File file = FFat.open(filePath, FILE_READ);
     if (!file) {
-        Serial.println("Failed to open file for reading!");
+        // Serial.println("Failed to open file for reading!");
         return "";
     }
     
@@ -313,7 +313,7 @@ String loadFileContent(const char* filePath)
 void listFiles(const char* path = "/", uint8_t depth = 0) {
     File dir = FFat.open(path);
     if (!dir || !dir.isDirectory()) {
-        Serial.printf("Failed to open directory: %s\n", path);
+        // Serial.printf("Failed to open directory: %s\n", path);
         return;
     }
 
@@ -322,11 +322,11 @@ void listFiles(const char* path = "/", uint8_t depth = 0) {
         for (uint8_t i = 0; i < depth; i++) Serial.print("  ");
 
         if (file.isDirectory()) {
-            Serial.printf("[DIR]  %s\n", file.name());
+            // Serial.printf("[DIR]  %s\n", file.name());
 
             listFiles(file.name(), depth + 1);
         } else {
-            Serial.printf("FILE:  %s  SIZE: %d\n", file.name(), file.size());
+            // Serial.printf("FILE:  %s  SIZE: %d\n", file.name(), file.size());
         }
 
         file = dir.openNextFile();
@@ -348,7 +348,7 @@ void clearMainPage()
 
 void init_main_poc_page(lv_event_t * event)
 {
-    Serial.println("init_main_poc_page");
+    // Serial.println("init_main_poc_page");
     clearMainPage();
 
     deleteExistingFile(logFilePath);
@@ -386,12 +386,12 @@ bool isZero(double x)
 
 void init_p2p_test(String incoming)
 {
-    Serial.println("init_p2p_test");
+    // Serial.println("init_p2p_test");
 
     int p1 = incoming.indexOf('|');
     int p2 = incoming.indexOf('|', p1 + 1);
     if (p1 < 0 || p2 < 0) {                      
-        Serial.println("Bad ciphertext format");
+        // Serial.println("Bad ciphertext format");
         return;
     }
 
@@ -400,27 +400,27 @@ void init_p2p_test(String incoming)
     ct.data  = hexToBytes(incoming.substring(p1 + 1, p2));
     ct.tag   = hexToBytes(incoming.substring(p2 + 1));
 
-    Serial.printf("Nonce size: %d\n", ct.nonce.size());
-    Serial.printf("Data size:  %d\n", ct.data.size());
-    Serial.printf("Tag size:   %d\n", ct.tag.size());
+    // Serial.printf("Nonce size: %d\n", ct.nonce.size());
+    // Serial.printf("Data size:  %d\n", ct.data.size());
+    // Serial.printf("Tag size:   %d\n", ct.tag.size());
     
     crypto::ByteVec pt;
 
     try {
         pt = crypto::CryptoModule::decrypt(SHARED_KEY, ct);
     } catch (const std::exception& e) {
-        Serial.printf("Decryption failed: %s\n", e.what());
+        // Serial.printf("Decryption failed: %s\n", e.what());
         return;
     }
 
 
     GPSCoord* newG = reinterpret_cast<GPSCoord*>(pt.data());
-    Serial.printf("%.5f %.5f %.5f %.5f %d\n", newG->lat1, newG->lat2, newG->lon1, newG->lon2, newG->heartRate);
+    // Serial.printf("%.5f %.5f %.5f %.5f %d\n", newG->lat1, newG->lat2, newG->lon1, newG->lon2, newG->heartRate);
     String plainStr;
     plainStr.reserve(pt.size());
     for (unsigned char b : pt) plainStr += (char)b;
 
-    Serial.println("Decrypted: " + plainStr);
+    // Serial.println("Decrypted: " + plainStr);
 
     GPSCoordTuple coords = parseCoordinates(plainStr);
 
@@ -449,7 +449,7 @@ void init_p2p_test(String incoming)
     std::tuple<int,int,int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
 
     if (!FFat.exists(tileFilePath) && downloadMiddleTile(tileLocation))
-        Serial.println("Middle tile downloaded.");
+        // Serial.println("Middle tile downloaded.");
 
     if (!current_marker)
         showMiddleTile();
@@ -516,7 +516,7 @@ void writeToLogFile(const char* filePath, const char* content)
     File file = FFat.open(filePath, FILE_APPEND);
 
     if (!file) {
-        Serial.println("Failed to open file for writing!");
+        // Serial.println("Failed to open file for writing!");
     } else {
         
         file.println(content);
@@ -525,13 +525,13 @@ void writeToLogFile(const char* filePath, const char* content)
 }
 
 void setup() {
-    Serial.begin(115200);
-    watch.begin(&Serial);
-    Serial.println("HELLO");
+    // Serial.begin(115200);
+    watch.begin();
+    // Serial.println("HELLO");
     
     
     if (!FFat.begin(true)) {
-        Serial.println("Failed to mount FFat!");
+        // Serial.println("Failed to mount FFat!");
         return;
     }
 
@@ -539,10 +539,10 @@ void setup() {
     listFiles();
     load_env();
 
-    Serial.println("load_env");
+    // Serial.println("load_env");
 
     crypto::CryptoModule::init();
-    Serial.println("init cryptoModule");
+    // Serial.println("init cryptoModule");
     
 
     deleteExistingFile(tileFilePath);
@@ -550,7 +550,7 @@ void setup() {
 
     beginLvglHelper();
     lv_png_init();
-    Serial.println("LVGL set!");
+    // Serial.println("LVGL set!");
 
     const char* ssid = env_map["WIFI_SSID"].c_str();
     const char* password = env_map["WIFI_PASS"].c_str();
@@ -562,30 +562,30 @@ void setup() {
     loraModule->setup(false);
     loraModule->setOnReadData(init_p2p_test);
 
-    Serial.println("After LORA INIT");
+    // Serial.println("After LORA INIT");
 
     init_main_menu();
 
-    Serial.println(WiFi.localIP());
+    // Serial.println(WiFi.localIP());
     setenv("TZ", "GMT-3", 1);
     tzset();
 
     configTime(0, 0, "pool.ntp.org");
 
-    Serial.println("Configured time zone!");
+    // Serial.println("Configured time zone!");
 
 
     struct tm timeInfo;
 
     while (!getLocalTime(&timeInfo)) {
-        Serial.println("Waiting for time sync...");
+        // Serial.println("Waiting for time sync...");
         delay(500);
     }
 
     if (getLocalTime(&timeInfo)) {
         char timeStr[20];
         strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeInfo);
-        Serial.println(timeStr);
+        // Serial.println(timeStr);
     }
 
     watch.attachPMU(onPmuInterrupt);
@@ -597,7 +597,7 @@ void setup() {
     );
         
 
-    Serial.println("End of setup");
+    // Serial.println("End of setup");
 }
 
 void loop() {
