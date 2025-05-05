@@ -29,6 +29,7 @@ struct GPSCoord {
     float lon1;
     float lat2;
     float lon2;
+    int heartRate;
 };
 
 
@@ -44,9 +45,17 @@ const char* logFilePath = "/log.txt";
 using GPSCoordTuple = std::tuple<float, float, float, float>;
 
 volatile bool pmu_flag = false;
-volatile bool receivedFlag = false;
 
 lv_obj_t* soldiersNameLabel = NULL;
+
+lv_color_t getColorFromHeartRate(int hr) {
+    if (hr <= 0) return lv_color_hex(0x000000); // dead
+    if (hr < 40) return lv_color_hex(0x550000); // dark red
+    if (hr < 60) return lv_color_hex(0xff0000); // red
+    if (hr < 100) return lv_color_hex(0xffff00); // yellow
+    if (hr < 140) return lv_color_hex(0x00ff00); // green
+    return lv_color_hex(0x555555); // greyish
+}
 
 static inline crypto::ByteVec hexToBytes(const String& hex) {
     crypto::ByteVec out;
@@ -114,7 +123,7 @@ std::pair<double,double> tileCenterLatLon(int zoom, int x_tile, int y_tile)
     return {lat_deg, lon_deg};
 }
 
-void create_fading_red_circle(double markerLat, double markerLon, double centerLat, double centerLon, int zoom, lv_color_t ballColor) {
+void create_fading_circle(double markerLat, double markerLon, double centerLat, double centerLon, int zoom, lv_color_t ballColor) {
     if (current_marker != NULL) {
         lv_obj_del(current_marker);
         current_marker = NULL;
@@ -382,7 +391,7 @@ void init_p2p_test(String incoming)
     }
 
     crypto::Ciphertext ct;
-    ct.nonce = hexToBytes(incoming.substring(0,       p1));
+    ct.nonce = hexToBytes(incoming.substring(0, p1));
     ct.data  = hexToBytes(incoming.substring(p1 + 1, p2));
     ct.tag   = hexToBytes(incoming.substring(p2 + 1));
 
@@ -401,7 +410,7 @@ void init_p2p_test(String incoming)
 
 
     GPSCoord* newG = reinterpret_cast<GPSCoord*>(pt.data());
-    Serial.printf("%.5f %.5f %.5f %.5f\n", newG->lat1, newG->lat2, newG->lon1, newG->lon2);
+    Serial.printf("%.5f %.5f %.5f %.5f %d\n", newG->lat1, newG->lat2, newG->lon1, newG->lon2, newG->heartRate);
     String plainStr;
     plainStr.reserve(pt.size());
     for (unsigned char b : pt) plainStr += (char)b;
@@ -437,7 +446,11 @@ void init_p2p_test(String incoming)
 
     auto [zoom, x_tile, y_tile] = tileLocation;
     auto [centerLat, centerLon] = tileCenterLatLon(zoom, x_tile, y_tile);
-    create_fading_red_circle(marker_lat, marker_lon, centerLat, centerLon, 19, ballColor);
+
+    int heartRate = newG->heartRate;
+    ballColor = getColorFromHeartRate(heartRate);
+
+    create_fading_circle(marker_lat, marker_lon, centerLat, centerLon, 19, ballColor);
 
 }
 

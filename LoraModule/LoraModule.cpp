@@ -1,13 +1,16 @@
 #include "LoraModule.h"
 
-ICACHE_RAM_ATTR void LoraModule::setReceivedFlag()
+volatile bool receivedFlag = false;
+volatile bool transmittedFlag = false;
+
+ICACHE_RAM_ATTR void setReceivedFlag(void)
 {
-    LoraModule::receivedFlag = true;
+    receivedFlag = true;
 }
 
-ICACHE_RAM_ATTR void LoraModule::setTransmittedFlag()
+ICACHE_RAM_ATTR void setTransmittedFlag(void)
 {
-    LoraModule::transmittedFlag = true;
+    transmittedFlag = true;
 }
 
 int16_t LoraModule::setup(bool transmissionMode)
@@ -20,14 +23,71 @@ int16_t LoraModule::setup(bool transmissionMode)
     }
 
     state = this->loraDevice.setFrequency(this->freq);
+    if (this->loraDevice.setBandwidth(125.0) == RADIOLIB_ERR_INVALID_BANDWIDTH) {
+        Serial.println(F("Selected bandwidth is invalid for this module!"));
+        while (true);
+    }
 
+    // set spreading factor to 10
+    if (this->loraDevice.setSpreadingFactor(10) == RADIOLIB_ERR_INVALID_SPREADING_FACTOR) {
+        Serial.println(F("Selected spreading factor is invalid for this module!"));
+        while (true);
+    }
+
+    // set coding rate to 6
+    if (this->loraDevice.setCodingRate(6) == RADIOLIB_ERR_INVALID_CODING_RATE) {
+        Serial.println(F("Selected coding rate is invalid for this module!"));
+        while (true);
+    }
+
+    // set LoRa sync word to 0xAB
+    if (this->loraDevice.setSyncWord(0xAB) != RADIOLIB_ERR_NONE) {
+        Serial.println(F("Unable to set sync word!"));
+        while (true);
+    }
+
+    // set output power to 10 dBm (accepted range is -17 - 22 dBm)
+    if (this->loraDevice.setOutputPower(22) == RADIOLIB_ERR_INVALID_OUTPUT_POWER) {
+        Serial.println(F("Selected output power is invalid for this module!"));
+        while (true);
+    }
+
+    // set over current protection limit to 140 mA (accepted range is 45 - 240 mA)
+    // NOTE: set value to 0 to disable overcurrent protection
+    if (this->loraDevice.setCurrentLimit(140) == RADIOLIB_ERR_INVALID_CURRENT_LIMIT) {
+        Serial.println(F("Selected current limit is invalid for this module!"));
+        while (true);
+    }
+
+    // set LoRa preamble length to 15 symbols (accepted range is 0 - 65535)
+    if (this->loraDevice.setPreambleLength(15) == RADIOLIB_ERR_INVALID_PREAMBLE_LENGTH) {
+        Serial.println(F("Selected preamble length is invalid for this module!"));
+        while (true);
+    }
+
+    // disable CRC
+    if (this->loraDevice.setCRC(false) == RADIOLIB_ERR_INVALID_CRC_CONFIGURATION) {
+        Serial.println(F("Selected CRC is invalid for this module!"));
+        while (true);
+    }
+
+    if (this->loraDevice.setTCXO(3.0) == RADIOLIB_ERR_INVALID_TCXO_VOLTAGE) {
+        Serial.println(F("Selected TCXO voltage is invalid for this module!"));
+        while (true);
+    }
+
+    if (this->loraDevice.setDio2AsRfSwitch() != RADIOLIB_ERR_NONE) {
+        Serial.println(F("Failed to set DIO2 as RF switch!"));
+        while (true);
+    }
+    
     if(transmissionMode)
     {
-        this->loraDevice.setDio1Action(LoraModule::setTransmittedFlag);
+        this->loraDevice.setDio1Action(setTransmittedFlag);
     }
     else
     {
-        this->loraDevice.setDio1Action(LoraModule::setReceivedFlag);
+        this->loraDevice.setDio1Action(setReceivedFlag);
     }
 
     return state;
@@ -39,6 +99,20 @@ int16_t LoraModule::setupListening()
     return state;
 }
 
+bool LoraModule::isChannelFree()
+{
+    int16_t result = this->loraDevice.scanChannel();
+
+    return (result == RADIOLIB_CHANNEL_FREE);
+}
+
+bool LoraModule::canTransmit()
+{   
+    bool isFree = this->isChannelFree();
+
+    Serial.println("Checking if can transmit: " + String(isFree) + " " + String(this->initialTransmittion) + " " + String(transmittedFlag));
+    return !transmittedFlag && isFree;
+}
 
 void LoraModule::setOnReadData(std::function<void(const String&)> callback)
 {
@@ -47,14 +121,14 @@ void LoraModule::setOnReadData(std::function<void(const String&)> callback)
 
 int16_t LoraModule::readData()
 {
-    if(this->receivedFlag)
+    if(receivedFlag)
     {
-        this->receivedFlag = false;
-
+        receivedFlag = false;
+        Serial.println("Cleared received flag!");
         String data;
 
         int16_t state = this->loraDevice.readData(data);
-
+        Serial.println("Cleared received flag! " + String(state) + " " + data);
         if(state != RADIOLIB_ERR_NONE)
         {
             return state;
@@ -69,18 +143,28 @@ int16_t LoraModule::readData()
 
 int16_t LoraModule::cleanUpTransmissions()
 {
-    if(this->transmittedFlag)
+    if (transmittedFlag)
     {
-        this->transmittedFlag = false;
-        return this->loraDevice.finishTransmit();
+        transmittedFlag = false;
+        Serial.println("Cleaning this->transmittedFlag " + String(transmittedFlag));
+        uint16_t status =  this->loraDevice.finishTransmit();
+        Serial.println(String(status));
     }
 
-    return 1;
+    return RADIOLIB_ERR_NONE;
 }
 
 int16_t LoraModule::sendData(const char* data)
 {
-    return this->loraDevice.startTransmit(data);
+    Serial.println("this->transmittedFlag: " + String(transmittedFlag));
+    uint16_t status = this->loraDevice.startTransmit(data);
+    Serial.println(String(status));
+    if (!this->initialTransmittion && status == RADIOLIB_ERR_NONE)
+    {
+        this->initialTransmittion = true;
+    }
+
+    return status;
 }
 
 LoraModule::LoraModule(float frequency)
