@@ -1,5 +1,6 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
+#include <FFat.h>
 
 class WifiModule {
     private:
