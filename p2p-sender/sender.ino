@@ -12,7 +12,7 @@ SX1262 lora = newModule();
 const char* ssid = "default";
 const char* password = "1357924680";
 
-const char *udpAddress = "192.168.0.133";
+const char *udpAddress = "192.168.0.44";
 const int udpPort = 3333;
 
 const crypto::Key256 SHARED_KEY = []() {
