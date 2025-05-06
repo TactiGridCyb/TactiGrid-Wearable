@@ -5,11 +5,10 @@
 #include <HTTPClient.h>
 #include "../encryption/CryptoModule.h"
 #include <cstring>
-#include <TinyGPSPlus.h>
 
 // === LoRa Setup ===
 SX1262 lora = newModule();
-TinyGPSPlus gps;
+
 const char* ssid = "default";
 const char* password = "1357924680";
 
@@ -33,11 +32,11 @@ struct GPSCoord {
 };
 
 GPSCoord coords[] = {
-  {0, 0, 32.08539, 34.78180, 78},  // healthy
-  {0, 0, 32.0853278, 34.7819010, 100},  // borderline
-  {0, 0, 32.0852272, 34.7818623, 55},  // low
-  {0, 0, 32.0852272, 34.7817377, 0},   // dead
-  {0, 0, 32.0853278, 34.7816990, 120}  // high
+  {0, 0, 31.970866, 34.785611, 78},     // healthy
+  {0, 0, 31.970870, 34.785630, 100},    // borderline
+  {0, 0, 31.970855, 34.785590, 55},     // low
+  {0, 0, 31.970840, 34.785570, 0},      // dead 
+  {0, 0, 31.970880, 34.785650, 120}     // high
 };
 
 const int coordCount = sizeof(coords) / sizeof(coords[0]);
@@ -51,7 +50,7 @@ const char* helmentDownloadLink = "https://iconduck.com/api/v2/vectors/vctr0xb8u
 
 // === Function Prototypes ===
 void setupLoRa();
-void sendCoordinate(float lat, float lon);
+void sendCoordinate(int index);
 bool screenTouched();
 
 volatile bool transmittedFlag = false;
@@ -144,20 +143,20 @@ void setup() {
 
   struct tm timeInfo;
 
-  // setenv("TZ", "GMT-3", 1);
-  // tzset();
+  setenv("TZ", "GMT-3", 1);
+  tzset();
 
-  // configTime(0, 0, "pool.ntp.org");
-  // while (!getLocalTime(&timeInfo)) {
-  //     Serial.println("Waiting for time sync...");
-  //     delay(500);
-  // }
+  configTime(0, 0, "pool.ntp.org");
+  while (!getLocalTime(&timeInfo)) {
+      Serial.println("Waiting for time sync...");
+      delay(500);
+  }
 
-  // if (getLocalTime(&timeInfo)) {
-  //     char timeStr[20];
-  //     strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeInfo);
-  //     Serial.println(timeStr);
-  // }
+  if (getLocalTime(&timeInfo)) {
+      char timeStr[20];
+      strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeInfo);
+      Serial.println(timeStr);
+  }
   crypto::CryptoModule::init();
   listFiles("/");
 
@@ -278,7 +277,7 @@ void init_send_coords_page(lv_event_t * event)
   lv_obj_set_width(sendLabel, lv_disp_get_hor_res(NULL) - 20);
   lv_label_set_long_mode(sendLabel, LV_LABEL_LONG_WRAP);
 
-  //sendTimer = lv_timer_create(sendTimerCallback, 5000, NULL);
+  sendTimer = lv_timer_create(sendTimerCallback, 5000, NULL);
 
 }
 
@@ -294,7 +293,7 @@ void sendTimerCallback(lv_timer_t *timer) {
         strcpy(timeStr, "00:00:00");
     }
     
-    //sendCoordinate(currentIndex % coordCount);
+    sendCoordinate(currentIndex % coordCount);
     
     const char *current_text = lv_label_get_text(sendLabel);
     
@@ -308,11 +307,6 @@ void sendTimerCallback(lv_timer_t *timer) {
       lv_timer_del(timer);
       currentIndex = 0;
   }
-}
-
-bool isZero(double x)
-{
-    return std::fabs(x) < 1e-9;
 }
 
 // === Loop ===
@@ -341,12 +335,6 @@ void loop() {
 
   }
 
-  double lat = gps.location.isValid() ? gps.location.lat() : 0;
-  double lng = gps.location.isValid() ? gps.location.lng() : 0;
-  if(gps.location.isValid() && !isZero(lat) && !isZero(lng))
-  {
-    sendCoordinate(static_cast<float>(lat), static_cast<float>(lng));
-  }
   // if (screenTouched()) {
   //   sendCoordinate(currentIndex);
 
@@ -359,7 +347,7 @@ void loop() {
   // }
 
   lv_task_handler();
-  smartDelay(5000);
+  delay(10);
 }
 
 // === LoRa Setup ===
@@ -477,11 +465,9 @@ bool screenTouched() {
 
 
 
-void sendCoordinate(float lat, float lon) {
+void sendCoordinate(int index) {
   Serial.printf("sendCoordinate");
-  GPSCoord coord;
-  coord.lat2 = lat;
-  coord.lon2 = lon;
+  GPSCoord coord = coords[index];
   Serial.printf("BEFORE SENDING: %.7f %.7f %.7f %.7f %d\n",coord.lat1, coord.lon1, coord.lat2, coord.lon2, coord.heartRate);
   auto [tileLat, tileLon] = getTileCenterLatLon(coord.lat2, coord.lon2, 19, 256);
 
@@ -510,22 +496,4 @@ void sendCoordinate(float lat, float lon) {
   udp.printf(msg.c_str());
   udp.endPacket();
   transmissionState = lora.startTransmit(msg.c_str());
-
-  const char *current_text = lv_label_get_text(sendLabel);
-    
-  lv_label_set_text_fmt(sendLabel, "%s - sent coords {%.5f, %.5f}\n", 
-                        current_text,
-                        coords[currentIndex % coordCount].lat2, 
-                        coords[currentIndex % coordCount].lon2);
-}
-
-static void smartDelay(unsigned long ms)
-{
-    unsigned long start = millis();
-    do {
-        while (GPSSerial.available()) {
-            int r = GPSSerial.read();
-            gps.encode(r);
-        }
-    } while (millis() - start < ms);
 }
