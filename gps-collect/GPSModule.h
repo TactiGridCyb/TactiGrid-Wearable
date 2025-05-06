@@ -1,14 +1,19 @@
+#pragma once
+
 #include <TinyGPSPlus.h>
+#include <LilyGoLib.h>
 #include <tuple>
 
 class GPSModule{
     private:
     TinyGPSPlus gpsInstance;
-    unsigned long currentTime;
-    float readInterval;
-    
-    public:
-    GPSModule(float);
+    float readInterval; // Seconds
+    unsigned long lastCheck;
 
-    std::tuple<float,float> readData();
+    public:
+    GPSModule(float readInterval = 1.0);
+
+    void readGPSData();
+    std::tuple<float, float> getCurrentCoords();
+    bool isZero(float value);
 };

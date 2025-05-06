@@ -1,10 +1,11 @@
-#include <LilyGoLib.h>
-#include <LV_Helper.h>
+#include <cstring>
 #include <WiFiUdp.h> 
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <LV_Helper.h>
+#include <LilyGoLib.h>
 #include "../encryption/CryptoModule.h"
-#include <cstring>
+#include "../gps-collect/GPSModule.h"
 
 // === LoRa Setup ===
 SX1262 lora = newModule();
@@ -46,6 +47,7 @@ int transmissionState = RADIOLIB_ERR_NONE;
 lv_obj_t* sendLabel = NULL;
 lv_timer_t * sendTimer;
 WiFiUDP udp;
+std::unique_ptr<GPSModule> gpsModule;
 const char* helmentDownloadLink = "https://iconduck.com/api/v2/vectors/vctr0xb8urkk/media/png/256/download";
 
 // === Function Prototypes ===
@@ -167,7 +169,8 @@ void setup() {
       XPOWERS_AXP2101_PKEY_SHORT_IRQ | 
       XPOWERS_AXP2101_PKEY_LONG_IRQ
   );
-
+  gpsModule = std::make_unique<GPSModule>();
+  
   init_main_poc_page();
 }
 
@@ -334,6 +337,8 @@ void loop() {
     lora.finishTransmit();
 
   }
+  gpsModule->readGPSData();
+  auto [lat, lon] = gpsModule->getCurrentCoords();
 
   // if (screenTouched()) {
   //   sendCoordinate(currentIndex);

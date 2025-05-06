@@ -1,3 +1,5 @@
+#pragma once
+
 #include <LilyGoLib.h>
 #include <LV_Helper.h>
 

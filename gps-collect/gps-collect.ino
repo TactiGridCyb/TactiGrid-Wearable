@@ -54,7 +54,7 @@ void loop()
 
     smartDelay(1000);
 
-    lv_task_handler();
+    lv_timer_handler();
 }
 
 // This custom version of delay() ensures that the gps object
