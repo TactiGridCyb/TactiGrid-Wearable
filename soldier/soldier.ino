@@ -52,11 +52,15 @@ const char* helmentDownloadLink = "https://iconduck.com/api/v2/vectors/vctr0xb8u
 
 // === Function Prototypes ===
 void setupLoRa();
-void sendCoordinate(int index);
+void sendCoordinate(float lat, float lon);
 bool screenTouched();
 
 volatile bool transmittedFlag = false;
 volatile bool pmu_flag = false;
+volatile bool startGPSChecking = false;
+
+unsigned long lastSendTime = 0;
+const unsigned long SEND_INTERVAL = 5000;
 
 ICACHE_RAM_ATTR void setFlag(void)
 {
@@ -254,6 +258,8 @@ void init_main_poc_page()
     lv_label_set_text(sendCoordsLabel, "Send Coords");
     lv_obj_center(sendCoordsLabel);
 
+    startGPSChecking = false;
+
 }
 
 
@@ -280,7 +286,8 @@ void init_send_coords_page(lv_event_t * event)
   lv_obj_set_width(sendLabel, lv_disp_get_hor_res(NULL) - 20);
   lv_label_set_long_mode(sendLabel, LV_LABEL_LONG_WRAP);
 
-  sendTimer = lv_timer_create(sendTimerCallback, 5000, NULL);
+  //sendTimer = lv_timer_create(sendTimerCallback, 5000, NULL);
+  startGPSChecking = true;
 
 }
 
@@ -296,7 +303,7 @@ void sendTimerCallback(lv_timer_t *timer) {
         strcpy(timeStr, "00:00:00");
     }
     
-    sendCoordinate(currentIndex % coordCount);
+    //sendCoordinate(currentIndex % coordCount);
     
     const char *current_text = lv_label_get_text(sendLabel);
     
@@ -310,6 +317,11 @@ void sendTimerCallback(lv_timer_t *timer) {
       lv_timer_del(timer);
       currentIndex = 0;
   }
+}
+
+bool isZero(float x)
+{
+    return std::fabs(x) < 1e-9f;
 }
 
 // === Loop ===
@@ -330,27 +342,45 @@ void loop() {
     if (transmissionState == RADIOLIB_ERR_NONE) {
       Serial.println(F("transmission finished!"));
     } else {
-      // Serial.print(F("failed, code "));
       Serial.println(transmissionState);
     }
 
     lora.finishTransmit();
+  }
+
+  if (startGPSChecking) {
+    gpsModule->readGPSData();
+
+    auto [lat, lon] = gpsModule->getCurrentCoords();
+    unsigned long currentTime = millis();
+
+    if (currentTime - lastSendTime >= SEND_INTERVAL) {
+
+      if (!isZero(lat) && !isZero(lon)) {
+        sendCoordinate(lat, lon);
+      }
+      else
+      {
+        struct tm timeInfo;
+        char timeStr[9];
+
+        if(getLocalTime(&timeInfo)) {
+            strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeInfo);
+        } else {
+            strcpy(timeStr, "00:00:00");
+        }
+                
+        lv_label_set_text_fmt(sendLabel, "%s Waiting - {%.5f, %.5f}\n", 
+                              timeStr,
+                              lat, 
+                              lon);
+      }
+
+      lastSendTime = currentTime;
+    }
 
   }
-  gpsModule->readGPSData();
-  auto [lat, lon] = gpsModule->getCurrentCoords();
-
-  // if (screenTouched()) {
-  //   sendCoordinate(currentIndex);
-
-  //   ++currentIndex;
-
-  //   if (currentIndex >= coordCount)
-  //   {
-  //     currentIndex = 0;
-  //   }
-  // }
-
+  
   lv_task_handler();
   delay(10);
 }
@@ -470,9 +500,13 @@ bool screenTouched() {
 
 
 
-void sendCoordinate(int index) {
-  Serial.printf("sendCoordinate");
-  GPSCoord coord = coords[index];
+void sendCoordinate(float lat, float lon) {
+  Serial.println("sendCoordinate");
+
+  GPSCoord coord;
+  coord.lat2 = lat;
+  coord.lon2 = lon;
+
   Serial.printf("BEFORE SENDING: %.7f %.7f %.7f %.7f %d\n",coord.lat1, coord.lon1, coord.lat2, coord.lon2, coord.heartRate);
   auto [tileLat, tileLon] = getTileCenterLatLon(coord.lat2, coord.lon2, 19, 256);
 
@@ -501,4 +535,20 @@ void sendCoordinate(int index) {
   udp.printf(msg.c_str());
   udp.endPacket();
   transmissionState = lora.startTransmit(msg.c_str());
+
+  struct tm timeInfo;
+  char timeStr[9];
+
+  if(getLocalTime(&timeInfo)) {
+      strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeInfo);
+  } else {
+      strcpy(timeStr, "00:00:00");
+  }
+      
+  const char *current_text = lv_label_get_text(sendLabel);
+  
+  lv_label_set_text_fmt(sendLabel, "%s%s - sent coords {%.5f, %.5f}\n", 
+                        current_text, timeStr, 
+                        lat, 
+                        lon);
 }

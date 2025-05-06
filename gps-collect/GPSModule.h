@@ -11,9 +11,8 @@ class GPSModule{
     unsigned long lastCheck;
 
     public:
-    GPSModule(float readInterval = 1.0);
+    GPSModule(float readInterval = 1.2f);
 
     void readGPSData();
     std::tuple<float, float> getCurrentCoords();
-    bool isZero(float value);
 };

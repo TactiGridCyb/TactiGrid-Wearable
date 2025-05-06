@@ -1,6 +1,6 @@
 #include "GPSModule.h"
 
-GPSModule::GPSModule(float readInterval = 1.2f)
+GPSModule::GPSModule(float readInterval)
 {
     this->readInterval = readInterval;
     this->lastCheck = millis();
@@ -14,11 +14,6 @@ void GPSModule::readGPSData()
     }
 }
 
-bool GPSModule::isZero(float value) {
-    const float epsilon = 1e-6f;
-    return fabsf(value) < epsilon;
-}
-
 std::tuple<float, float> GPSModule::getCurrentCoords()
 {
     unsigned long currentTime = millis();
@@ -27,15 +22,11 @@ std::tuple<float, float> GPSModule::getCurrentCoords()
     {
         return std::make_tuple(0.0f, 0.0f);
     }
-    
+
     this->lastCheck = currentTime;
 
     float lat = gpsInstance.location.isValid() ? gpsInstance.location.lat() : 0.0f;
     float lng = gpsInstance.location.isValid() ? gpsInstance.location.lng() : 0.0f;
-
-    if (isZero(lat) || isZero(lng)) {
-        return std::make_tuple(0.0f, 0.0f);
-    }
 
     return std::make_tuple(lat, lng);
 }
