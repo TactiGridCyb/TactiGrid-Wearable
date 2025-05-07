@@ -14,5 +14,12 @@ class GPSModule{
     GPSModule(float readInterval = 1.2f);
 
     void readGPSData();
-    std::tuple<float, float> getCurrentCoords();
+    std::tuple<float, float, float> getCurrentCoords();
+    TinyGPSDate getGPSDate();
+    TinyGPSTime getGPSTime();
+    TinyGPSHDOP getGPSHDOP();
+    TinyGPSAltitude getGPSAltitude();
+    TinyGPSInteger getGPSSatellites();
+    TinyGPSSpeed getGPSSpeed();
+    
 };
