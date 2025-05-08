@@ -9,4 +9,13 @@ struct SoldiersSentData {
     float posLon;
     int heartRate;
     uint16_t soldiersID;
+    SoldiersStatus status;
+};
+
+enum SoldiersStatus
+{
+    REGULAR,
+    COMPROMISED,
+    DEAD,
+    SOS
 };
