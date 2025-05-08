@@ -6,6 +6,7 @@
 #include <LilyGoLib.h>
 #include "../encryption/CryptoModule.h"
 #include "../gps-collect/GPSModule.h"
+#include "SoldiersSentData.h"
 
 // === LoRa Setup ===
 SX1262 lora = newModule();
@@ -23,21 +24,13 @@ const crypto::Key256 SHARED_KEY = []() {
   return key;
 }();
 
-// === Coordinates ===
-struct GPSCoord {
-  float lat1;
-  float lon1;
-  float lat2;
-  float lon2;
-  int heartRate;
-};
-
-GPSCoord coords[] = {
-  {0, 0, 31.970866, 34.785611, 78},     // healthy
-  {0, 0, 31.970870, 34.785630, 100},    // borderline
-  {0, 0, 31.970855, 34.785590, 55},     // low
-  {0, 0, 31.970840, 34.785570, 0},      // dead 
-  {0, 0, 31.970880, 34.785650, 120}     // high
+//Example soldiers messages
+SoldiersSentData coords[] = {
+  {0, 0, 31.970866, 34.785611, 78, 1},     // healthy
+  {0, 0, 31.970870, 34.785630, 100, 2},    // borderline
+  {0, 0, 31.970855, 34.785590, 55, 3},     // low
+  {0, 0, 31.970840, 34.785570, 0, 4},      // dead 
+  {0, 0, 31.970880, 34.785650, 120, 5}     // high
 };
 
 const int coordCount = sizeof(coords) / sizeof(coords[0]);
@@ -309,8 +302,8 @@ void sendTimerCallback(lv_timer_t *timer) {
     
     lv_label_set_text_fmt(sendLabel, "%s%s - sent coords {%.5f, %.5f}\n", 
                           current_text, timeStr, 
-                          coords[currentIndex % coordCount].lat2, 
-                          coords[currentIndex % coordCount].lon2);
+                          coords[currentIndex % coordCount].posLat, 
+                          coords[currentIndex % coordCount].posLon);
                           
     currentIndex++;
   } else {
@@ -503,19 +496,19 @@ bool screenTouched() {
 void sendCoordinate(float lat, float lon) {
   Serial.println("sendCoordinate");
 
-  GPSCoord coord;
-  coord.lat2 = lat;
-  coord.lon2 = lon;
+  SoldiersSentData coord;
+  coord.posLat = lat;
+  coord.posLon = lon;
 
-  Serial.printf("BEFORE SENDING: %.7f %.7f %.7f %.7f %d\n",coord.lat1, coord.lon1, coord.lat2, coord.lon2, coord.heartRate);
-  auto [tileLat, tileLon] = getTileCenterLatLon(coord.lat2, coord.lon2, 19, 256);
+  Serial.printf("BEFORE SENDING: %.7f %.7f %.7f %.7f %d\n",coord.tileLat, coord.tileLon, coord.posLat, coord.posLon, coord.heartRate);
+  auto [tileLat, tileLon] = getTileCenterLatLon(coord.posLat, coord.posLon, 19, 256);
 
-  coord.lat1 = tileLat;
-  coord.lon1 = tileLon;
-  Serial.printf("SENDING: %.7f %.7f %.7f %.7f %d\n",coord.lat1, coord.lon1, coord.lat2, coord.lon2, coord.heartRate);
+  coord.tileLat = tileLat;
+  coord.tileLon = tileLon;
+  Serial.printf("SENDING: %.7f %.7f %.7f %.7f %d\n",coord.tileLat, coord.tileLon, coord.posLat, coord.posLon, coord.heartRate);
   crypto::ByteVec payload;
-  payload.resize(sizeof(GPSCoord));
-  std::memcpy(payload.data(), &coord, sizeof(GPSCoord));
+  payload.resize(sizeof(SoldiersSentData));
+  std::memcpy(payload.data(), &coord, sizeof(SoldiersSentData));
   
   crypto::Ciphertext ct = crypto::CryptoModule::encrypt(SHARED_KEY, payload);
 

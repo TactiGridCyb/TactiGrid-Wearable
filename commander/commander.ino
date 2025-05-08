@@ -15,6 +15,7 @@
 #include "../LoraModule/LoraModule.h"
 #include "../wifi-connection/WifiModule.h"
 #include "../envLoader.cpp"
+#include "../soldier/SoldiersSentData.h"
 
 const crypto::Key256 SHARED_KEY = []() {
     crypto::Key256 key{};
@@ -23,14 +24,6 @@ const crypto::Key256 SHARED_KEY = []() {
     std::memcpy(key.data(), raw, 32);
     return key;
 }();
-
-struct GPSCoord {
-    float lat1;
-    float lon1;
-    float lat2;
-    float lon2;
-    int heartRate;
-};
 
 
 lv_obj_t *current_marker = NULL;
@@ -49,12 +42,23 @@ volatile bool pmu_flag = false;
 lv_obj_t* soldiersNameLabel = NULL;
 
 lv_color_t getColorFromHeartRate(int hr) {
-    if (hr <= 0) return lv_color_hex(0x000000); // dead
-    if (hr < 40) return lv_color_hex(0x550000); // dark red
-    if (hr < 60) return lv_color_hex(0xff0000); // red
-    if (hr < 100) return lv_color_hex(0xffff00); // yellow
-    if (hr < 140) return lv_color_hex(0x00f519); // green
-    return lv_color_hex(0x555555); // greyish
+    if (hr <= 0) return lv_color_black();
+
+    const int min_hr = 40;
+    const int max_hr = 140;
+
+    if (hr < min_hr)
+    {
+        hr = min_hr;
+    } 
+    else if (hr > max_hr)
+    {
+        hr = max_hr;
+    } 
+
+    int hue = 120 * (hr - min_hr) / (max_hr - min_hr);
+
+    return lv_color_hsv_to_rgb(hue, 100, 100);
 }
 
 static inline crypto::ByteVec hexToBytes(const String& hex) {
@@ -414,7 +418,7 @@ void init_p2p_test(String incoming)
     }
 
 
-    GPSCoord* newG = reinterpret_cast<GPSCoord*>(pt.data());
+    SoldiersSentData* newG = reinterpret_cast<SoldiersSentData*>(pt.data());
     // Serial.printf("%.5f %.5f %.5f %.5f %d\n", newG->lat1, newG->lat2, newG->lon1, newG->lon2, newG->heartRate);
     String plainStr;
     plainStr.reserve(pt.size());
@@ -424,10 +428,10 @@ void init_p2p_test(String incoming)
 
     GPSCoordTuple coords = parseCoordinates(plainStr);
 
-    float tile_lat = newG->lat1;
-    float tile_lon = newG->lon1;
-    float marker_lat = newG->lat2;
-    float marker_lon = newG->lon2;
+    float tile_lat = newG->tileLat;
+    float tile_lon = newG->tileLon;
+    float marker_lat = newG->posLat;
+    float marker_lon = newG->posLon;
 
     if(isZero(tile_lat) || isZero(tile_lon) || isZero(marker_lat) || isZero(marker_lon))
     {
