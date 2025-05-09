@@ -2,15 +2,6 @@
 
 #pragma once
 
-struct SoldiersSentData {
-    float tileLat;
-    float tileLon;
-    float posLat;
-    float posLon;
-    int heartRate;
-    uint16_t soldiersID;
-    SoldiersStatus status;
-};
 
 enum SoldiersStatus
 {
@@ -19,3 +10,14 @@ enum SoldiersStatus
     DEAD,
     SOS
 };
+
+struct SoldiersSentData {
+    float tileLat;
+    float tileLon;
+    float posLat;
+    float posLon;
+    int heartRate;
+    uint16_t soldiersID;
+    enum SoldiersStatus status;
+};
+
