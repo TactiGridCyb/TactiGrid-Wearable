@@ -6,23 +6,28 @@
 
 
 CommanderConfigModule::CommanderConfigModule(const String& rawJson) {
-    DynamicJsonDocument doc(8192);  // adjust size if needed
+    DynamicJsonDocument doc(8192);
     deserializeJson(doc, rawJson);
 
-    _gmk = doc["GMK"].as<String>();
-    _id = doc["id"].as<int>();
+    _gmk = doc["GMK"] | "";
+    _id = doc["id"] | -1;
 
     for (JsonVariant v : doc["commander_hierarchy"].as<JsonArray>()) {
         _hierarchy.push_back(v.as<int>());
     }
-    for (JsonVariant v : doc["soldiers"].as<JsonArray>()) {
-        _soldiers.push_back(v.as<int>());
+
+    // ✅ Only loop if "soldiers" key exists and is an array
+    if (doc.containsKey("soldiers") && doc["soldiers"].is<JsonArray>()) {
+        for (JsonVariant v : doc["soldiers"].as<JsonArray>()) {
+            _soldiers.push_back(v.as<int>());
+        }
     }
 
-    _privateKeyPEM = doc["private_key_pem"].as<String>();
-    _certificatePEM = doc["certificate_pem"].as<String>();
-    _caCertificatePEM = doc["ca_certificate_pem"].as<String>();
+    _privateKeyPEM = doc["private_key_pem"] | "";
+    _certificatePEM = doc["certificate_pem"] | "";
+    _caCertificatePEM = doc["ca_certificate_pem"] | "";
 }
+
 
 String CommanderConfigModule::getGMK() const {
     return _gmk;
