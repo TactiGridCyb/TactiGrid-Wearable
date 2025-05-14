@@ -7,9 +7,9 @@
 #include "../encryption/CryptoModule.h"
 #include "../gps-collect/GPSModule.h"
 #include "SoldiersSentData.h"
+#include "LoraModule.h"
 
-// === LoRa Setup ===
-SX1262 lora = newModule();
+std::unique_ptr<LoraModule> loraModule;
 
 const char* ssid = "default";
 const char* password = "1357924680";
@@ -48,18 +48,11 @@ void setupLoRa();
 void sendCoordinate(float lat, float lon);
 bool screenTouched();
 
-volatile bool transmittedFlag = false;
 volatile bool pmu_flag = false;
 volatile bool startGPSChecking = false;
 
 unsigned long lastSendTime = 0;
 const unsigned long SEND_INTERVAL = 5000;
-
-ICACHE_RAM_ATTR void setFlag(void)
-{
-    // we sent a packet, set the flag
-    transmittedFlag = true;
-}
 
 void IRAM_ATTR onPmuInterrupt() {
   pmu_flag = true;
@@ -130,8 +123,6 @@ void setup() {
   watch.begin(&Serial);
   beginLvglHelper();
 
-  setupLoRa();
-
   Serial.println("Touch screen to send next coordinate.");
   if(!FFat.exists("/helmet.png"))
   {
@@ -139,6 +130,10 @@ void setup() {
     downloadFile(helmentDownloadLink, "/helmet.png");
   }
   connectToWiFi();
+
+
+  loraModule = std::make_unique<LoraModule>(433.5);
+  loraModule->setup(true);
 
   struct tm timeInfo;
 
@@ -329,17 +324,7 @@ void loop() {
     watch.clearPMU();
   }
 
-  if (transmittedFlag) {
-    transmittedFlag = false;
-
-    if (transmissionState == RADIOLIB_ERR_NONE) {
-      Serial.println(F("transmission finished!"));
-    } else {
-      Serial.println(transmissionState);
-    }
-
-    lora.finishTransmit();
-  }
+  loraModule->cleanUpTransmissions();
 
   if (startGPSChecking) {
     gpsModule->readGPSData();
@@ -378,120 +363,6 @@ void loop() {
   delay(10);
 }
 
-// === LoRa Setup ===
-void setupLoRa() {
-  // Serial.print(F("[LoRa] Initializing... "));
-
-  int state = lora.begin();
-
-  if (state == RADIOLIB_ERR_NONE) {
-      Serial.println(F("success!"));
-  } else {
-      // Serial.print(F("failed, code "));
-      Serial.println(state);
-      while (true);
-  }
-
-
-  if (lora.setFrequency(433.5) == RADIOLIB_ERR_INVALID_FREQUENCY) {
-    Serial.println(F("Selected frequency is invalid for this module!"));
-    while (true);
-  }
-
-  if (lora.setBandwidth(125.0) == RADIOLIB_ERR_INVALID_BANDWIDTH) {
-    Serial.println(F("Selected bandwidth is invalid for this module!"));
-    while (true);
-  }
-
-  // set spreading factor to 10
-  if (lora.setSpreadingFactor(10) == RADIOLIB_ERR_INVALID_SPREADING_FACTOR) {
-      Serial.println(F("Selected spreading factor is invalid for this module!"));
-      while (true);
-  }
-
-  // set coding rate to 6
-  if (lora.setCodingRate(6) == RADIOLIB_ERR_INVALID_CODING_RATE) {
-      Serial.println(F("Selected coding rate is invalid for this module!"));
-      while (true);
-  }
-
-  // set LoRa sync word to 0xAB
-  if (lora.setSyncWord(0xAB) != RADIOLIB_ERR_NONE) {
-      Serial.println(F("Unable to set sync word!"));
-      while (true);
-  }
-
-  // set output power to 10 dBm (accepted range is -17 - 22 dBm)
-  if (lora.setOutputPower(22) == RADIOLIB_ERR_INVALID_OUTPUT_POWER) {
-      Serial.println(F("Selected output power is invalid for this module!"));
-      while (true);
-  }
-
-  // set over current protection limit to 140 mA (accepted range is 45 - 240 mA)
-  // NOTE: set value to 0 to disable overcurrent protection
-  if (lora.setCurrentLimit(140) == RADIOLIB_ERR_INVALID_CURRENT_LIMIT) {
-      Serial.println(F("Selected current limit is invalid for this module!"));
-      while (true);
-  }
-
-  // set LoRa preamble length to 15 symbols (accepted range is 0 - 65535)
-  if (lora.setPreambleLength(15) == RADIOLIB_ERR_INVALID_PREAMBLE_LENGTH) {
-      Serial.println(F("Selected preamble length is invalid for this module!"));
-      while (true);
-  }
-
-  // disable CRC
-  if (lora.setCRC(false) == RADIOLIB_ERR_INVALID_CRC_CONFIGURATION) {
-      Serial.println(F("Selected CRC is invalid for this module!"));
-      while (true);
-  }
-
-  if (lora.setTCXO(3.0) == RADIOLIB_ERR_INVALID_TCXO_VOLTAGE) {
-      Serial.println(F("Selected TCXO voltage is invalid for this module!"));
-      while (true);
-  }
-
-  if (lora.setDio2AsRfSwitch() != RADIOLIB_ERR_NONE) {
-      Serial.println(F("Failed to set DIO2 as RF switch!"));
-      while (true);
-  }
-
-  lora.setDio1Action(setFlag);
-
-  // Serial.print(F("[SX1262] Sending first packet ... "));
-}
-
-// === Touch Detection ===
-bool screenTouched() {
-  lv_point_t point; //define a point for screen (x,y)
-  lv_indev_t *indev = lv_indev_get_next(NULL); //retrive last place touched on screen
-  if (!indev) return false;
-
-#if LV_VERSION_CHECK(9,0,0)
-  bool isPressed = lv_indev_get_state(indev) == LV_INDEV_STATE_PRESSED;
-#else
-  bool isPressed = indev->proc.state == LV_INDEV_STATE_PRESSED;
-#endif
-
-  if (isPressed && !alreadyTouched) {
-    alreadyTouched = true;
-    lv_indev_get_point(indev, &point);
-    // Serial.print("📍 Touch detected at x=");
-    // Serial.print(point.x);
-    // Serial.print(" y=");
-    Serial.println(point.y);
-    return true;
-  }
-
-  if (!isPressed) {
-    alreadyTouched = false;
-  }
-
-  return false;
-}
-
-
-
 
 void sendCoordinate(float lat, float lon) {
   Serial.println("sendCoordinate");
@@ -527,7 +398,7 @@ void sendCoordinate(float lat, float lon) {
   udp.beginPacket(udpAddress, udpPort);
   udp.printf(msg.c_str());
   udp.endPacket();
-  transmissionState = lora.startTransmit(msg.c_str());
+  transmissionState = loraModule->sendData(msg.c_str());
 
   struct tm timeInfo;
   char timeStr[9];

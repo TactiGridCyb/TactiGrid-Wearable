@@ -167,6 +167,51 @@ int16_t LoraModule::sendData(const char* data)
     return status;
 }
 
+int16_t LoraModule::sendFile(const uint8_t* data,
+                             size_t   length,
+                             size_t   chunkSize)
+{
+    if (!data || length == 0) 
+    {
+        return 0;
+    }
+
+    // -------- phase 1: announce transfer ---------------------------------
+    String initFrame  = String(kFileInitTag)  + ':' +
+                        String(length)        + ':' +
+                        String(chunkSize);
+
+    int16_t state = this->sendData(initFrame.c_str());
+    if (state != RADIOLIB_ERR_NONE) 
+    {
+        return state;
+    }
+
+    // -------- phase 2: numbered chunks -----------------------------------
+    uint16_t totalChunks = (length + chunkSize - 1) / chunkSize;
+    for (uint16_t idx = 0; idx < totalChunks; ++idx)
+    {
+        // Wait until the previous packet has really left the air
+        while (!this->canTransmit()) { delay(10); }
+
+        size_t  offset  = idx * chunkSize;
+        size_t  segLen  = min(chunkSize, length - offset);
+
+        uint8_t packet[4 + segLen];
+        packet[0] = 0xAB;                    // sync byte for file-chunks
+        packet[1] = (idx >> 8) & 0xFF;       // MSB of chunk number
+        packet[2] = (idx & 0xFF);            // LSB
+        packet[3] = static_cast<uint8_t>(segLen);
+        memcpy(packet + 4, data + offset, segLen);
+
+        state = this->loraDevice.startTransmit(packet, 4 + segLen);
+        if (state != RADIOLIB_ERR_NONE) { return state; }
+    }
+
+    String endFrame = String(kFileEndTag);
+    return this->sendData(endFrame.c_str());
+}
+
 LoraModule::LoraModule(float frequency)
 {
     this->freq = frequency;

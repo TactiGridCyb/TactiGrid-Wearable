@@ -3,6 +3,9 @@
 #include <LilyGoLib.h>
 #include <LV_Helper.h>
 
+static constexpr const char* kFileInitTag  = "FILE_INIT";
+static constexpr const char* kFileChunkTag = "FILE_CHUNK";
+static constexpr const char* kFileEndTag   = "FILE_END";
 
 class LoraModule
 {
@@ -12,6 +15,14 @@ private:
     bool initialTransmittion = false;
 
     std::function<void(const String&)> onReadData;
+
+    std::vector<uint8_t> fileBuffer;
+    uint16_t expectedChunks      = 0;
+    uint16_t receivedChunks      = 0;
+    size_t   transferChunkSize   = 0;
+    std::function<void(const uint8_t* data, size_t length)> onFileReceived;
+
+
     float freq;
 public:
     LoraModule(float);
@@ -26,7 +37,10 @@ public:
     bool canTransmit();
 
     void setOnReadData(std::function<void(const String&)>);
-    
+    int16_t sendFile(const uint8_t* data,
+                 size_t          length,
+                 size_t          chunkSize = 200);
+
     ~LoraModule();
 };
 

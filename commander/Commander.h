@@ -11,6 +11,7 @@ class Commander{
     std::map<uint16_t, Soldier> soldiersMap;
     crypto::Key256 gmk;
     crypto::Key256 gk;
+    std::string logFilePath;
     
     public:
     Commander(uint16_t commandersID, std::string fullName, crypto::Key256 gmk);
