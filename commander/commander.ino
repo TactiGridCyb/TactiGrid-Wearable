@@ -586,6 +586,7 @@ void parseInitFrame(const char* pkt, size_t len)
 
 void onLoraFileDataReceived(const uint8_t* pkt, size_t len)
 {
+    Serial.println(len);
     if (len == 0) return;
 
     if (memcmp(pkt, kFileInitTag, strlen(kFileInitTag)) == 0) {
@@ -601,11 +602,18 @@ void onLoraFileDataReceived(const uint8_t* pkt, size_t len)
 }
 
 void handleFileChunk(const uint8_t* bytes, size_t len)
-{
+{   
+    Serial.println("handleFileChunk");
+    Serial.println(len);
+    Serial.println(bytes[0]);
+
     if (len < 4 || bytes[0] != 0xAB) return;
 
     uint16_t chunkNum = (bytes[1] << 8) | bytes[2];
     uint8_t  chunkLen = bytes[3];
+
+    Serial.println(chunkNum);
+    Serial.println(chunkLen);
 
     if (chunkLen + 4 != len) return;         
     if (chunkNum != lastReceivedChunk + 1 && lastReceivedChunk != 0xFFFF)
@@ -618,6 +626,9 @@ void handleFileChunk(const uint8_t* bytes, size_t len)
     Serial.printf("chunk=%u len=%u total=%u/%u\n",
                   chunkNum, chunkLen,
                   receivedFileBuffer.size(), expectedFileLength);
+
+    String chunkTxt((const char*)(bytes + 4), chunkLen);
+    Serial.println(chunkTxt);
 }
 
 void writeToLogFile(const char* filePath, const char* content)

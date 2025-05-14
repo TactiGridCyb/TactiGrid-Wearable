@@ -131,8 +131,9 @@ int16_t LoraModule::readData()
         {
             return state;
         }
+        size_t pktLen = this->loraDevice.getPacketLength();
 
-        this->onReadData(buf, len);
+        this->onReadData(buf, pktLen);
         loraDevice.startReceive();
     }
 
@@ -198,7 +199,7 @@ int16_t LoraModule::sendFile(const uint8_t* data,
     uint16_t totalChunks = (length + chunkSize - 1) / chunkSize;
     for (uint16_t chunkIndex = 0; chunkIndex < totalChunks; ++chunkIndex)
     {
-        delay(1500);
+        delay(50);
 
         size_t offset = chunkIndex * chunkSize;
         size_t segLen = min(chunkSize, length - offset);
@@ -215,15 +216,15 @@ int16_t LoraModule::sendFile(const uint8_t* data,
         Serial.print(F("  segLen="));   Serial.print(segLen);
         Serial.print(F("  packet: "));
         dumpHex(packet, 4 + segLen);
-        state = this->loraDevice.startTransmit(packet, 4 + segLen);
+        state = this->loraDevice.transmit(packet, 4 + segLen); // Blocking call, waiting for it to finish before proceeding
         if (state != RADIOLIB_ERR_NONE) { return state; }
     }
 
 
-    delay(1500);
+    delay(50);
 
     String endFrame = String(kFileEndTag);
-    return this->sendData(endFrame.c_str());
+    return this->loraDevice.transmit(endFrame.c_str());
 }
 
 LoraModule::LoraModule(float frequency)

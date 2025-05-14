@@ -39,7 +39,7 @@ public:
     void setOnReadData(std::function<void(const uint8_t* data, size_t len)> callback);
     int16_t sendFile(const uint8_t* data,
                  size_t          length,
-                 size_t          chunkSize = 150);
+                 size_t          chunkSize = 200);
 
     ~LoraModule();
 };
