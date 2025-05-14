@@ -8,8 +8,10 @@
 #include "../gps-collect/GPSModule.h"
 #include "SoldiersSentData.h"
 #include "LoraModule.h"
+#include "../wifi-connection/WifiModule.h"
 
 std::unique_ptr<LoraModule> loraModule;
+std::unique_ptr<WifiModule> wifiModule;
 
 const char* ssid = "default";
 const char* password = "1357924680";
@@ -44,7 +46,6 @@ std::unique_ptr<GPSModule> gpsModule;
 const char* helmentDownloadLink = "https://iconduck.com/api/v2/vectors/vctr0xb8urkk/media/png/256/download";
 
 // === Function Prototypes ===
-void setupLoRa();
 void sendCoordinate(float lat, float lon);
 bool screenTouched();
 
@@ -93,17 +94,6 @@ bool downloadFile(const std::string &tileURL, const char* fileName) {
   }
 }
 
-void connectToWiFi() {
-  // Serial.print("Connecting to WiFi...");
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-      delay(500);
-      // Serial.print(".");
-  }
-
-  udp.begin(WiFi.localIP(), udpPort);
-  Serial.println("\nConnected to WiFi!");
-}
 
 void showHelment() {
   lv_obj_t * helmetIMG = lv_img_create(lv_scr_act());
@@ -129,16 +119,58 @@ void setup() {
     
     downloadFile(helmentDownloadLink, "/helmet.png");
   }
-  connectToWiFi();
 
 
   loraModule = std::make_unique<LoraModule>(433.5);
   loraModule->setup(true);
 
+  wifiModule = std::make_unique<WifiModule>(ssid, password);
+  wifiModule->connect(60000);
+  Serial.printf("WiFi connected!");
+
   struct tm timeInfo;
 
   setenv("TZ", "GMT-3", 1);
   tzset();
+  deleteExistingFile("/cert.pem");
+// Create cert.pem file with certificate content if it does not exist
+  if (!FFat.exists("/cert.pem")) {
+    Serial.println("cert file not exists!");
+    File certFile = FFat.open("/cert.pem", FILE_WRITE);
+    if (certFile) {
+      Serial.println("cert file opened!");
+      const char* certContent = R"(-----BEGIN CERTIFICATE-----
+MIID1zCCAb+gAwIBAgIHEOPaLFZerzANBgkqhkiG9w0BAQsFADBFMQswCQYDVQQG
+EwJJTDETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50ZXJuZXQgV2lk
+Z2l0cyBQdHkgTHRkMB4XDTI1MDUwOTEwMjAzOVoXDTI2MDUwOTEwMjAzOVowEzER
+MA8GA1UEAxMIc29sZGllcjEwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB
+AQC0oQS/0YaIPw8jJ0b3Y26H3Y0raWKB5LUqGz9fooIaMUTyD1ouJ0bKzh5vhPOo
++igTlU+MF+USt4Ey2R3O15fwYKmlzpbPwEkDGEXsA+SJQlPooXHjxbgAsB87rPil
+fvCOdCkbPaNYl14sfbjGJFTfPCDPiPBGCJJ/YU9hFoQDRo0OetOZ8rkXhoyukywT
+u6UPaTgo0w/SRaw3PV2Ea3du/+XrcAYL5lcyhYXUbPUWU8vk2zCSlxkaKeW3bSSw
+8Ms9A18/1teasRvWu5IEoIj8e258Ah5KAO2pxDEvCuC1Pv0+0fp3GhEGQ34Yjbd9
+DZ21B7jKLLcLqo1xmsa4pQ+BAgMBAAEwDQYJKoZIhvcNAQELBQADggIBAF9vpL3F
+cwwJz3vZTQkJjuAiY8HdiKJ3iRKC/y853W8ZpmCwLLphSC5VD7vMIt+VlYuf5gNM
+Ms6eohzXlAVeNsaQJ3KW+5PI6Q/9SmqcFes/qpwQ39/EvkLpPskPSEqqEWaoSOd0
+60+KrRT5u4DG3dgWtWW5i53709dv2wSXDCK3PWzkptvxugA2+2wZwrdfnVeLH8fb
+2bp3/61Bn7aavCLC/NadmqGaPWA3AuXJFll+u6sQD46WK4ChH94d5cx88pxji6sM
+s5Ki2DcCDrpG37YsXbF4/gUvJL5Z8vIn5swXZSOnZevBMDddLH8xT7RTE13q+ZYB
+Q+695pvpl33QXLSFhGRZPA3K2Kpn87pEPJNou0JkkGxP+jYk8uYpbWlB1tfnC3dt
+nR6dFo4iKY9WFc6LHDxtYzf+nThoz9o74NTpY790OUcxbt1d6oaK+15ob+RghSW6
+Fj2Jb91Vsm96HozE8B3Xn+XwBB2jzrAqYWs5VvFqsm2NchVy7zZ+L1Z4eh3DRqUQ
+ErXSoivNVFfTDhTKpuGQs4qF6NCYUWFn5LO4QyHuuorlyLZXhnsHOxlZIktVRgkr
+GLLseRj4Yp23+4z4o3hpEavecLgFIhuT9yBMBvxbDm9G3KLvbYYEaFOx1ItLLVnn
+WnuAIqZGA5XJrhEujtZqR7EecTPgYH2pD8d8
+-----END CERTIFICATE-----
+)";
+      certFile.print(certContent);
+      certFile.close();
+    }
+  }
+  else
+  {
+    Serial.println("Cert file exists!");
+  }
 
   configTime(0, 0, "pool.ntp.org");
   while (!getLocalTime(&timeInfo)) {
@@ -162,7 +194,8 @@ void setup() {
       XPOWERS_AXP2101_PKEY_LONG_IRQ
   );
   gpsModule = std::make_unique<GPSModule>();
-  
+
+
   init_main_poc_page();
 }
 
@@ -220,6 +253,32 @@ void listFiles(const char* dirname) {
   }
 }
 
+void init_send_large_log_file_page(lv_event_t * event)
+{
+  Serial.println("init_send_large_log_file_page");
+  File file = FFat.open("/cert.pem", FILE_READ);
+  if (file)
+  {
+    size_t size = file.size();
+    uint8_t* buff = static_cast<uint8_t*>(malloc(size));
+    Serial.printf("%d %d", size, sizeof(buff));
+    if (!buff)
+    {
+      Serial.println("NO BUFF FOUND");
+      return;
+    }
+
+    size_t n = file.read(buff, size);
+    file.close();
+    Serial.printf("BUFF IS: %s\n", (char*)buff);
+    loraModule->sendFile(buff, n);
+
+  }
+  else
+  {
+    Serial.println("NO FILE FOUND");
+  }
+}
 
 void init_main_poc_page()
 {
@@ -246,8 +305,16 @@ void init_main_poc_page()
     lv_label_set_text(sendCoordsLabel, "Send Coords");
     lv_obj_center(sendCoordsLabel);
 
-    startGPSChecking = false;
+    lv_obj_t *sendLogFileBtn = lv_btn_create(mainPage);
+    lv_obj_align(sendLogFileBtn, LV_ALIGN_CENTER, 80, 0);
+    lv_obj_set_style_bg_color(sendLogFileBtn, lv_color_hex(0x346eeb), LV_STATE_DEFAULT);
+    lv_obj_add_event_cb(sendLogFileBtn, init_send_large_log_file_page, LV_EVENT_CLICKED, NULL);
 
+    lv_obj_t *sendLogFileLabel = lv_label_create(sendLogFileBtn);
+    lv_label_set_text(sendLogFileLabel, "Send Log File");
+    lv_obj_center(sendLogFileLabel);
+
+    startGPSChecking = false;
 }
 
 

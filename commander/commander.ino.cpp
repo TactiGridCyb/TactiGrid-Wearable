@@ -1,3 +1,6 @@
+# 1 "C:\\Users\\danny\\AppData\\Local\\Temp\\tmp6w080lud"
+#include <Arduino.h>
+# 1 "C:/Users/danny/Desktop/TactiGrid/TactiGrid-Wearable/commander/commander.ino"
 #define LV_HOR_RES_MAX 240
 #define LV_VER_RES_MAX 240
 
@@ -21,7 +24,7 @@
 const crypto::Key256 SHARED_KEY = []() {
     crypto::Key256 key{};
 
-    const char* raw = "0123456789abcdef0123456789abcdef"; 
+    const char* raw = "0123456789abcdef0123456789abcdef";
     std::memcpy(key.data(), raw, 32);
     return key;
 }();
@@ -41,7 +44,34 @@ using GPSCoordTuple = std::tuple<float, float, float, float>;
 volatile bool pmu_flag = false;
 
 lv_obj_t* soldiersNameLabel = NULL;
-
+lv_color_t getColorFromHeartRate(int hr);
+void IRAM_ATTR onPmuInterrupt();
+void anim_opacity_cb(void * obj, int32_t value);
+void create_fading_circle(double markerLat, double markerLon, double centerLat, double centerLon, int zoom, lv_color_t ballColor);
+bool saveTileToFFat(const uint8_t* data, size_t len, const char* tileFilePath);
+void showMiddleTile();
+void deleteExistingFile(const char* tileFilePath);
+void init_upload_log_page(lv_event_t * event);
+void upload_log_event_callback(lv_event_t * e);
+void msgbox_event_handler(lv_event_t * e);
+void create_popup(lv_obj_t * parent);
+String loadFileContent(const char* filePath);
+void clearMainPage();
+void init_main_poc_page(lv_event_t * event);
+GPSCoordTuple parseCoordinates(const String &message);
+bool isZero(double x);
+void init_p2p_test(String incoming);
+void init_receive_logs_page(lv_event_t * event);
+void init_main_menu();
+static void dumpHex(const uint8_t* buf, size_t n);
+void finishTransfer();
+void parseInitFrame(const char* pkt, size_t len);
+void onLoraFileDataReceived(const uint8_t* pkt, size_t len);
+void handleFileChunk(const uint8_t* bytes, size_t len);
+void writeToLogFile(const char* filePath, const char* content);
+void setup();
+void loop();
+#line 45 "C:/Users/danny/Desktop/TactiGrid/TactiGrid-Wearable/commander/commander.ino"
 lv_color_t getColorFromHeartRate(int hr) {
     if (hr <= 0) return lv_color_black();
 
@@ -51,11 +81,11 @@ lv_color_t getColorFromHeartRate(int hr) {
     if (hr < min_hr)
     {
         hr = min_hr;
-    } 
+    }
     else if (hr > max_hr)
     {
         hr = max_hr;
-    } 
+    }
 
     int hue = 120 * (hr - min_hr) / (max_hr - min_hr);
 
@@ -85,10 +115,10 @@ std::tuple<int, int, int> positionToTile(float lat, float lon, int zoom)
 {
     float lat_rad = radians(lat);
     float n = pow(2.0, zoom);
-    
+
     int x_tile = floor((lon + 180.0) / 360.0 * n);
     int y_tile = floor((1.0 - log(tan(lat_rad) + 1.0 / cos(lat_rad)) / PI) / 2.0 * n);
-    
+
     return std::make_tuple(zoom, x_tile, y_tile);
 }
 
@@ -98,7 +128,7 @@ std::tuple<int,int> latlon_to_pixel(double lat, double lon, double centerLat, do
 
     auto toGlobal = [&](double la, double lo) {
         double rad = la * M_PI / 180.0;
-        double n   = std::pow(2.0, zoom);
+        double n = std::pow(2.0, zoom);
         int xg = (int) std::floor((lo + 180.0) / 360.0 * n * TILE_SIZE);
         int yg = (int) std::floor((1.0 - std::log(std::tan(rad) + 1.0 / std::cos(rad)) / M_PI) / 2.0 * n * TILE_SIZE);
         return std::make_pair(xg, yg);
@@ -116,15 +146,15 @@ std::tuple<int,int> latlon_to_pixel(double lat, double lon, double centerLat, do
 std::pair<double,double> tileCenterLatLon(int zoom, int x_tile, int y_tile)
 {
     static constexpr double TILE_SIZE = 256.0;
-    // Compute the center pixel of the tile
+
     int centerX = x_tile * TILE_SIZE + TILE_SIZE / 2;
     int centerY = y_tile * TILE_SIZE + TILE_SIZE / 2;
-    
+
     double n = std::pow(2.0, zoom);
     double lon_deg = (double)centerX / (n * TILE_SIZE) * 360.0 - 180.0;
     double lat_rad = std::atan(std::sinh(M_PI * (1 - 2.0 * centerY / (n * TILE_SIZE))));
     double lat_deg = lat_rad * 180.0 / M_PI;
-    
+
     return {lat_deg, lon_deg};
 }
 
@@ -159,8 +189,8 @@ void create_fading_circle(double markerLat, double markerLon, double centerLat, 
         soldiersNameLabel = lv_label_create(lv_scr_act());
         lv_label_set_text(soldiersNameLabel, "Soldier 1");
     }
-    
-    
+
+
     lv_obj_align_to(soldiersNameLabel, current_marker, LV_ALIGN_TOP_MID, 0, -35);
 }
 
@@ -216,13 +246,13 @@ void showMiddleTile() {
     lv_img_set_src(img1, "A:/middleTile.png");
     lv_obj_align(img1, LV_ALIGN_CENTER, 0, 0);
 
-    // Serial.println("Showing middle tile");
+
 }
 
 
 void deleteExistingFile(const char* tileFilePath) {
     if (FFat.exists(tileFilePath)) {
-        // Serial.println("Deleting existing tile...");
+
         FFat.remove(tileFilePath);
     }
 }
@@ -231,7 +261,7 @@ void deleteExistingFile(const char* tileFilePath) {
 void init_upload_log_page(lv_event_t * event)
 {
     clearMainPage();
-    // Serial.println("Content:" + loadFileContent(logFilePath));
+
     lv_obj_t * mainPage = lv_scr_act();
 
     lv_obj_set_style_bg_color(mainPage, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -246,7 +276,7 @@ void init_upload_log_page(lv_event_t * event)
     lv_label_set_text(logContentLabel, loadFileContent(logFilePath).c_str());
     lv_obj_align(logContentLabel, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_text_color(logContentLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-    
+
     lv_obj_set_width(logContentLabel, lv_disp_get_hor_res(NULL) - 20);
     lv_label_set_long_mode(logContentLabel, LV_LABEL_LONG_WRAP);
 
@@ -264,15 +294,15 @@ void init_upload_log_page(lv_event_t * event)
 
 void upload_log_event_callback(lv_event_t * e)
 {
-    // Serial.println("Starting sending log file");
+
     String logContent = loadFileContent(logFilePath);
 
     wifiModule->sendString(logContent.c_str(), "192.168.0.44", 5555);
 
-    // Serial.println("File sent over UDP.");
+
 
     init_main_menu();
-    //create_popup(lv_scr_act());
+
 
 }
 
@@ -290,10 +320,10 @@ void msgbox_event_handler(lv_event_t * e) {
 
 void create_popup(lv_obj_t * parent) {
     static const char * btns[] = {"OK", ""};
-    
+
     lv_obj_t * mbox = lv_msgbox_create(parent, "Info", "Uploaded using UDP, port 5555!", btns, true);
     lv_obj_center(mbox);
-    
+
     lv_obj_add_event_cb(mbox, msgbox_event_handler, LV_EVENT_VALUE_CHANGED, NULL);
 }
 
@@ -301,10 +331,10 @@ String loadFileContent(const char* filePath)
 {
     File file = FFat.open(filePath, FILE_READ);
     if (!file) {
-        // Serial.println("Failed to open file for reading!");
+
         return "";
     }
-    
+
     String fileContent;
     while (file.available()) {
         fileContent += (char)file.read();
@@ -318,7 +348,7 @@ String loadFileContent(const char* filePath)
 void listFiles(const char* path = "/", uint8_t depth = 0) {
     File dir = FFat.open(path);
     if (!dir || !dir.isDirectory()) {
-        // Serial.printf("Failed to open directory: %s\n", path);
+
         return;
     }
 
@@ -327,11 +357,11 @@ void listFiles(const char* path = "/", uint8_t depth = 0) {
         for (uint8_t i = 0; i < depth; i++) Serial.print("  ");
 
         if (file.isDirectory()) {
-            // Serial.printf("[DIR]  %s\n", file.name());
+
 
             listFiles(file.name(), depth + 1);
         } else {
-            // Serial.printf("FILE:  %s  SIZE: %d\n", file.name(), file.size());
+
         }
 
         file = dir.openNextFile();
@@ -353,7 +383,7 @@ void clearMainPage()
 
 void init_main_poc_page(lv_event_t * event)
 {
-    // Serial.println("init_main_poc_page");
+
     clearMainPage();
 
     deleteExistingFile(logFilePath);
@@ -391,41 +421,41 @@ bool isZero(double x)
 
 void init_p2p_test(String incoming)
 {
-    // Serial.println("init_p2p_test");
+
 
     int p1 = incoming.indexOf('|');
     int p2 = incoming.indexOf('|', p1 + 1);
-    if (p1 < 0 || p2 < 0) {                      
-        // Serial.println("Bad ciphertext format");
+    if (p1 < 0 || p2 < 0) {
+
         return;
     }
 
     crypto::Ciphertext ct;
     ct.nonce = hexToBytes(incoming.substring(0, p1));
-    ct.data  = hexToBytes(incoming.substring(p1 + 1, p2));
-    ct.tag   = hexToBytes(incoming.substring(p2 + 1));
+    ct.data = hexToBytes(incoming.substring(p1 + 1, p2));
+    ct.tag = hexToBytes(incoming.substring(p2 + 1));
 
-    // Serial.printf("Nonce size: %d\n", ct.nonce.size());
-    // Serial.printf("Data size:  %d\n", ct.data.size());
-    // Serial.printf("Tag size:   %d\n", ct.tag.size());
-    
+
+
+
+
     crypto::ByteVec pt;
 
     try {
         pt = crypto::CryptoModule::decrypt(SHARED_KEY, ct);
     } catch (const std::exception& e) {
-        // Serial.printf("Decryption failed: %s\n", e.what());
+
         return;
     }
 
 
     SoldiersSentData* newG = reinterpret_cast<SoldiersSentData*>(pt.data());
-    // Serial.printf("%.5f %.5f %.5f %.5f %d\n", newG->lat1, newG->lat2, newG->lon1, newG->lon2, newG->heartRate);
+
     String plainStr;
     plainStr.reserve(pt.size());
     for (unsigned char b : pt) plainStr += (char)b;
 
-    // Serial.println("Decrypted: " + plainStr);
+
 
     GPSCoordTuple coords = parseCoordinates(plainStr);
 
@@ -438,7 +468,7 @@ void init_p2p_test(String incoming)
     {
         return;
     }
-    
+
     struct tm timeInfo;
     char timeStr[9];
     if (getLocalTime(&timeInfo))
@@ -447,14 +477,14 @@ void init_p2p_test(String incoming)
         strcpy(timeStr, "00:00:00");
 
     char result[128];
-    snprintf(result, sizeof(result), "%s - Soldier 1: {%.5f, %.5f}", 
+    snprintf(result, sizeof(result), "%s - Soldier 1: {%.5f, %.5f}",
              timeStr, tile_lat, tile_lon);
     writeToLogFile(logFilePath, result);
 
     std::tuple<int,int,int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
 
     if (!FFat.exists(tileFilePath) && downloadMiddleTile(tileLocation))
-        // Serial.println("Middle tile downloaded.");
+
 
     if (!current_marker)
         showMiddleTile();
@@ -475,7 +505,7 @@ void init_receive_logs_page(lv_event_t * event)
 }
 
 void init_main_menu()
-{   
+{
     clearMainPage();
 
     lv_obj_t * mainPage = lv_scr_act();
@@ -563,7 +593,7 @@ void parseInitFrame(const char* pkt, size_t len)
         return;
     }
 
-    size_t fileLen    = 0;
+    size_t fileLen = 0;
     size_t chunkBytes = 0;
     int parsed = sscanf(pkt + tagLen, ":%zu:%zu", &fileLen, &chunkBytes);
     if (parsed != 2 || fileLen == 0 || chunkBytes == 0) {
@@ -572,12 +602,12 @@ void parseInitFrame(const char* pkt, size_t len)
     }
 
     expectedFileLength = fileLen;
-    expectedChunkSize  = chunkBytes;
+    expectedChunkSize = chunkBytes;
 
     receivedFileBuffer.clear();
     receivedFileBuffer.reserve(expectedFileLength);
-    lastReceivedChunk  = 0xFFFF;
-    receivingFile      = true;
+    lastReceivedChunk = 0xFFFF;
+    receivingFile = true;
 
     Serial.printf("INIT  fileLen=%u  chunkSize=%u\n",
                   (unsigned)expectedFileLength,
@@ -605,9 +635,9 @@ void handleFileChunk(const uint8_t* bytes, size_t len)
     if (len < 4 || bytes[0] != 0xAB) return;
 
     uint16_t chunkNum = (bytes[1] << 8) | bytes[2];
-    uint8_t  chunkLen = bytes[3];
+    uint8_t chunkLen = bytes[3];
 
-    if (chunkLen + 4 != len) return;         
+    if (chunkLen + 4 != len) return;
     if (chunkNum != lastReceivedChunk + 1 && lastReceivedChunk != 0xFFFF)
         return;
 
@@ -625,9 +655,9 @@ void writeToLogFile(const char* filePath, const char* content)
     File file = FFat.open(filePath, FILE_APPEND);
 
     if (!file) {
-        // Serial.println("Failed to open file for writing!");
+
     } else {
-        
+
         file.println(content);
         file.close();
     }
@@ -637,14 +667,14 @@ void setup() {
     Serial.begin(115200);
     watch.begin(&Serial);
     Serial.println("HELLO");
-    
-    
+
+
     if (!FFat.begin(true)) {
         Serial.println("Failed to mount FFat!");
         return;
     }
 
-    
+
     listFiles();
     load_env();
 
@@ -652,7 +682,7 @@ void setup() {
 
     crypto::CryptoModule::init();
     Serial.println("init cryptoModule");
-    
+
 
     deleteExistingFile(tileFilePath);
 
@@ -701,10 +731,10 @@ void setup() {
     watch.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
     watch.clearPMU();
     watch.enableIRQ(
-        XPOWERS_AXP2101_PKEY_SHORT_IRQ | 
+        XPOWERS_AXP2101_PKEY_SHORT_IRQ |
         XPOWERS_AXP2101_PKEY_LONG_IRQ
     );
-        
+
     loraModule->setupListening();
     Serial.println("End of setup");
 }
@@ -718,9 +748,9 @@ void loop() {
         }
         watch.clearPMU();
     }
-  
+
     loraModule->readData();
-  
+
     lv_task_handler();
     delay(10);
 }

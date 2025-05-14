@@ -14,7 +14,7 @@ private:
 
     bool initialTransmittion = false;
 
-    std::function<void(const String&)> onReadData;
+    std::function<void(const uint8_t* data, size_t len)> onReadData;
 
     std::vector<uint8_t> fileBuffer;
     uint16_t expectedChunks      = 0;
@@ -36,10 +36,10 @@ public:
     bool isChannelFree();
     bool canTransmit();
 
-    void setOnReadData(std::function<void(const String&)>);
+    void setOnReadData(std::function<void(const uint8_t* data, size_t len)> callback);
     int16_t sendFile(const uint8_t* data,
                  size_t          length,
-                 size_t          chunkSize = 200);
+                 size_t          chunkSize = 150);
 
     ~LoraModule();
 };
