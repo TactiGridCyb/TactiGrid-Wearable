@@ -329,8 +329,11 @@ void loop() {
   if (startGPSChecking) {
     gpsModule->readGPSData();
 
-    auto [lat, lon] = gpsModule->getCurrentCoords();
+    gpsModule->updateCoords();
     unsigned long currentTime = millis();
+
+    float lat = gpsModule->getLat();
+    float lon = gpsModule->getLon();
 
     if (currentTime - lastSendTime >= SEND_INTERVAL) {
 
@@ -339,19 +342,25 @@ void loop() {
       }
       else
       {
-        struct tm timeInfo;
-        char timeStr[9];
+        TinyGPSSpeed gpsSpeed = gpsModule->getGPSSpeed();
+        TinyGPSInteger gpsSatellites = gpsModule->getGPSSatellites();
+        TinyGPSAltitude gpsAltitude = gpsModule->getGPSAltitude();
+        TinyGPSHDOP gpsHDOP = gpsModule->getGPSHDOP();
+        TinyGPSTime gpsTime = gpsModule->getGPSTime();
+        TinyGPSDate gpsDate = gpsModule->getGPSDate();
 
-        if(getLocalTime(&timeInfo)) {
-            strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeInfo);
-        } else {
-            strcpy(timeStr, "00:00:00");
-        }
-                
-        lv_label_set_text_fmt(sendLabel, "%s Waiting - {%.5f, %.5f}\n", 
-                              timeStr,
-                              lat, 
-                              lon);
+        uint32_t  satellites = gpsSatellites.isValid() ? gpsSatellites.value() : 0;
+        double hdop = gpsHDOP.isValid() ? gpsHDOP.hdop() : 0;
+        uint16_t year = gpsDate.isValid() ? gpsDate.year() : 0;
+        uint8_t  month = gpsDate.isValid() ? gpsDate.month() : 0;
+        uint8_t  day = gpsDate.isValid() ? gpsDate.day() : 0;
+        uint8_t  hour = gpsTime.isValid() ? gpsTime.hour() : 0;
+        uint8_t  minute = gpsTime.isValid() ? gpsTime.minute() : 0;
+        uint8_t  second = gpsTime.isValid() ? gpsTime.second() : 0;
+        double  meters = gpsAltitude.isValid() ? gpsAltitude.meters() : 0;
+        double  kmph = gpsSpeed.isValid() ? gpsSpeed.kmph() : 0;
+        lv_label_set_text_fmt(sendLabel, "Sats:%u\nHDOP:%.1f\nLat:%.5f\nLon:%.5f\nDate:%d/%d/%d \nTime:%d/%d/%d\nAlt:%.2f m \nSpeed:%.2f",
+          satellites, hdop, lat, lon, year, month, day, hour, minute, second, meters, kmph);
       }
 
       lastSendTime = currentTime;
@@ -408,11 +417,9 @@ void sendCoordinate(float lat, float lon) {
   } else {
       strcpy(timeStr, "00:00:00");
   }
-      
-  const char *current_text = lv_label_get_text(sendLabel);
-  
-  lv_label_set_text_fmt(sendLabel, "%s%s - sent coords {%.5f, %.5f}\n", 
-                        current_text, timeStr, 
+        
+  lv_label_set_text_fmt(sendLabel, "%s - sent coords {%.5f, %.5f}\n", 
+                        timeStr,
                         lat, 
                         lon);
 }
