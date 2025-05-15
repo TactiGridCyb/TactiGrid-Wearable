@@ -10,11 +10,13 @@
 #include <LV_Helper.h>
 #include <LilyGoLib.h>
 #include <cstring>
+#include <vector>
 
 #include "../encryption/CryptoModule.h"
 #include "../LoraModule/LoraModule.h"
 #include "../wifi-connection/WifiModule.h"
 #include "../envLoader.cpp"
+#include "../soldier/SoldiersSentData.h"
 
 const crypto::Key256 SHARED_KEY = []() {
     crypto::Key256 key{};
@@ -23,14 +25,6 @@ const crypto::Key256 SHARED_KEY = []() {
     std::memcpy(key.data(), raw, 32);
     return key;
 }();
-
-struct GPSCoord {
-    float lat1;
-    float lon1;
-    float lat2;
-    float lon2;
-    int heartRate;
-};
 
 
 lv_obj_t *current_marker = NULL;
@@ -49,12 +43,23 @@ volatile bool pmu_flag = false;
 lv_obj_t* soldiersNameLabel = NULL;
 
 lv_color_t getColorFromHeartRate(int hr) {
-    if (hr <= 0) return lv_color_hex(0x000000); // dead
-    if (hr < 40) return lv_color_hex(0x550000); // dark red
-    if (hr < 60) return lv_color_hex(0xff0000); // red
-    if (hr < 100) return lv_color_hex(0xffff00); // yellow
-    if (hr < 140) return lv_color_hex(0x00f519); // green
-    return lv_color_hex(0x555555); // greyish
+    if (hr <= 0) return lv_color_black();
+
+    const int min_hr = 40;
+    const int max_hr = 140;
+
+    if (hr < min_hr)
+    {
+        hr = min_hr;
+    } 
+    else if (hr > max_hr)
+    {
+        hr = max_hr;
+    } 
+
+    int hue = 120 * (hr - min_hr) / (max_hr - min_hr);
+
+    return lv_color_hsv_to_rgb(hue, 100, 100);
 }
 
 static inline crypto::ByteVec hexToBytes(const String& hex) {
@@ -414,7 +419,7 @@ void init_p2p_test(String incoming)
     }
 
 
-    GPSCoord* newG = reinterpret_cast<GPSCoord*>(pt.data());
+    SoldiersSentData* newG = reinterpret_cast<SoldiersSentData*>(pt.data());
     // Serial.printf("%.5f %.5f %.5f %.5f %d\n", newG->lat1, newG->lat2, newG->lon1, newG->lon2, newG->heartRate);
     String plainStr;
     plainStr.reserve(pt.size());
@@ -424,10 +429,10 @@ void init_p2p_test(String incoming)
 
     GPSCoordTuple coords = parseCoordinates(plainStr);
 
-    float tile_lat = newG->lat1;
-    float tile_lon = newG->lon1;
-    float marker_lat = newG->lat2;
-    float marker_lon = newG->lon2;
+    float tile_lat = newG->tileLat;
+    float tile_lon = newG->tileLon;
+    float marker_lat = newG->posLat;
+    float marker_lon = newG->posLon;
 
     if(isZero(tile_lat) || isZero(tile_lon) || isZero(marker_lat) || isZero(marker_lon))
     {
@@ -464,6 +469,11 @@ void init_p2p_test(String incoming)
 
 }
 
+void init_receive_logs_page(lv_event_t * event)
+{
+    Serial.println("loraModule->setupListening()");
+}
+
 void init_main_menu()
 {   
     clearMainPage();
@@ -477,6 +487,15 @@ void init_main_menu()
     lv_label_set_text(mainLabel, "Main Menu");
     lv_obj_align(mainLabel, LV_ALIGN_TOP_MID, 0, 0);
     lv_obj_set_style_text_color(mainLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    lv_obj_t *receiveFile = lv_btn_create(mainPage);
+    lv_obj_set_size(receiveFile, 240, 60);
+    lv_obj_set_style_bg_color(receiveFile, lv_color_hex(0x346eeb), LV_STATE_DEFAULT);
+    lv_obj_add_event_cb(receiveFile, init_receive_logs_page, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *receiveFileLabel = lv_label_create(receiveFile);
+    lv_label_set_text(receiveFileLabel, "Receive Logs");
+    lv_obj_center(receiveFileLabel);
 
     lv_obj_t *cont = lv_obj_create(lv_scr_act());
     lv_obj_set_size(cont, 240, 60);
@@ -497,7 +516,6 @@ void init_main_menu()
     lv_label_set_text(receiveCoordsLabel, "Receive Pos");
     lv_obj_center(receiveCoordsLabel);
 
-
     lv_obj_t *uploadLogsBtn = lv_btn_create(cont);
     lv_obj_center(uploadLogsBtn);
     lv_obj_set_style_flex_grow(uploadLogsBtn, 1, 0);
@@ -510,6 +528,108 @@ void init_main_menu()
 }
 
 
+static std::vector<uint8_t> receivedFileBuffer;
+static size_t expectedFileLength = 0;
+static size_t expectedChunkSize = 0;
+static uint16_t lastReceivedChunk = 0xFFFF;
+static bool receivingFile = false;
+
+static void dumpHex(const uint8_t* buf, size_t n)
+{
+    for (size_t i = 0; i < n; ++i) {
+        if (buf[i] < 0x10) Serial.print('0');
+        Serial.print(buf[i], HEX);
+        Serial.print(' ');
+    }
+}
+
+void finishTransfer()
+{
+    receivingFile = false;
+
+    Serial.printf("\n--- received %u bytes ---\n", receivedFileBuffer.size());
+    Serial.write(receivedFileBuffer.data(), receivedFileBuffer.size());
+    Serial.println("\n-------------------------");
+
+    dumpHex(receivedFileBuffer.data(), receivedFileBuffer.size());
+}
+
+void parseInitFrame(const char* pkt, size_t len)
+{
+
+    const size_t tagLen = strlen(kFileInitTag);
+    if (len <= tagLen + 1 || pkt[tagLen] != ':') {
+        Serial.println("INIT frame corrupted");
+        return;
+    }
+
+    size_t fileLen    = 0;
+    size_t chunkBytes = 0;
+    int parsed = sscanf(pkt + tagLen, ":%zu:%zu", &fileLen, &chunkBytes);
+    if (parsed != 2 || fileLen == 0 || chunkBytes == 0) {
+        Serial.println("INIT numbers invalid");
+        return;
+    }
+
+    expectedFileLength = fileLen;
+    expectedChunkSize  = chunkBytes;
+
+    receivedFileBuffer.clear();
+    receivedFileBuffer.reserve(expectedFileLength);
+    lastReceivedChunk  = 0xFFFF;
+    receivingFile      = true;
+
+    Serial.printf("INIT  fileLen=%u  chunkSize=%u\n",
+                  (unsigned)expectedFileLength,
+                  (unsigned)expectedChunkSize);
+}
+
+void onLoraFileDataReceived(const uint8_t* pkt, size_t len)
+{
+    Serial.println(len);
+    if (len == 0) return;
+
+    if (memcmp(pkt, kFileInitTag, strlen(kFileInitTag)) == 0) {
+        parseInitFrame((const char*)pkt, len);
+        return;
+    }
+    if (memcmp(pkt, kFileEndTag, strlen(kFileEndTag)) == 0) {
+        finishTransfer();
+        return;
+    }
+
+    handleFileChunk(pkt, len);
+}
+
+void handleFileChunk(const uint8_t* bytes, size_t len)
+{   
+    Serial.println("handleFileChunk");
+    Serial.println(len);
+    Serial.println(bytes[0]);
+
+    if (len < 4 || bytes[0] != 0xAB) return;
+
+    uint16_t chunkNum = (bytes[1] << 8) | bytes[2];
+    uint8_t  chunkLen = bytes[3];
+
+    Serial.println(chunkNum);
+    Serial.println(chunkLen);
+
+    if (chunkLen + 4 != len) return;         
+    if (chunkNum != lastReceivedChunk + 1 && lastReceivedChunk != 0xFFFF)
+        return;
+
+    lastReceivedChunk = chunkNum;
+    receivedFileBuffer.insert(receivedFileBuffer.end(),
+                              bytes + 4, bytes + 4 + chunkLen);
+
+    Serial.printf("chunk=%u len=%u total=%u/%u\n",
+                  chunkNum, chunkLen,
+                  receivedFileBuffer.size(), expectedFileLength);
+
+    String chunkTxt((const char*)(bytes + 4), chunkLen);
+    Serial.println(chunkTxt);
+}
 
 void writeToLogFile(const char* filePath, const char* content)
 {
@@ -525,13 +645,13 @@ void writeToLogFile(const char* filePath, const char* content)
 }
 
 void setup() {
-    // Serial.begin(115200);
-    watch.begin();
-    // Serial.println("HELLO");
+    Serial.begin(115200);
+    watch.begin(&Serial);
+    Serial.println("HELLO");
     
     
     if (!FFat.begin(true)) {
-        // Serial.println("Failed to mount FFat!");
+        Serial.println("Failed to mount FFat!");
         return;
     }
 
@@ -539,10 +659,10 @@ void setup() {
     listFiles();
     load_env();
 
-    // Serial.println("load_env");
+    Serial.println("load_env");
 
     crypto::CryptoModule::init();
-    // Serial.println("init cryptoModule");
+    Serial.println("init cryptoModule");
     
 
     deleteExistingFile(tileFilePath);
@@ -550,7 +670,7 @@ void setup() {
 
     beginLvglHelper();
     lv_png_init();
-    // Serial.println("LVGL set!");
+    Serial.println("LVGL set!");
 
     const char* ssid = env_map["WIFI_SSID"].c_str();
     const char* password = env_map["WIFI_PASS"].c_str();
@@ -560,32 +680,32 @@ void setup() {
 
     loraModule = std::make_unique<LoraModule>(433.5);
     loraModule->setup(false);
-    loraModule->setOnReadData(init_p2p_test);
+    loraModule->setOnReadData(onLoraFileDataReceived);
 
-    // Serial.println("After LORA INIT");
+    Serial.println("After LORA INIT");
 
     init_main_menu();
 
-    // Serial.println(WiFi.localIP());
+    Serial.println(WiFi.localIP());
     setenv("TZ", "GMT-3", 1);
     tzset();
 
     configTime(0, 0, "pool.ntp.org");
 
-    // Serial.println("Configured time zone!");
+    Serial.println("Configured time zone!");
 
 
     struct tm timeInfo;
 
     while (!getLocalTime(&timeInfo)) {
-        // Serial.println("Waiting for time sync...");
+        Serial.println("Waiting for time sync...");
         delay(500);
     }
 
     if (getLocalTime(&timeInfo)) {
         char timeStr[20];
         strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeInfo);
-        // Serial.println(timeStr);
+        Serial.println(timeStr);
     }
 
     watch.attachPMU(onPmuInterrupt);
@@ -596,8 +716,8 @@ void setup() {
         XPOWERS_AXP2101_PKEY_LONG_IRQ
     );
         
-
-    // Serial.println("End of setup");
+    loraModule->setupListening();
+    Serial.println("End of setup");
 }
 
 void loop() {

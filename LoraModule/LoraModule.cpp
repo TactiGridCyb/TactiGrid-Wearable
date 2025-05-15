@@ -114,7 +114,7 @@ bool LoraModule::canTransmit()
     return !transmittedFlag && isFree;
 }
 
-void LoraModule::setOnReadData(std::function<void(const String&)> callback)
+void LoraModule::setOnReadData(std::function<void(const uint8_t* data, size_t len)> callback)
 {
     this->onReadData = callback;
 }
@@ -124,18 +124,17 @@ int16_t LoraModule::readData()
     if(receivedFlag)
     {
         receivedFlag = false;
-        Serial.println("Cleared received flag!");
-        String data;
-
-        int16_t state = this->loraDevice.readData(data);
-        Serial.println("Cleared received flag! " + String(state) + " " + data);
-        if(state != RADIOLIB_ERR_NONE)
+        uint8_t buf[255];
+        size_t len = sizeof(buf);
+        int16_t state = this->loraDevice.readData(buf, len);
+        if (state != RADIOLIB_ERR_NONE) 
         {
             return state;
         }
+        size_t pktLen = this->loraDevice.getPacketLength();
 
-        this->onReadData(data);
-        this->loraDevice.startReceive();
+        this->onReadData(buf, pktLen);
+        loraDevice.startReceive();
     }
 
     return RADIOLIB_ERR_NONE;
@@ -165,6 +164,67 @@ int16_t LoraModule::sendData(const char* data)
     }
 
     return status;
+}
+
+static void dumpHex(const uint8_t* buf, size_t n)
+{
+    for (size_t i = 0; i < n; ++i) {
+        if (buf[i] < 16) Serial.print('0');
+        Serial.print(buf[i], HEX);
+        Serial.print(' ');
+    }
+}
+
+int16_t LoraModule::sendFile(const uint8_t* data,
+                             size_t   length,
+                             size_t   chunkSize)
+{
+    Serial.println("sendFile");
+    if (!data || length == 0) 
+    {
+        return 0;
+    }
+
+    String initFrame  = String(kFileInitTag)  + ':' +
+                        String(length)        + ':' +
+                        String(chunkSize);
+
+    Serial.println(initFrame);
+    int16_t state = this->sendData(initFrame.c_str());
+    if (state != RADIOLIB_ERR_NONE) 
+    {
+        return state;
+    }
+
+    uint16_t totalChunks = (length + chunkSize - 1) / chunkSize;
+    for (uint16_t chunkIndex = 0; chunkIndex < totalChunks; ++chunkIndex)
+    {
+        delay(50);
+
+        size_t offset = chunkIndex * chunkSize;
+        size_t segLen = min(chunkSize, length - offset);
+
+        uint8_t packet[4 + segLen];
+        packet[0] = 0xAB;                    // sync byte for file-chunks
+        packet[1] = (chunkIndex >> 8) & 0xFF;       // MSB of chunk number
+        packet[2] = (chunkIndex & 0xFF);            // LSB
+        packet[3] = static_cast<uint8_t>(segLen);
+        memcpy(packet + 4, data + offset, segLen);
+
+        Serial.print(F("chunk="));      Serial.print(chunkIndex);
+        Serial.print(F("  offset="));   Serial.print(offset);
+        Serial.print(F("  segLen="));   Serial.print(segLen);
+        Serial.print(F("  packet: "));
+        dumpHex(packet, 4 + segLen);
+        state = this->loraDevice.transmit(packet, 4 + segLen); // Blocking call, waiting for it to finish before proceeding
+        if (state != RADIOLIB_ERR_NONE) { return state; }
+    }
+
+
+    delay(50);
+
+    String endFrame = String(kFileEndTag);
+    return this->loraDevice.transmit(endFrame.c_str());
 }
 
 LoraModule::LoraModule(float frequency)
