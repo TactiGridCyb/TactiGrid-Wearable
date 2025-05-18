@@ -9,6 +9,7 @@ ECDHHelper::ECDHHelper() {
     mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, nullptr, 0);
 }
 
+
 ECDHHelper::~ECDHHelper() {
     mbedtls_ecdh_free(&ctx);
     mbedtls_ctr_drbg_free(&ctr_drbg);
@@ -37,8 +38,12 @@ std::vector<uint8_t> ECDHHelper::getPublicKeyRaw() const {
 }
 
 bool ECDHHelper::importPeerPublicKey(const std::vector<uint8_t>& peerKey) {
+    int ret = mbedtls_ecp_group_load(&ctx.grp, MBEDTLS_ECP_DP_SECP256R1);
+    if (ret != 0) return false;
+
     return mbedtls_ecp_point_read_binary(&ctx.grp, &ctx.Qp, peerKey.data(), peerKey.size()) == 0;
 }
+
 
 bool ECDHHelper::deriveSharedSecret(std::vector<uint8_t>& out) {
     out.resize(32);  // 256 bits

@@ -1,5 +1,5 @@
 // CommanderConfigModule.cpp
-#include "../commander-config/commander-config.h"  // wifi's existing module
+#include "commander-config.h"
 #include "mbedtls/x509_crt.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/error.h"
