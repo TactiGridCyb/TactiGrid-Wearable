@@ -20,13 +20,12 @@ private:
     uint16_t expectedChunks      = 0;
     uint16_t receivedChunks      = 0;
     size_t   transferChunkSize   = 0;
-    std::function<void(const uint8_t* data, size_t length)> onFileReceived;
-
 
     float freq;
+
 public:
     LoraModule(float);
-    
+
     int16_t setup(bool);
     int16_t sendData(const char*);
     int16_t readData();
@@ -38,10 +37,14 @@ public:
 
     void setOnReadData(std::function<void(const uint8_t* data, size_t len)> callback);
     int16_t sendFile(const uint8_t* data,
-                 size_t          length,
-                 size_t          chunkSize = 200);
+                     size_t length,
+                     size_t chunkSize = 200);
+
+    // Called when a full file is received (optional)
+    std::function<void(const uint8_t* data, size_t len)> onFileReceived;
+
+    // File reassembly logic (call this from setOnReadData)
+    void onLoraFileDataReceived(const uint8_t* pkt, size_t len);
 
     ~LoraModule();
 };
-
-

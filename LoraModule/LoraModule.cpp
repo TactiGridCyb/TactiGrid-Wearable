@@ -180,6 +180,9 @@ int16_t LoraModule::sendFile(const uint8_t* data,
                              size_t   chunkSize)
 {
     Serial.println("sendFile");
+    Serial.println("***********************************");
+    Serial.println((const char*)data);
+    Serial.println("***********************************");
     if (!data || length == 0) 
     {
         return 0;
@@ -190,7 +193,10 @@ int16_t LoraModule::sendFile(const uint8_t* data,
                         String(chunkSize);
 
     Serial.println(initFrame);
-    int16_t state = this->sendData(initFrame.c_str());
+    //int16_t state = this->sendData(initFrame.c_str());
+    int16_t state = this->loraDevice.transmit(initFrame.c_str());
+    delay(100);  // Give receiver time to process INIT
+
     if (state != RADIOLIB_ERR_NONE) 
     {
         return state;
@@ -235,4 +241,66 @@ LoraModule::LoraModule(float frequency)
 LoraModule::~LoraModule()
 {
     this->loraDevice.finishTransmit();
+}
+
+
+// === LoraModule.cpp - File Reassembly Logic ===
+//******************************added for reciving lrage chunks of data ************************/
+void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
+{
+    if (len == 0) return;
+
+    Serial.printf("📦 Incoming packet: %.*s\n", len, pkt);  // Print every received packet
+
+    // === INIT Frame ===
+    if (memcmp(pkt, kFileInitTag, strlen(kFileInitTag)) == 0) {
+        size_t totalSize = 0;
+        this->transferChunkSize = 0;
+
+        // Parse the init line: must match commander format exactly
+        if (sscanf((const char*)pkt, "FILE_INIT:%zu:%zu", &totalSize, &this->transferChunkSize) == 2) {
+            this->expectedChunks = (totalSize + this->transferChunkSize - 1) / this->transferChunkSize;
+            this->fileBuffer.clear();
+            this->fileBuffer.resize(totalSize);  // ✅ Proper allocation
+            this->receivedChunks = 0;
+
+            Serial.printf("📥 INIT: totalSize=%zu, chunkSize=%zu, expectedChunks=%u\n",
+                          totalSize, this->transferChunkSize, this->expectedChunks);
+        } else {
+            Serial.println("❌ INIT frame parse failed!");
+        }
+        return;
+    }
+
+    // === END Frame ===
+    if (memcmp(pkt, kFileEndTag, strlen(kFileEndTag)) == 0) {
+        if (this->onFileReceived && this->receivedChunks == this->expectedChunks) {
+            Serial.printf("✅ File complete (%u chunks)\n", this->receivedChunks);
+            this->onFileReceived(this->fileBuffer.data(), this->fileBuffer.size());
+            Serial.printf("returning from function");
+            return;
+        } else {
+            Serial.printf("❌ Incomplete file (%u/%u chunks)\n", this->receivedChunks, this->expectedChunks);
+        }
+        return;
+    }
+
+    // === Chunk Frame ===
+    if (pkt[0] == 0xAB && len >= 4) {
+        uint16_t chunkIndex = (pkt[1] << 8) | pkt[2];
+        uint8_t chunkLen = pkt[3];
+        size_t offset = chunkIndex * this->transferChunkSize;
+
+        if (offset + chunkLen > this->fileBuffer.size()) {
+            Serial.printf("❌ Chunk %u out of bounds (offset %zu + len %u > buffer %zu)\n",
+                          chunkIndex, offset, chunkLen, this->fileBuffer.size());
+            return;
+        }
+
+        memcpy(&this->fileBuffer[offset], pkt + 4, chunkLen);
+        this->receivedChunks++;
+
+        Serial.printf("🧩 Chunk #%u received: offset=%zu, len=%u, totalChunks=%u/%u\n",
+                      chunkIndex, offset, chunkLen, this->receivedChunks, this->expectedChunks);
+    }
 }
