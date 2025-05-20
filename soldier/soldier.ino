@@ -28,11 +28,11 @@ const crypto::Key256 SHARED_KEY = []() {
 
 //Example soldiers messages
 SoldiersSentData coords[] = {
-  {0, 0, 31.970866, 34.785611, 78, 1},     // healthy
-  {0, 0, 31.970870, 34.785630, 100, 2},    // borderline
-  {0, 0, 31.970855, 34.785590, 55, 3},     // low
-  {0, 0, 31.970840, 34.785570, 0, 4},      // dead 
-  {0, 0, 31.970880, 34.785650, 120, 5}     // high
+  {0, 0, 31.970866, 34.785664,  78, 2},
+  {0, 0, 31.970870, 34.785683, 100, 2},
+  {0, 0, 31.970855, 34.785643,  55, 2}, 
+  {0, 0, 31.970840, 34.785623,   0, 2},
+  {0, 0, 31.970880, 34.785703, 120, 2}
 };
 
 const int coordCount = sizeof(coords) / sizeof(coords[0]);
@@ -46,7 +46,6 @@ std::unique_ptr<GPSModule> gpsModule;
 const char* helmentDownloadLink = "https://iconduck.com/api/v2/vectors/vctr0xb8urkk/media/png/256/download";
 
 // === Function Prototypes ===
-void sendCoordinate(float lat, float lon);
 bool screenTouched();
 
 volatile bool pmu_flag = false;
@@ -129,7 +128,7 @@ void setup() {
   Serial.printf("WiFi connected!");
 
   struct tm timeInfo;
-
+  Serial.println("HELLO WORLD!");
   setenv("TZ", "GMT-3", 1);
   tzset();
   deleteExistingFile("/cert.pem");
@@ -305,15 +304,6 @@ void init_main_poc_page()
     lv_label_set_text(sendCoordsLabel, "Send Coords");
     lv_obj_center(sendCoordsLabel);
 
-    lv_obj_t *sendLogFileBtn = lv_btn_create(mainPage);
-    lv_obj_align(sendLogFileBtn, LV_ALIGN_CENTER, 80, 0);
-    lv_obj_set_style_bg_color(sendLogFileBtn, lv_color_hex(0x346eeb), LV_STATE_DEFAULT);
-    lv_obj_add_event_cb(sendLogFileBtn, init_send_large_log_file_page, LV_EVENT_CLICKED, NULL);
-
-    lv_obj_t *sendLogFileLabel = lv_label_create(sendLogFileBtn);
-    lv_label_set_text(sendLogFileLabel, "Send Log File");
-    lv_obj_center(sendLogFileLabel);
-
     startGPSChecking = false;
 }
 
@@ -341,8 +331,8 @@ void init_send_coords_page(lv_event_t * event)
   lv_obj_set_width(sendLabel, lv_disp_get_hor_res(NULL) - 20);
   lv_label_set_long_mode(sendLabel, LV_LABEL_LONG_WRAP);
 
-  //sendTimer = lv_timer_create(sendTimerCallback, 5000, NULL);
-  startGPSChecking = true;
+  sendTimer = lv_timer_create(sendTimerCallback, 5000, NULL);
+  //startGPSChecking = true;
 
 }
 
@@ -358,7 +348,8 @@ void sendTimerCallback(lv_timer_t *timer) {
         strcpy(timeStr, "00:00:00");
     }
     
-    //sendCoordinate(currentIndex % coordCount);
+    sendCoordinate(coords[currentIndex % coordCount].posLat, coords[currentIndex % coordCount].posLon,
+       coords[currentIndex % coordCount].heartRate, coords[currentIndex % coordCount].soldiersID);
     
     const char *current_text = lv_label_get_text(sendLabel);
     
@@ -405,7 +396,7 @@ void loop() {
     if (currentTime - lastSendTime >= SEND_INTERVAL) {
 
       if (!isZero(lat) && !isZero(lon)) {
-        sendCoordinate(lat, lon);
+        sendCoordinate(lat, lon, 100, 1);
       }
       else
       {
@@ -440,12 +431,14 @@ void loop() {
 }
 
 
-void sendCoordinate(float lat, float lon) {
+void sendCoordinate(float lat, float lon, uint16_t heartRate, uint16_t soldiersID) {
   Serial.println("sendCoordinate");
 
   SoldiersSentData coord;
   coord.posLat = lat;
   coord.posLon = lon;
+  coord.heartRate = heartRate;
+  coord.soldiersID = soldiersID;
 
   Serial.printf("BEFORE SENDING: %.7f %.7f %.7f %.7f %d\n",coord.tileLat, coord.tileLon, coord.posLat, coord.posLon, coord.heartRate);
   auto [tileLat, tileLon] = getTileCenterLatLon(coord.posLat, coord.posLon, 19, 256);

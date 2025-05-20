@@ -28,6 +28,7 @@ const crypto::Key256 SHARED_KEY = []() {
 
 
 lv_obj_t *current_marker = NULL;
+lv_obj_t *current_second_marker = NULL;
 
 std::unique_ptr<LoraModule> loraModule;
 std::unique_ptr<WifiModule> wifiModule;
@@ -41,6 +42,7 @@ using GPSCoordTuple = std::tuple<float, float, float, float>;
 volatile bool pmu_flag = false;
 
 lv_obj_t* soldiersNameLabel = NULL;
+lv_obj_t* secondSoldiersNameLabel = NULL;
 
 lv_color_t getColorFromHeartRate(int hr) {
     if (hr <= 0) return lv_color_black();
@@ -72,7 +74,7 @@ static inline crypto::ByteVec hexToBytes(const String& hex) {
 }
 
 lv_color_t ballColor = lv_color_hex(0xff0000);
-
+lv_color_t secondBallColor = lv_color_hex(0xff0000);
 void IRAM_ATTR onPmuInterrupt() {
     pmu_flag = true;
 }
@@ -128,25 +130,28 @@ std::pair<double,double> tileCenterLatLon(int zoom, int x_tile, int y_tile)
     return {lat_deg, lon_deg};
 }
 
-void create_fading_circle(double markerLat, double markerLon, double centerLat, double centerLon, int zoom, lv_color_t ballColor) {
-    if (current_marker != NULL) {
-        lv_obj_del(current_marker);
-        current_marker = NULL;
+
+void create_fading_circle(double markerLat, double markerLon, double centerLat, double centerLon, uint16_t soldiersID, int zoom,
+     lv_color_t* ballColor, lv_obj_t*& marker, lv_obj_t*& label) {
+
+    if (marker != NULL) {
+        lv_obj_del(marker);
+        marker = NULL;
     }
 
     int pixel_x, pixel_y;
     std::tie(pixel_x, pixel_y) = latlon_to_pixel(markerLat, markerLon, centerLat, centerLon, zoom);
 
-    current_marker = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(current_marker, 10, 10);
-    lv_obj_set_style_bg_color(current_marker, ballColor, 0);
-    lv_obj_set_style_radius(current_marker, LV_RADIUS_CIRCLE, 0);
+    marker = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(marker, 10, 10);
+    lv_obj_set_style_bg_color(marker, *ballColor, 0);
+    lv_obj_set_style_radius(marker, LV_RADIUS_CIRCLE, 0);
 
-    lv_obj_set_pos(current_marker, pixel_x, pixel_y);
+    lv_obj_set_pos(marker, pixel_x, pixel_y);
 
     lv_anim_t a;
     lv_anim_init(&a);
-    lv_anim_set_var(&a, current_marker);
+    lv_anim_set_var(&a, marker);
     lv_anim_set_values(&a, 0, 255);
     lv_anim_set_time(&a, 1000);
     lv_anim_set_playback_time(&a, 1000);
@@ -154,14 +159,16 @@ void create_fading_circle(double markerLat, double markerLon, double centerLat, 
     lv_anim_set_exec_cb(&a, anim_opacity_cb);
     lv_anim_start(&a);
 
-    if(!soldiersNameLabel)
+    if(!label)
     {
-        soldiersNameLabel = lv_label_create(lv_scr_act());
-        lv_label_set_text(soldiersNameLabel, "Soldier 1");
+        label = lv_label_create(lv_scr_act());
+
+        std::string s = std::to_string(soldiersID);
+        lv_label_set_text(label, s.c_str());
     }
     
     
-    lv_obj_align_to(soldiersNameLabel, current_marker, LV_ALIGN_TOP_MID, 0, -35);
+    lv_obj_align_to(label, marker, LV_ALIGN_TOP_MID, 0, -35);
 }
 
 void clearMainPage()
@@ -171,7 +178,9 @@ void clearMainPage()
     lv_obj_clean(mainPage);
 
     current_marker = NULL;
+    current_second_marker = NULL;
     soldiersNameLabel = NULL;
+    secondSoldiersNameLabel = NULL;
 
     deleteExistingFile(tileFilePath);
 }
@@ -198,6 +207,7 @@ bool downloadSingleTile(const std::string &tileURL, const char* fileName) {
     int httpCode = http.GET();
     if (httpCode == HTTP_CODE_OK) {
         ballColor = lv_color_hex(0x000000);
+        secondBallColor = lv_color_hex(0x000000);
         size_t fileSize = http.getSize();
         WiFiClient* stream = http.getStreamPtr();
         uint8_t* buffer = new uint8_t[fileSize];
@@ -361,6 +371,8 @@ void init_main_poc_page(lv_event_t * event)
     deleteExistingFile(logFilePath);
 
     ballColor = lv_color_hex(0xff0000);
+    secondBallColor = lv_color_hex(0xff0000);
+
     lv_obj_t * mainPage = lv_scr_act();
 
     lv_obj_set_style_bg_color(mainPage, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -391,9 +403,12 @@ bool isZero(double x)
     return std::fabs(x) < 1e-9;
 }
 
-void init_p2p_test(String incoming)
+void init_p2p_test(const uint8_t* data, size_t len)
 {
-    // Serial.println("init_p2p_test");
+    String incoming;
+    for (size_t i = 0; i < len; i++) {
+        incoming += (char)data[i];
+    }
 
     int p1 = incoming.indexOf('|');
     int p2 = incoming.indexOf('|', p1 + 1);
@@ -458,16 +473,26 @@ void init_p2p_test(String incoming)
     if (!FFat.exists(tileFilePath) && downloadMiddleTile(tileLocation))
         // Serial.println("Middle tile downloaded.");
 
-    if (!current_marker)
+    if (!current_marker && !current_second_marker)
         showMiddleTile();
 
     auto [zoom, x_tile, y_tile] = tileLocation;
     auto [centerLat, centerLon] = tileCenterLatLon(zoom, x_tile, y_tile);
 
     int heartRate = newG->heartRate;
-    ballColor = getColorFromHeartRate(heartRate);
+    if(newG->soldiersID == 1)
+    {
+        ballColor = getColorFromHeartRate(heartRate);
+        create_fading_circle(marker_lat, marker_lon, centerLat, centerLon, newG->soldiersID, 19, &ballColor, current_marker, soldiersNameLabel);
+    }
+    else
+    {
+        secondBallColor = getColorFromHeartRate(heartRate);
+        create_fading_circle(marker_lat, marker_lon, centerLat, centerLon, newG->soldiersID, 19, &secondBallColor, current_second_marker, secondSoldiersNameLabel);
+    }
+    
 
-    create_fading_circle(marker_lat, marker_lon, centerLat, centerLon, 19, ballColor);
+    
 
 }
 
@@ -682,7 +707,7 @@ void setup() {
 
     loraModule = std::make_unique<LoraModule>(433.5);
     loraModule->setup(false);
-    loraModule->setOnReadData(onLoraFileDataReceived);
+    loraModule->setOnReadData(init_p2p_test);
 
     Serial.println("After LORA INIT");
 

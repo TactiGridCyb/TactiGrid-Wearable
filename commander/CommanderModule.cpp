@@ -5,8 +5,9 @@
 CommanderModule::CommanderModule(const std::string& name,
                                const std::string& publicCert,
                                const std::string& privateKey,
+                               const std::string& publicCA,
                                int soldierNumber)
-    : Soldier(name, publicCert, privateKey, soldierNumber),
+    : Soldier(name, publicCert, privateKey, publicCA, soldierNumber),
       _currentHeartRate(0)
 {
 }

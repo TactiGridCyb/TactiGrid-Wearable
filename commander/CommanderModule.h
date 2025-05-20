@@ -11,6 +11,7 @@ public:
     CommanderModule(const std::string& name,
                     const std::string& publicCert,
                     const std::string& privateKey,
+                    const std::string& publicCA,
                     int soldierNumber);
 
     // Getters
