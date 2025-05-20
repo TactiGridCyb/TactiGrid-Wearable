@@ -40,6 +40,8 @@ public:
                      size_t length,
                      size_t chunkSize = 200);
 
+   void switchToTransmitterMode();
+   void switchToReceiverMode();
     // Called when a full file is received (optional)
     std::function<void(const uint8_t* data, size_t len)> onFileReceived;
 

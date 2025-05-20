@@ -94,6 +94,22 @@ int16_t LoraModule::setup(bool transmissionMode)
     return state;
 }
 
+void LoraModule::switchToTransmitterMode()
+{
+    transmittedFlag = false;
+    initialTransmittion = false;
+    this->loraDevice.setDio1Action(setTransmittedFlag);
+    // Additional setup for transmitter mode if needed
+}
+
+void LoraModule::switchToReceiverMode()
+{
+    receivedFlag = false;
+    this->loraDevice.setDio1Action(setReceivedFlag);
+    this->loraDevice.startReceive();
+    // Additional setup for receiver mode if needed
+}
+
 int16_t LoraModule::setupListening()
 {
     int16_t state = this->loraDevice.startReceive();
