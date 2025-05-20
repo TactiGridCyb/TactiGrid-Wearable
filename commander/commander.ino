@@ -164,6 +164,18 @@ void create_fading_circle(double markerLat, double markerLon, double centerLat, 
     lv_obj_align_to(soldiersNameLabel, current_marker, LV_ALIGN_TOP_MID, 0, -35);
 }
 
+void clearMainPage()
+{
+    lv_obj_t * mainPage = lv_scr_act();
+    lv_obj_remove_style_all(mainPage);
+    lv_obj_clean(mainPage);
+
+    current_marker = NULL;
+    soldiersNameLabel = NULL;
+
+    deleteExistingFile(tileFilePath);
+}
+
 bool saveTileToFFat(const uint8_t* data, size_t len, const char* tileFilePath) {
     File file = FFat.open(tileFilePath, FILE_WRITE);
     if (!file) {
@@ -339,17 +351,7 @@ void listFiles(const char* path = "/", uint8_t depth = 0) {
 }
 
 
-void clearMainPage()
-{
-    lv_obj_t * mainPage = lv_scr_act();
-    lv_obj_remove_style_all(mainPage);
-    lv_obj_clean(mainPage);
 
-    current_marker = NULL;
-    soldiersNameLabel = NULL;
-
-    deleteExistingFile(tileFilePath);
-}
 
 void init_main_poc_page(lv_event_t * event)
 {
@@ -420,12 +422,12 @@ void init_p2p_test(String incoming)
 
 
     SoldiersSentData* newG = reinterpret_cast<SoldiersSentData*>(pt.data());
-    // Serial.printf("%.5f %.5f %.5f %.5f %d\n", newG->lat1, newG->lat2, newG->lon1, newG->lon2, newG->heartRate);
+    Serial.printf("%.5f %.5f %.5f %.5f %d\n", newG->tileLon, newG->tileLat, newG->posLat, newG->posLon, newG->soldiersID);
     String plainStr;
     plainStr.reserve(pt.size());
     for (unsigned char b : pt) plainStr += (char)b;
 
-    // Serial.println("Decrypted: " + plainStr);
+    Serial.println("Decrypted: " + plainStr);
 
     GPSCoordTuple coords = parseCoordinates(plainStr);
 

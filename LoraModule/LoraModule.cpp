@@ -1,4 +1,5 @@
 #include "LoraModule.h"
+#define RADIOLIB_ERR_CHANNEL_BUSY -1000
 
 volatile bool receivedFlag = false;
 volatile bool transmittedFlag = false;
@@ -89,7 +90,7 @@ int16_t LoraModule::setup(bool transmissionMode)
     {
         this->loraDevice.setDio1Action(setReceivedFlag);
     }
-
+    
     return state;
 }
 
@@ -156,11 +157,23 @@ int16_t LoraModule::cleanUpTransmissions()
 int16_t LoraModule::sendData(const char* data)
 {
     Serial.println("this->transmittedFlag: " + String(transmittedFlag));
-    uint16_t status = this->loraDevice.startTransmit(data);
-    Serial.println(String(status));
-    if (!this->initialTransmittion && status == RADIOLIB_ERR_NONE)
-    {
-        this->initialTransmittion = true;
+
+    const int maxRetries = 5;
+    int16_t status = RADIOLIB_ERR_CHANNEL_BUSY;
+
+    for (int attempt = 0; attempt < maxRetries; ++attempt) {
+        if (this->canTransmit()) {
+            status = this->loraDevice.startTransmit(data);
+            Serial.println("Transmit status: " + String(status));
+            if (!this->initialTransmittion && status == RADIOLIB_ERR_NONE) {
+                this->initialTransmittion = true;
+            }
+            break;
+        } else {
+            int retryDelayMs = random(50, 150);
+            Serial.println("Channel busy, retrying in " + String(retryDelayMs) + " ms...");
+            delay(retryDelayMs);
+        }
     }
 
     return status;
@@ -223,7 +236,7 @@ int16_t LoraModule::sendFile(const uint8_t* data,
         Serial.print(F("  packet: "));
         dumpHex(packet, 4 + segLen);
         state = this->loraDevice.transmit(packet, 4 + segLen); // Blocking call, waiting for it to finish before proceeding
-        if (state != RADIOLIB_ERR_NONE) { return state; }
+        
     }
 
 
