@@ -3,6 +3,7 @@
 #include <vector>
 #include <cstdint>
 #include <chrono>
+#include <LilyGoLib.h>
 
 class FHFModule {
 public:
@@ -14,8 +15,7 @@ private:
     std::vector<float> frequencies;
     uint16_t hopInterval;
 
-    // Epoch start time in seconds since UNIX epoch (2025-05-21 00:00:00 UTC)
-    static constexpr time_t EPOCH_START = 1753200000;
+    static constexpr time_t EPOCH_START = 1747785600;
 
     int64_t currentHopSlot() const;
 };

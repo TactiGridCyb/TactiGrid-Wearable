@@ -51,10 +51,10 @@ const std::vector<float> freqList = {
     433.5, 433.6, 433.7, 433.8
 };
 
-const uint32_t hopIntervalSeconds = 10;
+const uint32_t hopIntervalSeconds = 30;
 
 
-float currentLoraFreq = 0.0f;
+float currentLoraFreq = 433.5f;
 
 lv_color_t getColorFromHeartRate(int hr) {
     if (hr <= 0) return lv_color_black();
@@ -774,14 +774,10 @@ void loop() {
   
     loraModule->readData();
     
-
-    if (fhfModule) {
-      uint32_t newFreqHz = fhfModule->currentFrequency();
-      float newFreqMHz = newFreqHz / 1e6f;
-      if (newFreqMHz != currentLoraFreq) {
-          currentLoraFreq = loraModule->setFrequency(currentLoraFreq);
-          Serial.printf("Frequency hopped to %.3f MHz\n", currentLoraFreq);
-      }
+    uint32_t newFreqMHz = fhfModule->currentFrequency();
+    if (newFreqMHz != currentLoraFreq) {
+        currentLoraFreq = loraModule->setFrequency(currentLoraFreq);
+        Serial.printf("Frequency hopped to %.3f MHz\n", currentLoraFreq);
     }
 
     lv_task_handler();

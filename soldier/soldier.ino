@@ -25,10 +25,10 @@ const int udpPort = 3333;
 const std::vector<float> freqList = {
     433.5, 433.6, 433.7, 433.8
 };
-const uint32_t hopIntervalSeconds = 15;
+const uint32_t hopIntervalSeconds = 30;
 
 
-float currentLoraFreq = 0.0f;
+float currentLoraFreq = 433.5f;
 
 const crypto::Key256 SHARED_KEY = []() {
   crypto::Key256 key{};
@@ -385,6 +385,8 @@ bool isZero(float x)
 }
 
 // === Loop ===
+static unsigned long lastFreqCheck = 0;
+
 void loop() {
    
   if (pmu_flag) {
@@ -398,11 +400,15 @@ void loop() {
 
   loraModule->cleanUpTransmissions();
 
-  if (fhfModule) {
-      uint32_t newFreqHz = fhfModule->currentFrequency();
-      float newFreqMHz = newFreqHz / 1e6f;
+  
+  unsigned long currentMillis = millis();
+
+  if (currentMillis - lastFreqCheck >= 1000) {
+      lastFreqCheck = currentMillis;
+      float newFreqMHz = fhfModule->currentFrequency();
       if (newFreqMHz != currentLoraFreq) {
-          currentLoraFreq = loraModule->setFrequency(currentLoraFreq);
+          currentLoraFreq = newFreqMHz;
+          loraModule->setFrequency(currentLoraFreq);
           Serial.printf("Frequency hopped to %.3f MHz\n", currentLoraFreq);
       }
   }

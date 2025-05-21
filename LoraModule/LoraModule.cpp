@@ -3,6 +3,7 @@
 
 volatile bool receivedFlag = false;
 volatile bool transmittedFlag = false;
+
 volatile bool activeJob = false;
 volatile bool activeFileJob = false;
 
@@ -98,12 +99,21 @@ int16_t LoraModule::setup(bool transmissionMode)
 
 int16_t LoraModule::setFrequency(float newFreq)
 {
-    if(activeJob)
+    if(activeJob || activeFileJob)
     {
+        if(this->isSendData)
+        {
+            this->isSendData = false;
+        }
         return this->freq;
     }
 
+    Serial.printf("Changing freq to %.2f\n", newFreq);
+
     this->freq = newFreq;
+    this->loraDevice.setFrequency(this->freq);
+    this->isSendData = true;
+
     return this->freq;
 }
 
@@ -191,7 +201,7 @@ int16_t LoraModule::sendData(const char* data)
 
     if(!this->isSendData)
     {
-        return;
+        return 0;
     }
 
     const int maxRetries = 5;
@@ -339,7 +349,7 @@ void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
 
         activeJob = false;
         activeFileJob = false;
-        
+
         return;
     }
 
