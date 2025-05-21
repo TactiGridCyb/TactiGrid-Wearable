@@ -9,9 +9,11 @@
 #include "SoldiersSentData.h"
 #include "LoraModule.h"
 #include "../wifi-connection/WifiModule.h"
+#include "../FHFModule/FHFModule.h"
 
 std::unique_ptr<LoraModule> loraModule;
 std::unique_ptr<WifiModule> wifiModule;
+std::unique_ptr<FHFModule> fhfModule;
 
 const char* ssid = "default";
 const char* password = "1357924680";
@@ -19,14 +21,12 @@ const char* password = "1357924680";
 const char *udpAddress = "192.168.0.44";
 const int udpPort = 3333;
 
-#include "../LoraModule/FHFModule.h"
 
-const std::vector<uint32_t> freqList = {
-    433500000, 434000000, 434500000, 435000000
+const std::vector<float> freqList = {
+    433.5, 433.6, 433.7, 433.8
 };
-const uint32_t hopIntervalSeconds = 10;
+const uint32_t hopIntervalSeconds = 15;
 
-std::unique_ptr<FHFModule> fhfModule;
 
 float currentLoraFreq = 0.0f;
 
@@ -402,8 +402,7 @@ void loop() {
       uint32_t newFreqHz = fhfModule->currentFrequency();
       float newFreqMHz = newFreqHz / 1e6f;
       if (newFreqMHz != currentLoraFreq) {
-          currentLoraFreq = newFreqMHz;
-          loraModule->setFrequency(currentLoraFreq);
+          currentLoraFreq = loraModule->setFrequency(currentLoraFreq);
           Serial.printf("Frequency hopped to %.3f MHz\n", currentLoraFreq);
       }
   }

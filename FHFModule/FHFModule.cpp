@@ -1,7 +1,7 @@
 #include "FHFModule.h"
 #include <ctime>
 
-FHFModule::FHFModule(const std::vector<uint32_t>& freqs, uint32_t hopIntervalSeconds)
+FHFModule::FHFModule(const std::vector<float>& freqs, uint16_t hopIntervalSeconds)
     : frequencies(freqs), hopInterval(hopIntervalSeconds)
 {
 }
@@ -13,7 +13,7 @@ int64_t FHFModule::currentHopSlot() const
     return elapsed / hopInterval;
 }
 
-uint32_t FHFModule::currentFrequency() const
+float FHFModule::currentFrequency() const
 {
     int64_t slot = currentHopSlot();
     if (frequencies.empty()) {

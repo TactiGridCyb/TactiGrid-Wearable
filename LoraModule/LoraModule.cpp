@@ -3,16 +3,23 @@
 
 volatile bool receivedFlag = false;
 volatile bool transmittedFlag = false;
+volatile bool activeJob = false;
+volatile bool activeFileJob = false;
 
 ICACHE_RAM_ATTR void setReceivedFlag(void)
 {
     receivedFlag = true;
+    activeJob = false;
 }
 
 ICACHE_RAM_ATTR void setTransmittedFlag(void)
 {
-    Serial.println("SET TO TRUE");
     transmittedFlag = true;
+    if(!activeFileJob)
+    {
+        activeJob = false;
+    }
+    
 }
 
 int16_t LoraModule::setup(bool transmissionMode)
@@ -91,14 +98,18 @@ int16_t LoraModule::setup(bool transmissionMode)
 
 int16_t LoraModule::setFrequency(float newFreq)
 {
+    if(activeJob)
+    {
+        return this->freq;
+    }
+
     this->freq = newFreq;
-    return this->loraDevice.setFrequency(newFreq);
+    return this->freq;
 }
 
 void LoraModule::switchToTransmitterMode()
 {
     transmittedFlag = false;
-    initialTransmittion = false;
     this->loraDevice.setDio1Action(setTransmittedFlag);
     // Additional setup for transmitter mode if needed
 }
@@ -119,6 +130,7 @@ int16_t LoraModule::setupListening()
 
 bool LoraModule::isChannelFree()
 {
+    activeJob = true;
     int16_t result = this->loraDevice.scanChannel();
 
     return (result == RADIOLIB_CHANNEL_FREE);
@@ -128,10 +140,7 @@ bool LoraModule::isChannelFree()
 bool LoraModule::canTransmit()
 {   
     bool isFree = this->isChannelFree();
-
-    
-
-    Serial.println("Checking if can transmit: " + String(isFree) + " " + String(this->initialTransmittion) + " " + String(transmittedFlag));
+    delay(5);
     transmittedFlag = false;
     
     return !transmittedFlag && isFree;
@@ -178,19 +187,21 @@ int16_t LoraModule::cleanUpTransmissions()
 
 int16_t LoraModule::sendData(const char* data)
 {
-    Serial.println("this->transmittedFlag: " + String(transmittedFlag));
+    Serial.println("this->transmittedFlag: " + String(transmittedFlag) + " " + String(this->isSendData));
+
+    if(!this->isSendData)
+    {
+        return;
+    }
 
     const int maxRetries = 5;
     int16_t status = RADIOLIB_ERR_CHANNEL_BUSY;
 
     for (int attempt = 0; attempt < maxRetries; ++attempt) {
         if (this->canTransmit()) {
-            
+            activeJob = true;
             status = this->loraDevice.startTransmit(data);
             Serial.println("Transmit status: " + String(status));
-            if (!this->initialTransmittion && status == RADIOLIB_ERR_NONE) {
-                this->initialTransmittion = true;
-            }
             break;
         } else {
             int retryDelayMs = random(50, 150);
@@ -223,6 +234,9 @@ int16_t LoraModule::sendFile(const uint8_t* data,
     {
         return 0;
     }
+
+    activeJob = true;
+    activeFileJob = true;
 
     String initFrame  = String(kFileInitTag)  + ':' +
                         String(length)        + ':' +
@@ -266,6 +280,8 @@ int16_t LoraModule::sendFile(const uint8_t* data,
     delay(50);
 
     String endFrame = String(kFileEndTag);
+    activeFileJob = false;
+
     return this->loraDevice.transmit(endFrame.c_str());
 }
 
@@ -280,12 +296,11 @@ LoraModule::~LoraModule()
 }
 
 
-// === LoraModule.cpp - File Reassembly Logic ===
-//******************************added for reciving lrage chunks of data ************************/
+//Added for reciving lrage chunks of data
 void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
 {
     if (len == 0) return;
-
+    
     Serial.printf("📦 Incoming packet: %.*s\n", len, pkt);  // Print every received packet
 
     // === INIT Frame ===
@@ -293,11 +308,14 @@ void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
         size_t totalSize = 0;
         this->transferChunkSize = 0;
 
+        activeJob = true;
+        activeFileJob = true;
+
         // Parse the init line: must match commander format exactly
         if (sscanf((const char*)pkt, "FILE_INIT:%zu:%zu", &totalSize, &this->transferChunkSize) == 2) {
             this->expectedChunks = (totalSize + this->transferChunkSize - 1) / this->transferChunkSize;
             this->fileBuffer.clear();
-            this->fileBuffer.resize(totalSize);  // ✅ Proper allocation
+            this->fileBuffer.resize(totalSize);
             this->receivedChunks = 0;
 
             Serial.printf("📥 INIT: totalSize=%zu, chunkSize=%zu, expectedChunks=%u\n",
@@ -318,6 +336,10 @@ void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
         } else {
             Serial.printf("❌ Incomplete file (%u/%u chunks)\n", this->receivedChunks, this->expectedChunks);
         }
+
+        activeJob = false;
+        activeFileJob = false;
+        
         return;
     }
 

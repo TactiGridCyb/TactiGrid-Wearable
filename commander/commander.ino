@@ -17,6 +17,7 @@
 #include "../wifi-connection/WifiModule.h"
 #include "../envLoader.cpp"
 #include "../soldier/SoldiersSentData.h"
+#include "../FHFModule/FHFModule.h"
 
 const crypto::Key256 SHARED_KEY = []() {
     crypto::Key256 key{};
@@ -32,6 +33,7 @@ lv_obj_t *current_second_marker = NULL;
 
 std::unique_ptr<LoraModule> loraModule;
 std::unique_ptr<WifiModule> wifiModule;
+std::unique_ptr<FHFModule> fhfModule;
 
 const std::string tileUrlInitial = "https://tile.openstreetmap.org/";
 const char* tileFilePath = "/middleTile.png";
@@ -43,6 +45,16 @@ volatile bool pmu_flag = false;
 
 lv_obj_t* soldiersNameLabel = NULL;
 lv_obj_t* secondSoldiersNameLabel = NULL;
+
+
+const std::vector<float> freqList = {
+    433.5, 433.6, 433.7, 433.8
+};
+
+const uint32_t hopIntervalSeconds = 10;
+
+
+float currentLoraFreq = 0.0f;
 
 lv_color_t getColorFromHeartRate(int hr) {
     if (hr <= 0) return lv_color_black();
@@ -709,6 +721,9 @@ void setup() {
     loraModule->setup(false);
     loraModule->setOnReadData(init_p2p_test);
 
+    fhfModule = std::make_unique<FHFModule>(freqList, hopIntervalSeconds);
+    currentLoraFreq = 433.5;
+
     Serial.println("After LORA INIT");
 
     init_main_menu();
@@ -758,7 +773,17 @@ void loop() {
     }
   
     loraModule->readData();
-  
+    
+
+    if (fhfModule) {
+      uint32_t newFreqHz = fhfModule->currentFrequency();
+      float newFreqMHz = newFreqHz / 1e6f;
+      if (newFreqMHz != currentLoraFreq) {
+          currentLoraFreq = loraModule->setFrequency(currentLoraFreq);
+          Serial.printf("Frequency hopped to %.3f MHz\n", currentLoraFreq);
+      }
+    }
+
     lv_task_handler();
     delay(10);
 }
