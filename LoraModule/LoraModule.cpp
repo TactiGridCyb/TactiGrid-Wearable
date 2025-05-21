@@ -89,6 +89,12 @@ int16_t LoraModule::setup(bool transmissionMode)
     return state;
 }
 
+int16_t LoraModule::setFrequency(float newFreq)
+{
+    this->freq = newFreq;
+    return this->loraDevice.setFrequency(newFreq);
+}
+
 void LoraModule::switchToTransmitterMode()
 {
     transmittedFlag = false;

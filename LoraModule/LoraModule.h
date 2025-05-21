@@ -29,6 +29,7 @@ public:
     int16_t setup(bool);
     int16_t sendData(const char*);
     int16_t readData();
+
     int16_t cleanUpTransmissions();
     int16_t setupListening();
 
@@ -39,6 +40,8 @@ public:
     int16_t sendFile(const uint8_t* data,
                      size_t length,
                      size_t chunkSize = 200);
+
+    int16_t setFrequency(float newFreq);
 
    void switchToTransmitterMode();
    void switchToReceiverMode();

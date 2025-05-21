@@ -19,6 +19,17 @@ const char* password = "1357924680";
 const char *udpAddress = "192.168.0.44";
 const int udpPort = 3333;
 
+#include "../LoraModule/FHFModule.h"
+
+const std::vector<uint32_t> freqList = {
+    433500000, 434000000, 434500000, 435000000
+};
+const uint32_t hopIntervalSeconds = 10;
+
+std::unique_ptr<FHFModule> fhfModule;
+
+float currentLoraFreq = 0.0f;
+
 const crypto::Key256 SHARED_KEY = []() {
   crypto::Key256 key{};
   const char* raw = "0123456789abcdef0123456789abcdef"; 
@@ -126,6 +137,9 @@ void setup() {
   wifiModule = std::make_unique<WifiModule>(ssid, password);
   wifiModule->connect(60000);
   Serial.printf("WiFi connected!");
+
+  fhfModule = std::make_unique<FHFModule>(freqList, hopIntervalSeconds);
+  currentLoraFreq = 433.5;
 
   struct tm timeInfo;
   Serial.println("HELLO WORLD!");
@@ -384,6 +398,16 @@ void loop() {
 
   loraModule->cleanUpTransmissions();
 
+  if (fhfModule) {
+      uint32_t newFreqHz = fhfModule->currentFrequency();
+      float newFreqMHz = newFreqHz / 1e6f;
+      if (newFreqMHz != currentLoraFreq) {
+          currentLoraFreq = newFreqMHz;
+          loraModule->setFrequency(currentLoraFreq);
+          Serial.printf("Frequency hopped to %.3f MHz\n", currentLoraFreq);
+      }
+  }
+
   if (startGPSChecking) {
     gpsModule->readGPSData();
 
@@ -418,16 +442,16 @@ void loop() {
         double  meters = gpsAltitude.isValid() ? gpsAltitude.meters() : 0;
         double  kmph = gpsSpeed.isValid() ? gpsSpeed.kmph() : 0;
         lv_label_set_text_fmt(sendLabel, "Sats:%u\nHDOP:%.1f\nLat:%.5f\nLon:%.5f\nDate:%d/%d/%d \nTime:%d/%d/%d\nAlt:%.2f m \nSpeed:%.2f",
-          satellites, hdop, lat, lon, year, month, day, hour, minute, second, meters, kmph);
-      }
-
-      lastSendTime = currentTime;
+                              satellites, hdop, lat, lon, year, month, day, hour, minute, second, meters, kmph);
     }
 
+    lastSendTime = currentTime;
   }
-  
-  lv_task_handler();
-  delay(10);
+
+}
+
+lv_task_handler();
+delay(10);
 }
 
 
