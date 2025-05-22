@@ -4,6 +4,8 @@
 #include <vector>
 #include <map>
 #include "Soldier.h"
+#include "../certModule/certModule.h"
+#include <array>
 
 class CommanderModule : public Soldier
 {
@@ -14,20 +16,17 @@ public:
                     const std::string& publicCA,
                     int soldierNumber);
 
-    // Getters
     const std::vector<std::string>& getCurrentSoldiers() const;
     int getCurrentHeartRate() const;
 
-    // Setters
     void setCurrentHeartRate(int heartRate);
 
-    // Manage soldiers list
     void addSoldier(const std::string& soldierName);
     void removeSoldier(const std::string& soldierName);
     void clearSoldiers();
 
 private:
-    std::map<uint16_t, Soldier> _currentSoldiers;
-    int _currentHeartRate;
-    std::vector<std::string> _currentSoldiersNames;
+    std::map<uint16_t, Soldier> currentSoldiers;
+    int currentHeartRate;
+    std::vector<certModule> currentSoldiersCerts;
 };

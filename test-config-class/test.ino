@@ -3,7 +3,7 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include "../commander-config/commander-config.h"
-#include "crypto-helper.h"
+#include "certModuler.h"
 #include <LV_Helper.h>
 
 // WiFi + URL
@@ -12,7 +12,7 @@ const char* password = "box17box";
 const char* configURL = "http://192.168.1.141:5555/download/watch1";
 
 CommanderConfigModule* config = nullptr;
-CryptoHelper crypto;
+certModule crypto;
 
 // UI Elements
 lv_obj_t* statusLabel;

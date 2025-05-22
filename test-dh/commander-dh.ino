@@ -5,7 +5,7 @@
 #include <LilyGoLib.h>
 #include "../LoraModule/LoraModule.h"
 #include "../commander-config/commander-config.h"
-#include "crypto-helper.h"
+#include "certModule.h"
 #include "ECDHHelper.h"
 #include "../wifi-connection/WifiModule.h"
 #include <LV_Helper.h>
@@ -18,7 +18,7 @@
 // === Module Instances ===
 LoraModule lora(868.0);                          // LoRa radio on 868 MHz
 CommanderConfigModule* config = nullptr;        // Configuration received from server
-CryptoHelper crypto;                            // Handles cert + key parsing and verification
+certModule crypto;                            // Handles cert + key parsing and verification
 ECDHHelper ecdh;                                // Handles ephemeral ECDH operations
 WifiModule wifi("peretz1", "box17box");         // Connects to web server to download config
 
@@ -288,7 +288,7 @@ void loop() {
 #include <LilyGoLib.h>
 #include "../LoraModule/LoraModule.h"
 #include "../commander-config/commander-config.h"
-#include "crypto-helper.h"
+#include "certModule.h"
 #include "ECDHHelper.h"
 #include "../wifi-connection/WifiModule.h"
 #include <LV_Helper.h>
@@ -301,7 +301,7 @@ void loop() {
 // === Modules ===
 LoraModule lora(868.0);
 CommanderConfigModule* config = nullptr;
-CryptoHelper crypto;
+certModule crypto;
 ECDHHelper ecdh;
 WifiModule wifi("peretz1", "box17box");
 

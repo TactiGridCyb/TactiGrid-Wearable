@@ -3,7 +3,7 @@
 #include <LilyGoLib.h>
 #include "../LoraModule/LoraModule.h"
 #include "../commander-config/commander-config.h"
-#include "crypto-helper.h"
+#include "certModule.h"
 #include <LV_Helper.h>
 #include <ArduinoJson.h>
 #include <FFat.h>

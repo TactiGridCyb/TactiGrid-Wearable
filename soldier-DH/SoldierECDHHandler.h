@@ -3,7 +3,7 @@
 #include <ArduinoJson.h>
 #include "../LoraModule/LoraModule.h"
 #include "../commander-config/commander-config.h"
-#include "crypto-helper.h"
+#include "certModule.h"
 #include "ECDHHelper.h"
 #include <vector>
 
@@ -25,7 +25,7 @@ private:
 
     LoraModule lora;
     CommanderConfigModule* config;
-    CryptoHelper crypto;
+    certModule crypto;
     ECDHHelper ecdh;
     std::vector<uint8_t> sharedSecret;
     bool hasResponded;

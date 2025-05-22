@@ -8,36 +8,36 @@ CommanderModule::CommanderModule(const std::string& name,
                                const std::string& publicCA,
                                int soldierNumber)
     : Soldier(name, publicCert, privateKey, publicCA, soldierNumber),
-      _currentHeartRate(0)
+      currentHeartRate(0)
 {
 }
 
 const std::vector<std::string>& CommanderModule::getCurrentSoldiers() const {
-    return _currentSoldiersNames;
+    return currentSoldiersCerts;
 }
 
 int CommanderModule::getCurrentHeartRate() const {
-    return _currentHeartRate;
+    return currentHeartRate;
 }
 
 void CommanderModule::setCurrentHeartRate(int heartRate) {
-    _currentHeartRate = heartRate;
+    currentHeartRate = heartRate;
 }
 
 void CommanderModule::addSoldier(const std::string& soldierName) {
     // Add soldier name if not already present
-    if (std::find(_currentSoldiersNames.begin(), _currentSoldiersNames.end(), soldierName) == _currentSoldiersNames.end()) {
-        _currentSoldiersNames.push_back(soldierName);
+    if (std::find(currentSoldiersCerts.begin(), currentSoldiersCerts.end(), soldierName) == currentSoldiersCerts.end()) {
+        currentSoldiersCerts.push_back(soldierName);
     }
 }
 
 void CommanderModule::removeSoldier(const std::string& soldierName) {
-    auto it = std::find(_currentSoldiersNames.begin(), _currentSoldiersNames.end(), soldierName);
-    if (it != _currentSoldiersNames.end()) {
-        _currentSoldiersNames.erase(it);
+    auto it = std::find(currentSoldiersCerts.begin(), currentSoldiersCerts.end(), soldierName);
+    if (it != currentSoldiersCerts.end()) {
+        currentSoldiersCerts.erase(it);
     }
 }
 
 void CommanderModule::clearSoldiers() {
-    _currentSoldiersNames.clear();
+    currentSoldiersCerts.clear();
 }

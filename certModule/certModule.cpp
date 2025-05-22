@@ -1,12 +1,12 @@
-#include "crypto-helper.h"
+#include "certModule.h"
 #include "mbedtls/base64.h"
-#include "mbedtls/error.h"        // ✅ For mbedtls_strerror()
+#include "mbedtls/error.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/x509_crt.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/entropy.h"
 
-CryptoHelper::CryptoHelper() {
+certModule::certModule() {
     mbedtls_pk_init(&privateKey);
     mbedtls_x509_crt_init(&certificate);
     mbedtls_x509_crt_init(&caCertificate);
@@ -15,14 +15,14 @@ CryptoHelper::CryptoHelper() {
     mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, NULL, 0);
 }
 
-CryptoHelper::~CryptoHelper() {
+certModule::~certModule() {
     mbedtls_pk_free(&privateKey);
     mbedtls_x509_crt_free(&certificate);
     mbedtls_x509_crt_free(&caCertificate);
     mbedtls_ctr_drbg_free(&ctr_drbg);
     mbedtls_entropy_free(&entropy);
 }
-bool CryptoHelper::loadFromConfig(const CommanderConfigModule& config) {
+bool certModule::loadFromConfig(const CommanderConfigModule& config) {
     mbedtls_pk_init(&privateKey);
     mbedtls_x509_crt_init(&certificate);
     mbedtls_x509_crt_init(&caCertificate);
@@ -84,7 +84,7 @@ bool CryptoHelper::loadFromConfig(const CommanderConfigModule& config) {
 }
 
 
-bool CryptoHelper::verifyCertificate() {
+bool certModule::verifyCertificate() {
     uint32_t flags;
     int ret = mbedtls_x509_crt_verify(&certificate, &caCertificate, NULL, NULL, &flags, NULL, NULL);
     if (ret != 0) {
@@ -95,7 +95,20 @@ bool CryptoHelper::verifyCertificate() {
     return true;
 }
 
-bool CryptoHelper::encryptWithPrivateKey(const uint8_t* input, size_t inputLen,
+bool certModule::verifyCertificate(mbedtls_x509_crt* certToVerify, mbedtls_x509_crt* caCert)
+{
+    uint32_t flags;
+    int ret = mbedtls_x509_crt_verify(certToVerify, caCert, NULL, NULL, &flags, NULL, NULL);
+    if (ret != 0) {
+        Serial.printf("❌ Certificate verification failed: -0x%04X, flags: %lu\n", -ret, flags);
+        return false;
+    }
+    Serial.println("✅ Certificate verified successfully.");
+    return true;
+}
+
+
+bool certModule::encryptWithPrivateKey(const uint8_t* input, size_t inputLen,
                                          uint8_t* output, size_t& outputLen) {
     int ret = mbedtls_pk_encrypt(&privateKey,
                                  input, inputLen,
@@ -108,7 +121,75 @@ bool CryptoHelper::encryptWithPrivateKey(const uint8_t* input, size_t inputLen,
     return true;
 }
 
-bool CryptoHelper::loadSingleCertificate(const String& pemCert) {
+bool certModule::encryptWithPublicKey(const mbedtls_x509_crt& cert, const std::string& data,
+                                      std::vector<uint8_t>& output) {
+    int ret;
+    size_t outputLen = 0;
+    const mbedtls_pk_context* constPk = &cert.pk;
+    mbedtls_pk_context* pk = const_cast<mbedtls_pk_context*>(constPk);
+    
+    mbedtls_entropy_context entropy;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_entropy_init(&entropy);
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+
+    const char* pers = "certModule_encrypt";
+    ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
+                                (const unsigned char*)pers, strlen(pers));
+    if (ret != 0) {
+        Serial.printf("❌ DRBG seed failed: -0x%04X\n", -ret);
+        mbedtls_entropy_free(&entropy);
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        return false;
+    }
+
+    size_t keyLen = mbedtls_pk_get_len(pk);
+    output.resize(keyLen);
+
+    ret = mbedtls_pk_encrypt(pk,
+                             (const unsigned char*)data.data(), data.size(),
+                             output.data(), &outputLen, output.size(),
+                             mbedtls_ctr_drbg_random, &ctr_drbg);
+    if (ret != 0) {
+        Serial.printf("❌ Public key encryption failed: -0x%04X\n", -ret);
+        mbedtls_entropy_free(&entropy);
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        return false;
+    }
+    
+
+    output.resize(outputLen);
+
+    mbedtls_entropy_free(&entropy);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+
+    return true;
+}
+
+bool certModule::decryptWithPrivateKey(const mbedtls_pk_context& privateKey,
+                                       const std::vector<uint8_t>& input,
+                                       std::string& output)
+{
+    int ret;
+    size_t outputLen = 0;
+
+    size_t keyLen = mbedtls_pk_get_len(const_cast<mbedtls_pk_context*>(&privateKey));
+    std::vector<unsigned char> buffer(keyLen);
+
+    ret = mbedtls_pk_decrypt(const_cast<mbedtls_pk_context*>(&privateKey),
+                             input.data(), input.size(),
+                             buffer.data(), &outputLen, buffer.size(),
+                             nullptr, nullptr);
+    if (ret != 0) {
+        Serial.printf("❌ Private key decryption failed: -0x%04X\n", -ret);
+        return false;
+    }
+
+    output.assign((char*)buffer.data(), outputLen);
+    return true;
+}
+
+bool certModule::loadSingleCertificate(const String& pemCert) {
     int ret = mbedtls_x509_crt_parse(&certificate, (const unsigned char*)pemCert.c_str(), pemCert.length() + 1);
     if (ret != 0) {
         char err[256];

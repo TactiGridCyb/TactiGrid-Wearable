@@ -6,21 +6,28 @@
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/entropy.h"
 
-class CryptoHelper {
+class certModule {
 public:
-    CryptoHelper();
-    ~CryptoHelper();
+    certModule();
+    ~certModule();
 
     bool loadFromConfig(const CommanderConfigModule& config);
 
-    // Encrypts input with the private key (usually you'd sign instead)
     bool encryptWithPrivateKey(const uint8_t* input, size_t inputLen,
                                uint8_t* output, size_t& outputLen);
 
-    // Verifies a certificate against the CA
     bool verifyCertificate();
     bool loadSingleCertificate(const String& pemCert);
 
+    static bool verifyCertificate(mbedtls_x509_crt* certToVerify, mbedtls_x509_crt* caCert);
+   
+    static bool encryptWithPublicKey(const mbedtls_x509_crt& cert, const std::string& data,
+                                    std::vector<uint8_t>& output);
+   
+    // Decrypt data using the private key
+    static bool decryptWithPrivateKey(const mbedtls_pk_context& privateKey,
+                                      const std::vector<uint8_t>& input,
+                                      std::string& output);
 
 private:
     mbedtls_pk_context privateKey;

@@ -12,6 +12,7 @@ constexpr size_t TAG_LEN   = crypto_aead_xchacha20poly1305_ietf_ABYTES;
 void chk(int ok, const char* msg) {
     if (ok != 0) throw std::runtime_error(msg);
 }
+
 }
 
 void CryptoModule::init() {

@@ -1,24 +1,25 @@
 #pragma once
 
 #include <string>
+#include "mbedtls/x509_crt.h"
+#include "CryptoModule.h"
+#include "mbedtls/pk.h"
 
 class Soldier {
 public:
     Soldier(const std::string& name,
-            const std::string& publicCert,
-            const std::string& privateKey,
-            const std::string& caPublicCert,
-            int soldierNumber);
+            const mbedtls_x509_crt& publicCert,
+            const mbedtls_pk_context& privateKey,
+            const mbedtls_x509_crt& caPublicCert,
+            uint16_t soldierNumber);
 
-    // Getters
     const std::string& getName() const;
-    const std::string& getPublicCert() const;
-    const std::string& getPrivateKey() const;
-    const std::string& getCAPublicCert() const;
-    int getSoldierNumber() const;
-    int getCurrentHeartRate() const;
+    const mbedtls_x509_crt& getPublicCert() const;
+    const mbedtls_pk_context& getPrivateKey() const;
+    const mbedtls_x509_crt& getCAPublicCert() const;
+    uint16_t getSoldierNumber() const;
+    uint16_t getCurrentHeartRate() const;
 
-    // Setters
     void setName(const std::string& name);
     void setPublicCert(const std::string& publicCert);
     void setPrivateKey(const std::string& privateKey);
@@ -27,10 +28,16 @@ public:
     void setCurrentHeartRate(int heartRate);
 
 private:
-    std::string _name;
-    std::string _publicCert;
-    std::string _privateKey;
-    std::string _caPublicCert;
-    int _soldierNumber;
-    int _currentHeartRate;
+    std::string name;
+    
+    uint16_t soldierNumber;
+    uint16_t currentHeartRate;
+
+    crypto::Key256 GK;
+    crypto::Key256 GMK;
+
+    mbedtls_pk_context privateKey;
+    mbedtls_x509_crt caCertificate;
+    mbedtls_x509_crt ownCertificate;
+
 };
