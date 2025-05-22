@@ -189,6 +189,28 @@ bool certModule::decryptWithPrivateKey(const mbedtls_pk_context& privateKey,
     return true;
 }
 
+certModule certModule::fromCertificateString(const std::string& certStr) {
+    certModule certObj;
+    int ret = mbedtls_x509_crt_parse(&certObj.certificate, (const unsigned char*)certStr.c_str(), certStr.size() + 1);
+    if (ret != 0) {
+        char err[256];
+        mbedtls_strerror(ret, err, sizeof(err));
+        Serial.printf("❌ Failed to parse certificate string: %s\n", err);
+    }
+    return certObj;
+}
+
+certModule certModule::fromPrivateKeyString(const std::string& privateKeyStr) {
+    certModule certObj;
+    int ret = mbedtls_pk_parse_key(&certObj.privateKey, (const unsigned char*)privateKeyStr.c_str(), privateKeyStr.size() + 1, NULL, 0);
+    if (ret != 0) {
+        char err[256];
+        mbedtls_strerror(ret, err, sizeof(err));
+        Serial.printf("❌ Failed to parse private key string: %s\n", err);
+    }
+    return certObj;
+}
+
 bool certModule::loadSingleCertificate(const String& pemCert) {
     int ret = mbedtls_x509_crt_parse(&certificate, (const unsigned char*)pemCert.c_str(), pemCert.length() + 1);
     if (ret != 0) {
