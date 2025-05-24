@@ -48,7 +48,7 @@ lv_obj_t* secondSoldiersNameLabel = NULL;
 
 
 const std::vector<float> freqList = {
-    433.5, 433.6, 433.8
+    433.5, 433.6, 433.7, 433.8
 };
 
 const uint32_t hopIntervalSeconds = 30;
@@ -527,6 +527,7 @@ void compromisedEvent()
     for(int i = 0; i < 10; ++i)
     {
         notifySoldiersNotAvailable();
+        delay(100);
     }
 }
 
@@ -800,7 +801,7 @@ void loop() {
 
     unsigned long currentMillis = millis();
 
-    if (currentMillis - lastFreqCheck >= 1000) {
+    if (currentMillis - lastFreqCheck >= 1000 && !loraModule->isBusy()) {
         lastFreqCheck = currentMillis;
         float newFreqMHz = fhfModule->currentFrequency();
         if (!isZero(newFreqMHz - currentLoraFreq)) {

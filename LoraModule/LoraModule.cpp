@@ -148,6 +148,11 @@ void LoraModule::setOnReadData(std::function<void(const uint8_t* data, size_t le
     this->onReadData = callback;
 }
 
+bool LoraModule::isBusy()
+{
+    return activeJob || activeFileJob;
+}
+
 int16_t LoraModule::readData()
 {
     if(finishedFlag && !this->transmissionMode)
@@ -366,6 +371,7 @@ void LoraModule::clearFinishedFlag()
 {
     if(this->transmissionMode && finishedFlag)
     {
+        Serial.println("clearFinishedFlag");
         finishedFlag = false;
     }
 }

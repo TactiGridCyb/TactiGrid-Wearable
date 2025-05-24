@@ -23,8 +23,9 @@ const int udpPort = 3333;
 
 
 const std::vector<float> freqList = {
-    433.5, 433.5, 433.5, 433.5
+    433.5, 433.6, 433.7, 433.8
 };
+
 const uint32_t hopIntervalSeconds = 30;
 
 
@@ -42,7 +43,7 @@ SoldiersSentData coords[] = {
   {0, 0, 31.970866, 34.785664,  78, 2},
   {0, 0, 31.970870, 34.785683, 100, 2},
   {0, 0, 31.970855, 34.785643,  55, 2}, 
-  {0, 0, 31.970840, 34.785623,   30, 2},
+  {0, 0, 31.970840, 34.785623,   0, 2},
   {0, 0, 31.970880, 34.785703, 120, 2}
 };
 
@@ -221,6 +222,8 @@ WnuAIqZGA5XJrhEujtZqR7EecTPgYH2pD8d8
       if (sendLabel) {
         lv_label_set_text(sendLabel, "Commander busy, please wait...");
       }
+
+      delay(5000);
     }
   });
 
@@ -419,7 +422,7 @@ void loop() {
   
   unsigned long currentMillis = millis();
 
-  if (currentMillis - lastFreqCheck >= 1000) {
+  if (currentMillis - lastFreqCheck >= 1000 && !loraModule->isBusy()) {
     
     lastFreqCheck = currentMillis;
     float newFreqMHz = fhfModule->currentFrequency();

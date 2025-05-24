@@ -54,5 +54,7 @@ public:
     // File reassembly logic (call this from setOnReadData)
     void onLoraFileDataReceived(const uint8_t* pkt, size_t len);
 
+    bool isBusy();
+
     ~LoraModule();
 };
