@@ -87,11 +87,13 @@ int16_t LoraModule::setup(bool transmissionMode)
 
 void LoraModule::switchToTransmitterMode()
 {
+    Serial.println("switchToTransmitterMode");
     this->transmissionMode = true;
 }
 
 void LoraModule::switchToReceiverMode()
 {
+    Serial.println("switchToReceiverMode");
     this->transmissionMode = false;
 }
 
@@ -133,6 +135,7 @@ bool LoraModule::isChannelFree()
 // Use this function carefully, isChannelFree activates the transmitted flag.
 bool LoraModule::canTransmit()
 {   
+    Serial.println("canTransmit");
     bool isFree = this->isChannelFree();
     delay(5);
     finishedFlag = false;
@@ -149,18 +152,23 @@ int16_t LoraModule::readData()
 {
     if(finishedFlag && !this->transmissionMode)
     {
+        
         finishedFlag = false;
         uint8_t buf[512];
         size_t len = sizeof(buf);
+        Serial.println("PRE READ");
         int16_t state = this->loraDevice.readData(buf, len);
+        Serial.printf("POST READ %d\n", state);
         if (state != RADIOLIB_ERR_NONE) 
         {
+            loraDevice.startReceive();
             return state;
         }
         size_t pktLen = this->loraDevice.getPacketLength();
-
+        Serial.println("POST getPacketLength");
         this->onReadData(buf, pktLen);
         loraDevice.startReceive();
+        Serial.println("POST startReceive");
     }
 
     return RADIOLIB_ERR_NONE;
@@ -182,6 +190,7 @@ int16_t LoraModule::sendData(const char* data, bool interrupt)
     for (int attempt = 0; attempt < maxRetries; ++attempt) {
         if (this->canTransmit()) {
             activeJob = true;
+            Serial.println("Transmit");
             if(!interrupt)
             {
                 status = this->loraDevice.transmit(data);

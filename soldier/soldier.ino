@@ -23,7 +23,7 @@ const int udpPort = 3333;
 
 
 const std::vector<float> freqList = {
-    433.5, 433.6, 433.7, 433.8
+    433.5, 433.5, 433.5, 433.5
 };
 const uint32_t hopIntervalSeconds = 30;
 
@@ -42,7 +42,7 @@ SoldiersSentData coords[] = {
   {0, 0, 31.970866, 34.785664,  78, 2},
   {0, 0, 31.970870, 34.785683, 100, 2},
   {0, 0, 31.970855, 34.785643,  55, 2}, 
-  {0, 0, 31.970840, 34.785623,   0, 2},
+  {0, 0, 31.970840, 34.785623,   30, 2},
   {0, 0, 31.970880, 34.785703, 120, 2}
 };
 
@@ -367,7 +367,7 @@ void init_send_coords_page(lv_event_t * event)
 }
 
 void sendTimerCallback(lv_timer_t *timer) {
-  if(currentIndex < 9) {
+  if(currentIndex < 20) {
 
     struct tm timeInfo;
     char timeStr[9];
