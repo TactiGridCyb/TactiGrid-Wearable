@@ -13,6 +13,7 @@ private:
     SX1262 loraDevice = newModule();
 
     bool isSendData = true;
+    bool transmissionMode = true;
 
     std::function<void(const uint8_t* data, size_t len)> onReadData;
 
@@ -27,14 +28,14 @@ public:
     LoraModule(float);
 
     int16_t setup(bool);
-    int16_t sendData(const char*);
+    int16_t sendData(const char*, bool interrupt = false);
     int16_t readData();
 
-    int16_t cleanUpTransmissions();
     int16_t setupListening();
 
     bool isChannelFree();
     bool canTransmit();
+    
 
     void setOnReadData(std::function<void(const uint8_t* data, size_t len)> callback);
     int16_t sendFile(const uint8_t* data,
@@ -45,6 +46,7 @@ public:
 
    void switchToTransmitterMode();
    void switchToReceiverMode();
+   void clearFinishedFlag();
 
     // Called when a full file is received (optional)
     std::function<void(const uint8_t* data, size_t len)> onFileReceived;

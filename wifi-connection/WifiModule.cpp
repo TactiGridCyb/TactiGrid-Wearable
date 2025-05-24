@@ -8,7 +8,7 @@ WifiModule::WifiModule(String wifiName, String password) : wifiName(wifiName), p
 
 DynamicJsonDocument WifiModule::receiveJSONTCP(const char* serverIP, uint16_t serverPort, uint32_t timeoutMs) {
     WiFiClient client;
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(2048);
 
     if (!client.connect(serverIP, serverPort)) {
         Serial.println("❌ TCP connection failed");

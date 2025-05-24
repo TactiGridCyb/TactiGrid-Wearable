@@ -132,7 +132,7 @@ void setup() {
 
 
   loraModule = std::make_unique<LoraModule>(433.5);
-  loraModule->setup(true);
+  loraModule->setup(false);
 
   wifiModule = std::make_unique<WifiModule>(ssid, password);
   wifiModule->connect(60000);
@@ -146,7 +146,7 @@ void setup() {
   setenv("TZ", "GMT-3", 1);
   tzset();
   deleteExistingFile("/cert.pem");
-// Create cert.pem file with certificate content if it does not exist
+  // Create cert.pem file with certificate content if it does not exist
   if (!FFat.exists("/cert.pem")) {
     Serial.println("cert file not exists!");
     File certFile = FFat.open("/cert.pem", FILE_WRITE);
@@ -203,13 +203,29 @@ WnuAIqZGA5XJrhEujtZqR7EecTPgYH2pD8d8
   watch.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
   watch.clearPMU();
   watch.enableIRQ(
-      XPOWERS_AXP2101_PKEY_SHORT_IRQ | 
+      XPOWERS_AXP2101_PKEY_SHORT_IRQ |
       XPOWERS_AXP2101_PKEY_LONG_IRQ
   );
   gpsModule = std::make_unique<GPSModule>();
 
 
   init_main_poc_page();
+
+  loraModule->setOnReadData([](const uint8_t* data, size_t len) {
+    String msg;
+    for (size_t i = 0; i < len; i++) {
+      msg += (char)data[i];
+    }
+    if (msg == "CMD_BUSY") {
+      Serial.println("Commander is busy, cannot accept more messages.");
+      if (sendLabel) {
+        lv_label_set_text(sendLabel, "Commander busy, please wait...");
+      }
+    }
+  });
+
+  loraModule->setupListening();
+
 }
 
 std::pair<float, float> getTileCenterLatLon(float lat, float lon, int zoomLevel, float tileSize) {
@@ -398,19 +414,20 @@ void loop() {
     watch.clearPMU();
   }
 
-  loraModule->cleanUpTransmissions();
+  // loraModule->cleanUpTransmissions();
 
   
   unsigned long currentMillis = millis();
 
   if (currentMillis - lastFreqCheck >= 1000) {
-      lastFreqCheck = currentMillis;
-      float newFreqMHz = fhfModule->currentFrequency();
-      if (newFreqMHz != currentLoraFreq) {
-          currentLoraFreq = newFreqMHz;
-          loraModule->setFrequency(currentLoraFreq);
-          Serial.printf("Frequency hopped to %.3f MHz\n", currentLoraFreq);
-      }
+    
+    lastFreqCheck = currentMillis;
+    float newFreqMHz = fhfModule->currentFrequency();
+    if (!isZero(newFreqMHz - currentLoraFreq)) {
+        currentLoraFreq = newFreqMHz;
+        loraModule->setFrequency(currentLoraFreq);
+        Serial.printf("Frequency hopped to %.3f MHz\n", currentLoraFreq);
+    }
   }
 
   if (startGPSChecking) {
@@ -448,20 +465,25 @@ void loop() {
         double  kmph = gpsSpeed.isValid() ? gpsSpeed.kmph() : 0;
         lv_label_set_text_fmt(sendLabel, "Sats:%u\nHDOP:%.1f\nLat:%.5f\nLon:%.5f\nDate:%d/%d/%d \nTime:%d/%d/%d\nAlt:%.2f m \nSpeed:%.2f",
                               satellites, hdop, lat, lon, year, month, day, hour, minute, second, meters, kmph);
+      }
+
+      lastSendTime = currentTime;
     }
 
-    lastSendTime = currentTime;
   }
 
-}
+  loraModule->readData();
+  loraModule->clearFinishedFlag();
+  lv_task_handler();
+  delay(10);
 
-lv_task_handler();
-delay(10);
 }
 
 
 void sendCoordinate(float lat, float lon, uint16_t heartRate, uint16_t soldiersID) {
   Serial.println("sendCoordinate");
+
+  loraModule->switchToTransmitterMode();
 
   SoldiersSentData coord;
   coord.posLat = lat;
@@ -497,6 +519,9 @@ void sendCoordinate(float lat, float lon, uint16_t heartRate, uint16_t soldiersI
   udp.printf(msg.c_str());
   udp.endPacket();
   transmissionState = loraModule->sendData(msg.c_str());
+  
+  loraModule->switchToReceiverMode();
+  loraModule->setupListening();
 
   struct tm timeInfo;
   char timeStr[9];

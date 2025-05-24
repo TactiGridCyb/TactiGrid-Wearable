@@ -87,6 +87,13 @@ static inline crypto::ByteVec hexToBytes(const String& hex) {
 
 lv_color_t ballColor = lv_color_hex(0xff0000);
 lv_color_t secondBallColor = lv_color_hex(0xff0000);
+
+void notifySoldiersNotAvailable() {
+    const char* msg = "CMD_BUSY";
+    int16_t status = loraModule->sendData(msg);
+    Serial.printf("Notify soldiers not available, send status: %d\n", status);
+}
+
 void IRAM_ATTR onPmuInterrupt() {
     pmu_flag = true;
 }
@@ -503,9 +510,24 @@ void init_p2p_test(const uint8_t* data, size_t len)
         create_fading_circle(marker_lat, marker_lon, centerLat, centerLon, newG->soldiersID, 19, &secondBallColor, current_second_marker, secondSoldiersNameLabel);
     }
     
-
+    if(newG->heartRate == 0)
+    {
+        Serial.println("compromisedEvent");
+        compromisedEvent();
+        init_main_menu();
+    }
     
 
+}
+
+void compromisedEvent()
+{
+    loraModule->switchToTransmitterMode();
+
+    for(int i = 0; i < 10; ++i)
+    {
+        notifySoldiersNotAvailable();
+    }
 }
 
 void init_receive_logs_page(lv_event_t * event)
@@ -711,11 +733,11 @@ void setup() {
     lv_png_init();
     Serial.println("LVGL set!");
 
-    const char* ssid = env_map["WIFI_SSID"].c_str();
-    const char* password = env_map["WIFI_PASS"].c_str();
+    const char* ssid = "default";
+    const char* password = "1357924680";
 
     wifiModule = std::make_unique<WifiModule>(ssid, password);
-    wifiModule->connect(60000);
+    wifiModule->connect(10000);
 
     loraModule = std::make_unique<LoraModule>(433.5);
     loraModule->setup(false);
@@ -762,6 +784,8 @@ void setup() {
     Serial.println("End of setup");
 }
 
+static unsigned long lastFreqCheck = 0;
+
 void loop() {
     if (pmu_flag) {
         pmu_flag = false;
@@ -773,13 +797,20 @@ void loop() {
     }
   
     loraModule->readData();
-    
-    uint32_t newFreqMHz = fhfModule->currentFrequency();
-    if (newFreqMHz != currentLoraFreq) {
-        currentLoraFreq = loraModule->setFrequency(currentLoraFreq);
-        Serial.printf("Frequency hopped to %.3f MHz\n", currentLoraFreq);
+
+    unsigned long currentMillis = millis();
+
+    if (currentMillis - lastFreqCheck >= 1000) {
+        lastFreqCheck = currentMillis;
+        float newFreqMHz = fhfModule->currentFrequency();
+        if (!isZero(newFreqMHz - currentLoraFreq)) {
+            currentLoraFreq = newFreqMHz;
+            loraModule->setFrequency(currentLoraFreq);
+            Serial.printf("Frequency hopped to %.3f MHz\n", currentLoraFreq);
+        }
     }
 
+    loraModule->clearFinishedFlag();
     lv_task_handler();
     delay(10);
 }

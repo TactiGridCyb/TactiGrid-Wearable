@@ -1,21 +1,16 @@
 #include "LoraModule.h"
 #define RADIOLIB_ERR_CHANNEL_BUSY -1000
 
-volatile bool receivedFlag = false;
-volatile bool transmittedFlag = false;
+volatile bool finishedFlag = false;
 
 volatile bool activeJob = false;
 volatile bool activeFileJob = false;
 
-ICACHE_RAM_ATTR void setReceivedFlag(void)
+ICACHE_RAM_ATTR void setFinishedFlag(void)
 {
-    receivedFlag = true;
-    activeJob = false;
-}
+    Serial.println("setFinishedFlag");
 
-ICACHE_RAM_ATTR void setTransmittedFlag(void)
-{
-    transmittedFlag = true;
+    finishedFlag = true;
     if(!activeFileJob)
     {
         activeJob = false;
@@ -84,17 +79,20 @@ int16_t LoraModule::setup(bool transmissionMode)
         while (true);
     }
 
-    
-    if(transmissionMode)
-    {
-        this->loraDevice.setDio1Action(setTransmittedFlag);
-    }
-    else
-    {
-        this->loraDevice.setDio1Action(setReceivedFlag);
-    }
+    this->transmissionMode = transmissionMode;
+    this->loraDevice.setDio1Action(setFinishedFlag);
     
     return state;
+}
+
+void LoraModule::switchToTransmitterMode()
+{
+    this->transmissionMode = true;
+}
+
+void LoraModule::switchToReceiverMode()
+{
+    this->transmissionMode = false;
 }
 
 int16_t LoraModule::setFrequency(float newFreq)
@@ -117,20 +115,6 @@ int16_t LoraModule::setFrequency(float newFreq)
     return this->freq;
 }
 
-void LoraModule::switchToTransmitterMode()
-{
-    transmittedFlag = false;
-    this->loraDevice.setDio1Action(setTransmittedFlag);
-    // Additional setup for transmitter mode if needed
-}
-
-void LoraModule::switchToReceiverMode()
-{
-    receivedFlag = false;
-    this->loraDevice.setDio1Action(setReceivedFlag);
-    this->loraDevice.startReceive();
-    // Additional setup for receiver mode if needed
-}
 
 int16_t LoraModule::setupListening()
 {
@@ -151,9 +135,9 @@ bool LoraModule::canTransmit()
 {   
     bool isFree = this->isChannelFree();
     delay(5);
-    transmittedFlag = false;
+    finishedFlag = false;
     
-    return !transmittedFlag && isFree;
+    return !finishedFlag && isFree;
 }
 
 void LoraModule::setOnReadData(std::function<void(const uint8_t* data, size_t len)> callback)
@@ -163,10 +147,10 @@ void LoraModule::setOnReadData(std::function<void(const uint8_t* data, size_t le
 
 int16_t LoraModule::readData()
 {
-    if(receivedFlag)
+    if(finishedFlag && !this->transmissionMode)
     {
-        receivedFlag = false;
-        uint8_t buf[255];
+        finishedFlag = false;
+        uint8_t buf[512];
         size_t len = sizeof(buf);
         int16_t state = this->loraDevice.readData(buf, len);
         if (state != RADIOLIB_ERR_NONE) 
@@ -182,35 +166,30 @@ int16_t LoraModule::readData()
     return RADIOLIB_ERR_NONE;
 }
 
-int16_t LoraModule::cleanUpTransmissions()
-{
-    if (transmittedFlag)
-    {
-        transmittedFlag = false;
-        Serial.println("Cleaning this->transmittedFlag " + String(transmittedFlag));
-        uint16_t status =  this->loraDevice.finishTransmit();
-        Serial.println(String(status));
-    }
 
-    return RADIOLIB_ERR_NONE;
-}
-
-int16_t LoraModule::sendData(const char* data)
+int16_t LoraModule::sendData(const char* data, bool interrupt)
 {
-    Serial.println("this->transmittedFlag: " + String(transmittedFlag) + " " + String(this->isSendData));
+    Serial.println("this->finishedFlag: " + String(finishedFlag) + " " + String(this->isSendData));
 
     if(!this->isSendData)
     {
         return 0;
     }
 
-    const int maxRetries = 5;
+    const int maxRetries = 10;
     int16_t status = RADIOLIB_ERR_CHANNEL_BUSY;
 
     for (int attempt = 0; attempt < maxRetries; ++attempt) {
         if (this->canTransmit()) {
             activeJob = true;
-            status = this->loraDevice.startTransmit(data);
+            if(!interrupt)
+            {
+                status = this->loraDevice.transmit(data);
+            }
+            else
+            {
+                status = this->loraDevice.startTransmit(data);
+            }
             Serial.println("Transmit status: " + String(status));
             break;
         } else {
@@ -370,5 +349,14 @@ void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
 
         Serial.printf("🧩 Chunk #%u received: offset=%zu, len=%u, totalChunks=%u/%u\n",
                       chunkIndex, offset, chunkLen, this->receivedChunks, this->expectedChunks);
+    }
+}
+
+
+void LoraModule::clearFinishedFlag()
+{
+    if(this->transmissionMode && finishedFlag)
+    {
+        finishedFlag = false;
     }
 }

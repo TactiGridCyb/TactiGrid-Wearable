@@ -1,32 +1,32 @@
 #pragma once
 
+#include "Soldier.h"
 #include <string>
 #include <vector>
 #include <map>
-#include "Soldier.h"
-#include "../certModule/certModule.h"
 #include <array>
+#include "../certModule/certModule.h"
 
 class CommanderModule : public Soldier
 {
 public:
     CommanderModule(const std::string& name,
-                    const std::string& publicCert,
-                    const std::string& privateKey,
-                    const std::string& publicCA,
-                    int soldierNumber);
+                    const mbedtls_x509_crt& publicCert,
+                    const mbedtls_pk_context& privateKey,
+                    const mbedtls_x509_crt& publicCA,
+                    uint16_t soldierNumber);
 
-    const std::vector<std::string>& getCurrentSoldiers() const;
+    const std::vector<mbedtls_x509_crt>& getCurrentSoldiers() const;
     int getCurrentHeartRate() const;
 
     void setCurrentHeartRate(int heartRate);
 
-    void addSoldier(const std::string& soldierName);
-    void removeSoldier(const std::string& soldierName);
+    void addSoldier(mbedtls_x509_crt& soldierCert);
+    void removeSoldier(mbedtls_x509_crt& soldierCert);
     void clearSoldiers();
 
 private:
     std::map<uint16_t, Soldier> currentSoldiers;
     int currentHeartRate;
-    std::vector<certModule> currentSoldiersCerts;
+    std::vector<mbedtls_x509_crt> currentSoldiersCerts;
 };

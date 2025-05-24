@@ -3,16 +3,16 @@
 #include <algorithm>
 
 CommanderModule::CommanderModule(const std::string& name,
-                               const std::string& publicCert,
-                               const std::string& privateKey,
-                               const std::string& publicCA,
-                               int soldierNumber)
+                               const mbedtls_x509_crt& publicCert,
+                               const mbedtls_pk_context& privateKey,
+                               const mbedtls_x509_crt& publicCA,
+                               uint16_t soldierNumber)
     : Soldier(name, publicCert, privateKey, publicCA, soldierNumber),
       currentHeartRate(0)
 {
 }
 
-const std::vector<std::string>& CommanderModule::getCurrentSoldiers() const {
+const std::vector<mbedtls_x509_crt>& CommanderModule::getCurrentSoldiers() const {
     return currentSoldiersCerts;
 }
 
@@ -24,15 +24,23 @@ void CommanderModule::setCurrentHeartRate(int heartRate) {
     currentHeartRate = heartRate;
 }
 
-void CommanderModule::addSoldier(const std::string& soldierName) {
-    // Add soldier name if not already present
-    if (std::find(currentSoldiersCerts.begin(), currentSoldiersCerts.end(), soldierName) == currentSoldiersCerts.end()) {
-        currentSoldiersCerts.push_back(soldierName);
+void CommanderModule::addSoldier(mbedtls_x509_crt& soldierCert) {
+    auto it = std::find_if(
+        currentSoldiersCerts.begin(),
+        currentSoldiersCerts.end(),
+        [&soldierCert](const mbedtls_x509_crt& cert) { return &cert == &soldierCert; }
+    );
+    if (it == currentSoldiersCerts.end()) {
+        currentSoldiersCerts.push_back(soldierCert);
     }
 }
 
-void CommanderModule::removeSoldier(const std::string& soldierName) {
-    auto it = std::find(currentSoldiersCerts.begin(), currentSoldiersCerts.end(), soldierName);
+void CommanderModule::removeSoldier(mbedtls_x509_crt& soldierCert) {
+    auto it = std::find_if(
+        currentSoldiersCerts.begin(),
+        currentSoldiersCerts.end(),
+        [&soldierCert](const mbedtls_x509_crt& cert) { return &cert == &soldierCert; }
+    );
     if (it != currentSoldiersCerts.end()) {
         currentSoldiersCerts.erase(it);
     }
