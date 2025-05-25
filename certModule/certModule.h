@@ -1,4 +1,3 @@
-// crypto-helper.h
 #pragma once
 #include "../commander-config/commander-config.h"
 #include "mbedtls/pk.h"
