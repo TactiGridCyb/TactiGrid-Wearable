@@ -9,11 +9,14 @@
 
 class CommanderECDHHandler {
 public:
-    CommanderECDHHandler(float freq, CommanderConfigModule* cfg);
+    CommanderECDHHandler(float freq, CommanderConfigModule* cfg, CryptoHelper& crypt);
     void begin();
     bool startECDHExchange(int soldierId);
     std::vector<uint8_t> getSharedSecret();
     bool isExchangeComplete();
+    LoraModule& getLoRa() { return lora; }
+    void poll();
+
 
 private:
     static void handleLoRaData(const uint8_t* data, size_t len);
@@ -24,7 +27,7 @@ private:
 
     LoraModule lora;
     CommanderConfigModule* config;
-    CryptoHelper crypto;
+    CryptoHelper& crypto;
     ECDHHelper ecdh;
     std::vector<uint8_t> sharedSecret;
     bool waitingResponse;

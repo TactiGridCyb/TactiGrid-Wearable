@@ -2,18 +2,21 @@
 #pragma once
 #include <ArduinoJson.h>
 #include "../LoraModule/LoraModule.h"
-#include "../commander-config/commander-config.h"
+#include "../soldier-config/soldier-config.h"
 #include "crypto-helper.h"
 #include "ECDHHelper.h"
 #include <vector>
 
 class SoldierECDHHandler {
 public:
-    SoldierECDHHandler(float freq, CommanderConfigModule* cfg);
+    SoldierECDHHandler(float freq, SoldierConfigModule* cfg, CryptoHelper& crypto);
     void begin();
     void startListening();
     std::vector<uint8_t> getSharedSecret();
     bool hasRespondedToCommander() const;
+    LoraModule& getLoRa() { return lora; }
+    void poll();
+
 
 private:
     static void handleLoRaData(const uint8_t* data, size_t len);
@@ -24,8 +27,8 @@ private:
     static SoldierECDHHandler* instance; // For static callback access
 
     LoraModule lora;
-    CommanderConfigModule* config;
-    CryptoHelper crypto;
+    SoldierConfigModule* config;
+    CryptoHelper& crypto;
     ECDHHelper ecdh;
     std::vector<uint8_t> sharedSecret;
     bool hasResponded;

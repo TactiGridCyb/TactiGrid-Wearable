@@ -23,9 +23,14 @@ CommanderConfigModule::CommanderConfigModule(const String& rawJson) {
         }
     }
 
+    //TODO: add implementation to extract the soldiers public keys from the file
+
     _privateKeyPEM = doc["private_key_pem"] | "";
     _certificatePEM = doc["certificate_pem"] | "";
     _caCertificatePEM = doc["ca_certificate_pem"] | "";
+
+    _fhf = doc["FHF"] | "";
+    _gkf = doc["GKF"] | "";
 }
 
 
@@ -55,4 +60,9 @@ String CommanderConfigModule::getCertificatePEM() const {
 
 String CommanderConfigModule::getCaCertificatePEM() const {
     return _caCertificatePEM;
+}
+
+String CommanderConfigModule::getSoldierPublicKey(int id) const{
+    //TODO: implement later
+    return "soldiers public key";
 }

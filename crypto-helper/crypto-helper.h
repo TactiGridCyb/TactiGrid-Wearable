@@ -1,6 +1,7 @@
 // crypto-helper.h
 #pragma once
 #include "../commander-config/commander-config.h"
+#include "../soldier-config/soldier-config.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/x509_crt.h"
 #include "mbedtls/ctr_drbg.h"
@@ -11,7 +12,8 @@ public:
     CryptoHelper();
     ~CryptoHelper();
 
-    bool loadFromConfig(const CommanderConfigModule& config);
+    bool loadFromCommanderConfig(const CommanderConfigModule& config);
+    bool loadFromSoldierConfig(const SoldierConfigModule& config);
 
     // Encrypts input with the private key (usually you'd sign instead)
     bool encryptWithPrivateKey(const uint8_t* input, size_t inputLen,

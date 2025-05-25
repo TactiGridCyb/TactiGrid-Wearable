@@ -5,8 +5,8 @@
 
 CommanderECDHHandler* CommanderECDHHandler::instance = nullptr;
 
-CommanderECDHHandler::CommanderECDHHandler(float freq, CommanderConfigModule* cfg)
-    : lora(freq), config(cfg), waitingResponse(false), hasHandled(false) {
+CommanderECDHHandler::CommanderECDHHandler(float freq, CommanderConfigModule* cfg, CryptoHelper& crypt)
+    : lora(freq), config(cfg), crypto(crypt), waitingResponse(false), hasHandled(false) {
     instance = this;
 }
 
@@ -33,7 +33,7 @@ bool CommanderECDHHandler::startECDHExchange(int soldierId) {
     doc["ephemeral"] = ephB64;
 
     String out;
-    serializeJson(doc, out);
+    serializeJsonPretty(doc, out);
 
     if (lora.sendFile((const uint8_t*)out.c_str(), out.length(), 180) != RADIOLIB_ERR_NONE) {
         Serial.println("❌ Failed to send init message");
@@ -65,59 +65,64 @@ void CommanderECDHHandler::handleLoRaData(const uint8_t* data, size_t len) {
         return;
     }
 
+    // 1) Turn the raw buffer into a String and print it for debug
     String msg((const char*)data, len);
     Serial.println("📥 Received soldier response:");
     Serial.println(msg);
 
-    DynamicJsonDocument doc(4096);
-    if (deserializeJson(doc, msg) != DeserializationError::Ok) {
-        Serial.println("❌ JSON parse error");
+    // 2) Parse JSON into a big enough document
+    DynamicJsonDocument doc(16 * 1024);
+    auto err = deserializeJson(doc, msg);
+    if (err) {
+        Serial.print("❌ JSON parse error: ");
+        Serial.println(err.c_str());
         return;
     }
 
-    int soldierId = doc["id"];
-    if (std::find(instance->config->getSoldiers().begin(), instance->config->getSoldiers().end(), soldierId) == instance->config->getSoldiers().end()) {
-        Serial.println("⚠️ Invalid soldier ID");
-        return;
-    }
+    // 3) Validate the sender ID
+    
 
-    std::vector<uint8_t> certRaw;
-    if (!decodeBase64(doc["cert"], certRaw)) {
-        Serial.println("❌ Cert decode failed");
-        return;
-    }
+    // 4) **CERT** is already a PEM string → load it directly
+  std::vector<uint8_t> certRaw;
+  if (!decodeBase64(doc["cert"].as<String>(), certRaw)) {
+    Serial.println("❌ Cert decode");
+    return;
+  }
 
-    String certPem((char*)certRaw.data());
-    if (!instance->crypto.loadSingleCertificate(certPem)) {
-        Serial.println("❌ Cert parse failed");
-        return;
-    }
+  if (!instance->crypto.loadSingleCertificate(String((const char*)certRaw.data()))) {
+    Serial.println("❌ Cert parse");
+    return;
+  }
 
-    if (!instance->crypto.verifyCertificate()) {
-        Serial.println("❌ Cert verification failed");
-        return;
-    }
+  if (!instance->crypto.verifyCertificate()) {
+    Serial.println("❌ Invalid cert");
+    return;
+  }
 
+Serial.println("✅ Soldier cert valid");
+
+    // 5) **EPHEMERAL** is raw Base64 → decode then import
     std::vector<uint8_t> ephRaw;
-    if (!decodeBase64(doc["ephemeral"], ephRaw)) {
+    if (!decodeBase64(doc["ephemeral"].as<String>(), ephRaw)) {
         Serial.println("❌ Ephemeral decode failed");
         return;
     }
-
     if (!instance->ecdh.importPeerPublicKey(ephRaw)) {
         Serial.println("❌ Ephemeral key import failed");
         return;
     }
 
+    // 6) Derive the shared secret
     if (!instance->ecdh.deriveSharedSecret(instance->sharedSecret)) {
         Serial.println("❌ Shared secret derivation failed");
         return;
     }
 
     Serial.println("✅ Shared secret OK");
-    instance->hasHandled = true;
+    instance->hasHandled     = true;
     instance->waitingResponse = false;
 }
+
 
 String CommanderECDHHandler::toBase64(const std::vector<uint8_t>& input) {
     size_t outLen = 4 * ((input.size() + 2) / 3);
@@ -132,18 +137,32 @@ String CommanderECDHHandler::toBase64(const std::vector<uint8_t>& input) {
     return String((char*)outBuf.data());
 }
 
-bool CommanderECDHHandler::decodeBase64(const String& input, std::vector<uint8_t>& output) {
-    size_t inputLen = input.length();
-    size_t decodedLen = (inputLen * 3) / 4 + 2;
-    output.resize(decodedLen);
-    size_t outLen = 0;
-    int ret = mbedtls_base64_decode(output.data(), output.size(), &outLen, (const uint8_t*)input.c_str(), inputLen);
-    if (ret != 0) {
-        char errBuf[128];
-        mbedtls_strerror(ret, errBuf, sizeof(errBuf));
-        Serial.printf("❌ Base64 decode failed: -0x%04X (%s)\n", -ret, errBuf);
-        return false;
-    }
-    output.resize(outLen);
-    return true;
+bool CommanderECDHHandler::decodeBase64(const String& input,
+                                        std::vector<uint8_t>& output) {
+    Serial.println("enter: decode function");
+  size_t inputLen = input.length();
+  size_t decodedLen = (inputLen * 3) / 4 + 2;
+  output.resize(decodedLen);
+  size_t outLen = 0;
+  Serial.println("enter: decode function1");
+  int ret = mbedtls_base64_decode(output.data(), output.size(), &outLen,
+                                   (const uint8_t*)input.c_str(), inputLen);
+  Serial.println("enter: decode function2");
+
+  if (ret != 0) {
+    char errBuf[128];
+    mbedtls_strerror(ret, errBuf, sizeof(errBuf));
+    Serial.printf("❌ Base64 decode failed: -0x%04X (%s)\n", -ret, errBuf);
+    return false;
+  }
+
+  output.resize(outLen);
+  Serial.println("enter: decode function3");
+  return true;
+}
+
+
+void CommanderECDHHandler::poll() {
+  lora.readData();
+  lora.cleanUpTransmissions();
 }

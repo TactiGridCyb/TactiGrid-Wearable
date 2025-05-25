@@ -3,11 +3,12 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include "mbedtls/base64.h"
+#include <mbedtls/error.h>
 
 SoldierECDHHandler* SoldierECDHHandler::instance = nullptr;
 
-SoldierECDHHandler::SoldierECDHHandler(float freq, CommanderConfigModule* cfg)
-    : lora(freq), config(cfg), hasResponded(false) {
+SoldierECDHHandler::SoldierECDHHandler(float freq, SoldierConfigModule* cfg, CryptoHelper& crypt)
+    : lora(freq), config(cfg), crypto(crypt), hasResponded(false) {
     instance = this;
 }
 
@@ -87,13 +88,15 @@ void SoldierECDHHandler::sendResponse(int toId) {
     String ephB64 = toBase64(instance->ecdh.getPublicKeyRaw());
 
     DynamicJsonDocument doc(4096);
-    doc["id"] = instance->config->getId();
+    doc["id"] = instance->config->getId(); // change to commander id 
     doc["cert"] = cert;
     doc["ephemeral"] = ephB64;
 
     String out;
-    serializeJsonPretty(doc, out);
-    instance->lora.sendFile((const uint8_t*)out.c_str(), out.length(), 180);
+    serializeJson(doc, out);
+    if (instance->lora.sendFile((const uint8_t*)out.c_str(), out.length(), 180) != RADIOLIB_ERR_NONE) {
+        Serial.println("❌ Failed to send back message to the commander");
+    }
     Serial.println("✅ Response sent");
 }
 
@@ -130,4 +133,9 @@ String SoldierECDHHandler::toBase64(const std::vector<uint8_t>& input) {
     if (ret != 0) return "";
     outBuf[actualLen] = '\0';
     return String((const char*)outBuf.data());
+}
+
+void SoldierECDHHandler::poll() {
+  lora.readData();
+  lora.cleanUpTransmissions();
 }

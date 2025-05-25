@@ -22,66 +22,222 @@ CryptoHelper::~CryptoHelper() {
     mbedtls_ctr_drbg_free(&ctr_drbg);
     mbedtls_entropy_free(&entropy);
 }
-bool CryptoHelper::loadFromConfig(const CommanderConfigModule& config) {
+
+//load from commander config
+bool CryptoHelper::loadFromCommanderConfig(const CommanderConfigModule& cfg) {
+    // 0) Initialize all contexts
     mbedtls_pk_init(&privateKey);
     mbedtls_x509_crt_init(&certificate);
     mbedtls_x509_crt_init(&caCertificate);
     mbedtls_ctr_drbg_init(&ctr_drbg);
     mbedtls_entropy_init(&entropy);
 
-    int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, nullptr, 0);
+    // 1) Seed the DRBG
+    int ret = mbedtls_ctr_drbg_seed(
+        &ctr_drbg,
+        mbedtls_entropy_func,
+        &entropy,
+        nullptr, 0
+    );
     if (ret != 0) {
-        Serial.printf("❌ CTR_DRBG seed failed: -0x%04X\n", -ret);
+        char err[100];
+        mbedtls_strerror(ret, err, sizeof(err));
+        Serial.printf("❌ CTR_DRBG seed failed: -0x%04X (%s)\n", -ret, err);
         return false;
     }
 
-    // Decode base64 PEM function
-    auto decodeBase64 = [](const String& input) -> std::string {
-        size_t inputLen = input.length();
-        size_t outputLen = 0;
-        std::vector<uint8_t> buffer((inputLen * 3) / 4 + 2); // +2 for null terminator safety
+    // 2) A little helper to decode Base64 into a std::string
+    auto decodeB64 = [&](const String& b64)-> std::string {
+        size_t inLen  = b64.length();
+        size_t outLen = (inLen * 3) / 4 + 4;
+        std::vector<uint8_t> buf(outLen);
+        size_t actual = 0;
 
-        int ret = mbedtls_base64_decode(buffer.data(), buffer.size(), &outputLen,
-                                        reinterpret_cast<const uint8_t*>(input.c_str()), inputLen);
-
-        if (ret != 0) {
-            char errbuf[100];
-            mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-            Serial.printf("❌ Base64 decode failed: %s\n", errbuf);
+        int r = mbedtls_base64_decode(
+            buf.data(), buf.size(), &actual,
+            (const uint8_t*)b64.c_str(), inLen
+        );
+        if (r != 0) {
+            char e[100];
+            mbedtls_strerror(r, e, sizeof(e));
+            Serial.printf("❌ Base64 decode failed: -0x%04X (%s)\n", -r, e);
             return "";
         }
 
-        buffer[outputLen] = '\0'; // null-terminate for PEM parsing
-        return std::string(reinterpret_cast<char*>(buffer.data()));
+        // null-terminate so mbedTLS can parse it as PEM
+        buf.resize(actual);
+        buf.push_back('\0');
+        return std::string((char*)buf.data());
     };
 
-    // Parse private key
-    std::string keyPem = decodeBase64(config.getPrivateKeyPEM());
-    if (keyPem.empty() || mbedtls_pk_parse_key(&privateKey,
-        reinterpret_cast<const uint8_t*>(keyPem.c_str()), keyPem.length() + 1, nullptr, 0) != 0) {
-        Serial.println("❌ Failed to parse private key");
-        return false;
+    // 3) Decode & parse the private key
+    {
+        std::string keyPem = decodeB64(cfg.getPrivateKeyPEM());
+        if (keyPem.empty()) return false;
+
+        ret = mbedtls_pk_parse_key(
+            &privateKey,
+            (const uint8_t*)keyPem.c_str(),
+            keyPem.size() + 1,
+            nullptr, 0
+        );
+        if (ret != 0) {
+            char err[100];
+            mbedtls_strerror(ret, err, sizeof(err));
+            Serial.printf("❌ Private key parse failed: -0x%04X (%s)\n", -ret, err);
+            return false;
+        }
     }
 
-    // Parse commander cert
-    std::string certPem = decodeBase64(config.getCertificatePEM());
-    if (certPem.empty() || mbedtls_x509_crt_parse(&certificate,
-        reinterpret_cast<const uint8_t*>(certPem.c_str()), certPem.length() + 1) != 0) {
-        Serial.println("❌ Failed to parse certificate");
-        return false;
+    // 4) Decode & parse the commander certificate
+    {
+        std::string certPem = decodeB64(cfg.getCertificatePEM());
+        if (certPem.empty()) return false;
+
+        ret = mbedtls_x509_crt_parse(
+            &certificate,
+            (const uint8_t*)certPem.c_str(),
+            certPem.size() + 1
+        );
+        if (ret != 0) {
+            char err[100];
+            mbedtls_strerror(ret, err, sizeof(err));
+            Serial.printf("❌ Certificate parse failed: -0x%04X (%s)\n", -ret, err);
+            return false;
+        }
     }
 
-    // Parse CA cert
-    std::string caPem = decodeBase64(config.getCaCertificatePEM());  // << match your actual method name
-    if (caPem.empty() || mbedtls_x509_crt_parse(&caCertificate,
-        reinterpret_cast<const uint8_t*>(caPem.c_str()), caPem.length() + 1) != 0) {
-        Serial.println("❌ Failed to parse CA certificate");
-        return false;
+    // 5) Decode & parse the CA certificate
+    {
+        std::string caPem = decodeB64(cfg.getCaCertificatePEM());
+        if (caPem.empty()) return false;
+
+        ret = mbedtls_x509_crt_parse(
+            &caCertificate,
+            (const uint8_t*)caPem.c_str(),
+            caPem.size() + 1
+        );
+        if (ret != 0) {
+            char err[100];
+            mbedtls_strerror(ret, err, sizeof(err));
+            Serial.printf("❌ CA cert parse failed: -0x%04X (%s)\n", -ret, err);
+            return false;
+        }
     }
 
     Serial.println("✅ Successfully loaded private key, certificate, and CA cert");
     return true;
 }
+
+
+
+//load from soldiers config
+bool CryptoHelper::loadFromSoldierConfig(const SoldierConfigModule& cfg) {
+    // 0) Initialize all contexts
+    mbedtls_pk_init(&privateKey);
+    mbedtls_x509_crt_init(&certificate);
+    mbedtls_x509_crt_init(&caCertificate);
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+    mbedtls_entropy_init(&entropy);
+
+    // 1) Seed the DRBG
+    int ret = mbedtls_ctr_drbg_seed(
+        &ctr_drbg,
+        mbedtls_entropy_func,
+        &entropy,
+        nullptr, 0
+    );
+    if (ret != 0) {
+        char err[100];
+        mbedtls_strerror(ret, err, sizeof(err));
+        Serial.printf("❌ CTR_DRBG seed failed: -0x%04X (%s)\n", -ret, err);
+        return false;
+    }
+
+    // 2) A little helper to decode Base64 into a std::string
+    auto decodeB64 = [&](const String& b64)-> std::string {
+        size_t inLen  = b64.length();
+        size_t outLen = (inLen * 3) / 4 + 4;
+        std::vector<uint8_t> buf(outLen);
+        size_t actual = 0;
+
+        int r = mbedtls_base64_decode(
+            buf.data(), buf.size(), &actual,
+            (const uint8_t*)b64.c_str(), inLen
+        );
+        if (r != 0) {
+            char e[100];
+            mbedtls_strerror(r, e, sizeof(e));
+            Serial.printf("❌ Base64 decode failed: -0x%04X (%s)\n", -r, e);
+            return "";
+        }
+
+        // null-terminate so mbedTLS can parse it as PEM
+        buf.resize(actual);
+        buf.push_back('\0');
+        return std::string((char*)buf.data());
+    };
+
+    // 3) Decode & parse the private key
+    {
+        std::string keyPem = decodeB64(cfg.getPrivateKeyPEM());
+        if (keyPem.empty()) return false;
+
+        ret = mbedtls_pk_parse_key(
+            &privateKey,
+            (const uint8_t*)keyPem.c_str(),
+            keyPem.size() + 1,
+            nullptr, 0
+        );
+        if (ret != 0) {
+            char err[100];
+            mbedtls_strerror(ret, err, sizeof(err));
+            Serial.printf("❌ Private key parse failed: -0x%04X (%s)\n", -ret, err);
+            return false;
+        }
+    }
+
+    // 4) Decode & parse the commander certificate
+    {
+        std::string certPem = decodeB64(cfg.getCertificatePEM());
+        if (certPem.empty()) return false;
+
+        ret = mbedtls_x509_crt_parse(
+            &certificate,
+            (const uint8_t*)certPem.c_str(),
+            certPem.size() + 1
+        );
+        if (ret != 0) {
+            char err[100];
+            mbedtls_strerror(ret, err, sizeof(err));
+            Serial.printf("❌ Certificate parse failed: -0x%04X (%s)\n", -ret, err);
+            return false;
+        }
+    }
+
+    // 5) Decode & parse the CA certificate
+    {
+        std::string caPem = decodeB64(cfg.getCaCertificatePEM());
+        if (caPem.empty()) return false;
+
+        ret = mbedtls_x509_crt_parse(
+            &caCertificate,
+            (const uint8_t*)caPem.c_str(),
+            caPem.size() + 1
+        );
+        if (ret != 0) {
+            char err[100];
+            mbedtls_strerror(ret, err, sizeof(err));
+            Serial.printf("❌ CA cert parse failed: -0x%04X (%s)\n", -ret, err);
+            return false;
+        }
+    }
+
+    Serial.println("✅ Successfully loaded private key, certificate, and CA cert");
+    return true;
+}
+
+
 
 
 bool CryptoHelper::verifyCertificate() {
