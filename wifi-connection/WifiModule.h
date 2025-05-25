@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <ArduinoJson.h>
+#include <HTTPClient.h>
 
 class WifiModule {
     private:
@@ -25,6 +26,8 @@ class WifiModule {
     void sendString(String data, const char* destinationIP, uint16_t destinationPort);
 
     bool isConnected();
+
+    void downloadFile(const char* downloadLink, const char* fileName);
 
     DynamicJsonDocument receiveJSONTCP(const char* serverIP, uint16_t serverPort, uint32_t timeoutMs = 5000);
 };

@@ -6,6 +6,12 @@ class LVGLPage {
     virtual void createPage() = 0;
     virtual void showPage() = 0;
     virtual void destroyPage() = 0;
-    virtual void transferToAnotherPage(LVGLPage*) = 0;
+
+    void transferToAnotherPage(LVGLPage* newPage)
+    {
+        this->destroyPage();
+        newPage->createPage();
+        newPage->showPage();
+    }
 };
 

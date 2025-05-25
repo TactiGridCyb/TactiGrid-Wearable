@@ -47,6 +47,32 @@ bool WifiModule::isConnected()
     return this->connected;
 }
 
+void WifiModule::downloadFile(const char* donwloadLink, const char* fileName)
+{
+    HTTPClient http;
+    http.begin(tileURL.c_str());
+    http.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                                "Chrome/134.0.0.0 Safari/537.36");
+    http.addHeader("Referer", "https://www.iconduck.com/");
+    http.addHeader("Accept", "image/png");
+
+    int httpCode = http.GET();
+    if (httpCode == HTTP_CODE_OK) {
+        size_t fileSize = http.getSize();
+        WiFiClient* stream = http.getStreamPtr();
+        uint8_t* buffer = new uint8_t[fileSize];
+        stream->readBytes(buffer, fileSize);
+        bool success = saveTileToFFat(buffer, fileSize, fileName);
+        delete[] buffer;
+        http.end();
+        return success;
+    } else {
+        http.end();
+        return false;
+    }
+}
+
 void WifiModule::connect(uint32_t timeoutMillisec = 0)
 {
 
