@@ -47,10 +47,10 @@ bool WifiModule::isConnected()
     return this->connected;
 }
 
-void WifiModule::downloadFile(const char* donwloadLink, const char* fileName)
+bool WifiModule::downloadFile(const char* donwloadLink, const char* fileName)
 {
     HTTPClient http;
-    http.begin(tileURL.c_str());
+    http.begin(donwloadLink);
     http.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                                 "AppleWebKit/537.36 (KHTML, like Gecko) "
                                 "Chrome/134.0.0.0 Safari/537.36");
@@ -63,7 +63,7 @@ void WifiModule::downloadFile(const char* donwloadLink, const char* fileName)
         WiFiClient* stream = http.getStreamPtr();
         uint8_t* buffer = new uint8_t[fileSize];
         stream->readBytes(buffer, fileSize);
-        bool success = saveTileToFFat(buffer, fileSize, fileName);
+        bool success = FFatHelper::saveFile(buffer, fileSize, fileName);
         delete[] buffer;
         http.end();
         return success;

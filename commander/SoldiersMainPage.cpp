@@ -15,6 +15,7 @@ void SoldiersMainPage::createPage()
     lv_obj_set_style_bg_color(this->mainPage, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(this->mainPage, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    this->wifiModule->downloadFile(this->helmentDownloadLink, "/helmet.png");
     this->showHelmet();
 
     lv_obj_t *mainLabel = lv_label_create(this->mainPage);
