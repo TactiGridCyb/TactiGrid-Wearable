@@ -6,7 +6,7 @@
 
 
 CommanderConfigModule::CommanderConfigModule(const String& rawJson) {
-    DynamicJsonDocument doc(8192);
+    DynamicJsonDocument doc(16 * 1024);
     deserializeJson(doc, rawJson);
 
     _gmk = doc["GMK"] | "";
@@ -23,11 +23,13 @@ CommanderConfigModule::CommanderConfigModule(const String& rawJson) {
         }
     }
 
-    //TODO: add implementation to extract the soldiers public keys from the file
-
     _privateKeyPEM = doc["private_key_pem"] | "";
     _certificatePEM = doc["certificate_pem"] | "";
     _caCertificatePEM = doc["ca_certificate_pem"] | "";
+
+    //TODO: add implementation to extract the soldiers public keys from the file
+    //for testing only - implement true functionality late
+    _publicKeyPEMSoldier = doc["1"] | "";
 
     _fhf = doc["FHF"] | "";
     _gkf = doc["GKF"] | "";
@@ -54,6 +56,11 @@ String CommanderConfigModule::getPrivateKeyPEM() const {
     return _privateKeyPEM;
 }
 
+//for testing only - implement true functionality later
+String CommanderConfigModule::getPeerPublicKeyPEM() const{
+    return _publicKeyPEMSoldier;
+}
+
 String CommanderConfigModule::getCertificatePEM() const {
     return _certificatePEM;
 }
@@ -64,5 +71,5 @@ String CommanderConfigModule::getCaCertificatePEM() const {
 
 String CommanderConfigModule::getSoldierPublicKey(int id) const{
     //TODO: implement later
-    return "soldiers public key";
+    return _publicKeyPEMSoldier;
 }

@@ -22,12 +22,17 @@ public:
     String getGKF() const;
     String getSoldierPublicKey(int id) const;
 
+    //for testing only - implement functionality later
+    String getPeerPublicKeyPEM() const;
+
 private:
     String _gmk; // gmk
     int _id; // commanders id
     std::vector<int> _hierarchy; // commanders hierarchy
     std::vector<int> _soldiers; // id's of all the soldiers
     String _privateKeyPEM; // private key in pem
+    //for testing only
+    String _publicKeyPEMSoldier; // public key from soldier 1 in pem
     String _certificatePEM; // commanders certificate in pem
     String _caCertificatePEM; // ca's certificate as pem
     String _fhf;  // FHF as string
