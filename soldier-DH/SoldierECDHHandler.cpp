@@ -16,19 +16,36 @@ SoldierECDHHandler::SoldierECDHHandler(float freq, SoldierConfigModule* cfg, Cry
     instance = this;
 }
 
+// void SoldierECDHHandler::begin() {
+//     lora.setup(false); // receiver mode
+//     lora.setOnReadData([](const uint8_t* pkt, size_t len) {
+//         instance->lora.onLoraFileDataReceived(pkt, len);
+//     });
+//     lora.onFileReceived = handleLoRaData;
+// }
+
 void SoldierECDHHandler::begin() {
-    lora.setup(false); // receiver mode
+    instance = this;
+    lora.setup(false);
     lora.setOnReadData([](const uint8_t* pkt, size_t len) {
         instance->lora.onLoraFileDataReceived(pkt, len);
     });
-    lora.onFileReceived = handleLoRaData;
+    lora.onFileReceived = SoldierECDHHandler::handleLoRaDataStatic;
 }
+
 
 void SoldierECDHHandler::startListening() {
     hasResponded = false;
     lora.setupListening();
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// static wrapper: bridges the C‐style callback into our C++ instance
+void SoldierECDHHandler::handleLoRaDataStatic(const uint8_t* data, size_t len) {
+    if (instance) {
+        instance->handleLoRaData(data, len);
+    }
+}
 
 void SoldierECDHHandler::handleLoRaData(const uint8_t* data, size_t len) {
     if (instance->hasResponded) return;
@@ -168,7 +185,7 @@ Serial.println(F("✅ Shared secret OK"));
 
 
     instance->hasResponded = true;
-    sendResponse(recipientId);
+    sendResponse(10); //TODO: change to the real commanders id
 }
 
 
@@ -193,103 +210,90 @@ Serial.println(F("✅ Shared secret OK"));
 //     Serial.println("✅ Response sent");
 // }
 
-
 void SoldierECDHHandler::sendResponse(int toId) {
     Serial.println("📤 Preparing soldier response…");
 
-    // 1) Generate our ECDH ephemeral (if you haven't already)
+    // 1) Ensure we have our ECDH ephemeral keypair
     if (!ecdh.generateEphemeralKey()) {
         Serial.println("❌ Failed to generate soldier ephemeral key");
         return;
     }
 
-    // 2) Load commander’s Base64-of-PEM from our config & parse it
-    String b64Pem = config->getPeerPublicKeyPEM(toId);
-    std::vector<uint8_t> pemBuf;
-    if (!CryptoHelper::decodeBase64(b64Pem, pemBuf)) {
-        Serial.println("❌ Failed to Base64-decode commander PEM");
-        return;
-    }
-    pemBuf.push_back('\0');
-    mbedtls_pk_context cmdPub;
-    mbedtls_pk_init(&cmdPub);
-    if (mbedtls_pk_parse_public_key(&cmdPub, pemBuf.data(), pemBuf.size()) != 0) {
-        Serial.println("❌ Could not parse commander public key");
-        return;
-    }
-    Serial.println("✅ Loaded commander RSA public key");
+    // 2) Extract commander’s public key directly from the X.509 cert we loaded
+    mbedtls_x509_crt* cmdCert = crypto.getCertificateCtx();
+    mbedtls_pk_context*  cmdPk   = &cmdCert->pk;
+    Serial.println("🔍 [DEBUG] Using commander’s public key from loaded certificate");
 
-    // 3) Generate a 256-bit symmetric key + 128-bit IV
+    // 3) Generate a fresh 256-bit AES key + 128-bit IV
     uint8_t symKey[32], iv[16];
     mbedtls_ctr_drbg_random(&crypto.getDrbg(), symKey, sizeof(symKey));
-    mbedtls_ctr_drbg_random(&crypto.getDrbg(), iv, sizeof(iv));
+    mbedtls_ctr_drbg_random(&crypto.getDrbg(), iv,     sizeof(iv));
 
-    // 4) RSA-OAEP wrap the AES key
-    std::vector<uint8_t> wrappedKey(mbedtls_pk_get_len(&cmdPub));
-    size_t wlen = 0;
-    if (mbedtls_pk_encrypt(&cmdPub,
+    // 4) Wrap that AES key under RSA-OAEP with the commander’s public key
+    std::vector<uint8_t> wrappedKey(mbedtls_pk_get_len(cmdPk));
+    size_t wrappedLen = 0;
+    if (mbedtls_pk_encrypt(cmdPk,
                            symKey, sizeof(symKey),
-                           wrappedKey.data(), &wlen, wrappedKey.size(),
+                           wrappedKey.data(), &wrappedLen, wrappedKey.size(),
                            mbedtls_ctr_drbg_random, &crypto.getDrbg()) != 0)
     {
-        Serial.println("❌ RSA wrap of symmetric key failed");
-        mbedtls_pk_free(&cmdPub);
+        Serial.println("❌ RSA wrap of AES key failed");
         return;
     }
-    wrappedKey.resize(wlen);
+    wrappedKey.resize(wrappedLen);
 
-    // 5) AES-CTR encrypt helper
-    auto aesCtrEncrypt = [&](const String& plainB64, std::vector<uint8_t>& out) {
+    // 5) AES-CTR encrypt helper (takes a Base64-encoded plaintext string)
+    auto aesCtrEncrypt = [&](const String& plainB64,
+                             std::vector<uint8_t>& out) {
         std::vector<uint8_t> plain;
         CryptoHelper::decodeBase64(plainB64, plain);
 
         mbedtls_cipher_context_t ctx;
         mbedtls_cipher_init(&ctx);
-        auto info = mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_256_CTR);
+        const auto* info = mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_256_CTR);
         mbedtls_cipher_setup(&ctx, info);
         mbedtls_cipher_setkey(&ctx, symKey, 256, MBEDTLS_ENCRYPT);
         mbedtls_cipher_set_iv(&ctx, iv, sizeof(iv));
         mbedtls_cipher_reset(&ctx);
 
-        size_t olen = 0, finl = 0;
         out.resize(plain.size());
-        mbedtls_cipher_update(&ctx, plain.data(), plain.size(), out.data(), &olen);
-        mbedtls_cipher_finish(&ctx, out.data() + olen, &finl);
-        out.resize(olen + finl);
+        size_t outl=0, finl=0;
+        mbedtls_cipher_update(&ctx, plain.data(), plain.size(), out.data(), &outl);
+        mbedtls_cipher_finish(&ctx, out.data()+outl, &finl);
+        out.resize(outl + finl);
+
         mbedtls_cipher_free(&ctx);
     };
 
-    // 6) Encrypt cert + ephemeral
+    // 6) Encrypt soldier’s cert & Base64-encoded ECDH public key
     std::vector<uint8_t> ctCert, ctEph;
-    aesCtrEncrypt(config->getCertificatePEM(), ctCert);
+    aesCtrEncrypt(config->getCertificatePEM(),      ctCert);
     aesCtrEncrypt(crypto.toBase64(ecdh.getPublicKeyRaw()), ctEph);
 
-    // 7) Base64-encode everything
+    // 7) Base64-encode wrapped key, IV, and ciphertexts
     String wrappedKeyB64 = CryptoHelper::toBase64(wrappedKey);
     String ivB64         = CryptoHelper::toBase64({ iv, iv + sizeof(iv) });
     String certCTB64     = CryptoHelper::toBase64(ctCert);
     String ephCTB64      = CryptoHelper::toBase64(ctEph);
 
-    // cleanup
-    mbedtls_pk_free(&cmdPub);
-
-    // 8) Build JSON & send
+    // 8) Build JSON body exactly like the commander’s
     DynamicJsonDocument doc(8192);
-    doc["id"]        = toId;          // commander’s ID
-    doc["key"]       = wrappedKeyB64; // RSA-wrapped AES key
-    doc["iv"]        = ivB64;         // AES IV
-    doc["cert"]      = certCTB64;     // AES-encrypted cert
-    doc["ephemeral"] = ephCTB64;      // AES-encrypted ephemeral
+    doc["id"]        = toId;            // commander’s ID
+    doc["key"]       = wrappedKeyB64;   // RSA-wrapped AES key
+    doc["iv"]        = ivB64;           // AES IV
+    doc["cert"]      = certCTB64;       // AES-encrypted cert
+    doc["ephemeral"] = ephCTB64;         // AES-encrypted ECDH key
 
     String out;
     serializeJsonPretty(doc, out);
+
+    // 9) Send via LoRa
     if (lora.sendFile((const uint8_t*)out.c_str(), out.length(), 180)
             != RADIOLIB_ERR_NONE) {
         Serial.println("❌ Failed to send soldier response");
-        return;
+    } else {
+        Serial.println("✅ Soldier response sent");
     }
-
-    Serial.println("✅ Soldier response sent");
 }
 
 
