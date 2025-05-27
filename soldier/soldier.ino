@@ -434,7 +434,6 @@ void loop() {
   }
 
   if (startGPSChecking) {
-    gpsModule->readGPSData();
 
     gpsModule->updateCoords();
     unsigned long currentTime = millis();

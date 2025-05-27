@@ -12,10 +12,10 @@ class GPSModule{
     float currentLat;
     float currentLon;
 
+    void readGPSData();
     public:
     GPSModule(float readInterval = 1.2f);
 
-    void readGPSData();
     void updateCoords();
 
     float getLat() const;
@@ -27,5 +27,7 @@ class GPSModule{
     TinyGPSAltitude getGPSAltitude();
     TinyGPSInteger getGPSSatellites();
     TinyGPSSpeed getGPSSpeed();
+
+
     
 };

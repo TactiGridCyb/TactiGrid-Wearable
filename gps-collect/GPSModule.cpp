@@ -44,6 +44,8 @@ float GPSModule::getLon() const
 
 void GPSModule::updateCoords()
 {
+    this->readGPSData();
+
     unsigned long currentTime = millis();
 
     if (currentTime - this->lastCheck < this->readInterval * 1000)
@@ -61,9 +63,6 @@ void GPSModule::updateCoords()
         this->currentLat = lat;
         this->currentLon = lng;
     }
-
-    
-    
 }
 
 TinyGPSAltitude GPSModule::getGPSAltitude()

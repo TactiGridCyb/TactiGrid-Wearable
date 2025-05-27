@@ -1,16 +1,14 @@
-#include <lvgl.h>
+#include <LVGLPage.h>
 #include <LV_Helper.h>
-#include "../wifi-connection/WifiModule.h"
+#include <WifiModule.h>
 
-class receiveParametersPage{
+class receiveParametersPage : public LVGLPage{
     public:
-    void destroy();
+        receiveParametersPage(std::shared_ptr<WifiModule> wifiModule);
 
-    receiveParametersPage();
+        void createPage() override;
+        void destroy();
 
     private:
-    std::unique_ptr<WifiModule> wifiModule;
-
-    lv_obj_t* btnReceiveParameters;
-    lv_obj_t* label;
+        std::shared_ptr<WifiModule> wifiModule;
 };
