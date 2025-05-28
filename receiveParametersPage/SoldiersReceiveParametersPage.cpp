@@ -1,10 +1,5 @@
 #include "SoldiersReceiveParametersPage.h"
-#include <mbedtls/x509_crt.h>
-#include <mbedtls/pk.h>
-#include "mbedtls/oid.h"
-#include <stdexcept>
-#include <string>
-#include <regex>
+
 
 SoldiersReceiveParametersPage::SoldiersReceiveParametersPage(std::unique_ptr<WifiModule> wifiModule)
 {
@@ -49,6 +44,12 @@ void SoldiersReceiveParametersPage::createPage()
         lv_label_set_text(this->statusLabels[i], "");
         lv_obj_align(this->statusLabels[i], LV_ALIGN_TOP_MID, 0, 60 + i * 30);
     }
+}
+
+#include <functional>
+
+void SoldiersReceiveParametersPage::setOnTransferPage(std::function<void(std::unique_ptr<WifiModule>)> cb) {
+    this->onTransferPage = std::move(cb);
 }
 
 void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
@@ -126,7 +127,6 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     this->soldierModule->appendFrequencies(freqs);
 
-
     for (auto v : doc["soldiers"].as<JsonArray>()) {
         const std::string pem = v.as<std::string>();
 
@@ -191,13 +191,29 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     Serial.println("CA Certificate PEM:");
     Serial.println(caPem.c_str());
 
-  } 
+    
+    this->destroyPage();
+    delay(500);
+    Serial.println("AFTER destroyPage");
+    if (this->onTransferPage) {
+      Serial.println("onTransferPage Exists");
+        this->onTransferPage(std::move(this->wifiModule));
+    }
+    else
+    {
+      Serial.println("onTransferPage Doesn't exist");
+    }
+  }
   catch (const std::exception &e) {
     Serial.printf("⚠️ onSocketOpened error: %s\n", e.what());
   }
+
+
+
 }
 
 void SoldiersReceiveParametersPage::updateLabel(uint8_t index)
 {
     lv_label_set_text(this->statusLabels[index], this->messages[index]);
 }
+

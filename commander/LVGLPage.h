@@ -11,7 +11,6 @@ class LVGLPage {
         lv_obj_t * mainPage = lv_scr_act();
         lv_obj_remove_style_all(mainPage);
         lv_obj_clean(mainPage);
-        lv_obj_del(mainPage);
     }
 
     void transferToAnotherPage(LVGLPage* newPage)
@@ -19,5 +18,6 @@ class LVGLPage {
         this->destroyPage();
         newPage->createPage();
     }
+
 };
 

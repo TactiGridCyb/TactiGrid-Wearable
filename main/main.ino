@@ -5,7 +5,15 @@ const char* ssid = "default";
 const char* password = "1357924680";
 
 std::unique_ptr<SoldiersReceiveParametersPage> receiveParametersPage;
+std::unique_ptr<SoldiersMainPage> soldiersMainPage;
 std::unique_ptr<WifiModule> wifiModule;
+
+void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> currentWifiModule)
+{
+    Serial.println("transferFromReceiveParametersToMainPage");
+    soldiersMainPage = std::make_unique<SoldiersMainPage>(std::move(currentWifiModule));
+    soldiersMainPage->createPage();
+}
 
 void setup()
 {
@@ -30,6 +38,7 @@ void setup()
     
     receiveParametersPage = std::make_unique<SoldiersReceiveParametersPage>(std::move(wifiModule));
     receiveParametersPage->createPage();
+    receiveParametersPage->setOnTransferPage(transferFromReceiveParametersToMainPage);
 
 }
 

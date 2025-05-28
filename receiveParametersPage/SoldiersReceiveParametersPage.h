@@ -6,12 +6,20 @@
 #include <ArduinoJson.h>
 #include <Soldier.h>
 #include <certModule.h>
+#include <mbedtls/x509_crt.h>
+#include <mbedtls/pk.h>
+#include "mbedtls/oid.h"
+#include <stdexcept>
+#include <string>
+#include <SoldiersMainPage.h>
 
 class SoldiersReceiveParametersPage : public LVGLPage {
     public:
         SoldiersReceiveParametersPage(std::unique_ptr<WifiModule> wifiModule);
 
         void createPage() override;
+
+        void setOnTransferPage(std::function<void(std::unique_ptr<WifiModule>)> cb);
 
         static std::string extractPemBlock(const std::string& blob,
                                    const char* header,
@@ -24,6 +32,8 @@ class SoldiersReceiveParametersPage : public LVGLPage {
         lv_obj_t* statusLabels[6];
 
         std::unique_ptr<Soldier> soldierModule;
+
+        std::function<void(std::unique_ptr<WifiModule>)> onTransferPage;
 
         const char* messages[6] = {
             "Received Cert", "Received CA Cert", "Received GMK", "Received Freqs", "Received Interval", "Received Commanders Certs"

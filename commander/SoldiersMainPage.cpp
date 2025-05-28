@@ -1,10 +1,8 @@
 #include <SoldiersMainPage.h>
 
-SoldiersMainPage::SoldiersMainPage(std::unique_ptr<LoraModule> loraModule, std::unique_ptr<WifiModule> wifiModule, std::unique_ptr<GPSModule> gpsModule)
+SoldiersMainPage::SoldiersMainPage(std::unique_ptr<WifiModule> wifiModule)
 {
-    this->loraModule = std::move(loraModule);
     this->wifiModule = std::move(wifiModule);
-    this->gpsModule = std::move(gpsModule);
 
     this->mainPage = lv_scr_act();
 }
