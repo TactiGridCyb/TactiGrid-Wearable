@@ -7,9 +7,9 @@
 #include <Soldier.h>
 #include <certModule.h>
 
-class receiveParametersPageSoldier : public LVGLPage{
+class SoldiersReceiveParametersPage : public LVGLPage{
     public:
-        receiveParametersPageSoldier(std::unique_ptr<WifiModule> wifiModule);
+        SoldiersReceiveParametersPage(std::unique_ptr<WifiModule> wifiModule);
 
         void createPage() override;
         void destroy();

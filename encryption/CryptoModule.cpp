@@ -98,8 +98,8 @@ namespace crypto {
                 + ", got " + std::to_string(s.size())
             );
         }
-        Key256 key;
-        std::copy_n(s.begin(), key.size(), key.begin());
+        Key256 key = {};
+        std::memcpy(key.data(), s.c_str(), 32);
         return key;
     }
 

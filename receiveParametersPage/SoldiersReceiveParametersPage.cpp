@@ -1,4 +1,4 @@
-#include "receiveParametersPageSoldier.h"
+#include "SoldiersReceiveParametersPage.h"
 #include <mbedtls/x509_crt.h>
 #include <mbedtls/pk.h>
 #include "mbedtls/oid.h"
@@ -6,18 +6,18 @@
 #include <string>
 #include <regex>
 
-receiveParametersPageSoldier::receiveParametersPageSoldier(std::unique_ptr<WifiModule> wifiModule)
+SoldiersReceiveParametersPage::SoldiersReceiveParametersPage(std::unique_ptr<WifiModule> wifiModule)
 {
     this->wifiModule = std::move(wifiModule);
     this->mainPage = lv_scr_act();
 }
 
-void receiveParametersPageSoldier::createPage()
+void SoldiersReceiveParametersPage::createPage()
 {
     lv_obj_t *btn = lv_btn_create(this->mainPage);
     lv_obj_align(btn, LV_ALIGN_CENTER, 0, -40);
     lv_obj_add_event_cb(btn, [](lv_event_t* e) {
-        auto* self = static_cast<receiveParametersPageSoldier*>(lv_event_get_user_data(e));
+        auto* self = static_cast<SoldiersReceiveParametersPage*>(lv_event_get_user_data(e));
         if (self) self->onSocketOpened(e);
     },
     LV_EVENT_CLICKED, this);
@@ -33,14 +33,14 @@ void receiveParametersPageSoldier::createPage()
     }
 }
 
-void receiveParametersPageSoldier::destroy()
+void SoldiersReceiveParametersPage::destroy()
 {
     lv_obj_t* mainPage = lv_scr_act();
     lv_obj_remove_style_all(mainPage);
     lv_obj_clean(mainPage);
 }
  
-void receiveParametersPageSoldier::onSocketOpened(lv_event_t* event)
+void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 {
   // TCP SSL
   JsonDocument doc;
@@ -105,9 +105,7 @@ void receiveParametersPageSoldier::onSocketOpened(lv_event_t* event)
 
     mbedtls_pk_context privKey;
     mbedtls_pk_init(&privKey);
-    if (mbedtls_pk_parse_key(&privKey,
-          (const unsigned char*)privateKeyPem.c_str(),
-          privateKeyPem.size()+1, nullptr, 0) != 0)
+    if (mbedtls_pk_parse_key(&privKey, (const unsigned char*)privateKeyPem.c_str(), privateKeyPem.size()+1, nullptr, 0) != 0)
       throw std::runtime_error("Failed to parse private key");
 
 
@@ -159,7 +157,7 @@ void receiveParametersPageSoldier::onSocketOpened(lv_event_t* event)
   }
 }
 
-void receiveParametersPageSoldier::updateLabel(uint8_t index)
+void SoldiersReceiveParametersPage::updateLabel(uint8_t index)
 {
     lv_label_set_text(this->statusLabels[index], this->messages[index]);
 }

@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <sodium.h>
 #include <stdexcept>
-#include <algorithm>
+#include <cstring>
 
 namespace crypto {
 
