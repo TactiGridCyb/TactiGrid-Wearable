@@ -7,10 +7,10 @@
 #include "PersonBase.h"
 #include "../certModule/certModule.h"
 
-class CommanderModule : public PersonBase<SoldierInfo>
+class Commander : public PersonBase<SoldierInfo>
 {
 public:
-    CommanderModule(const std::string& name,
+    Commander(const std::string& name,
                     const mbedtls_x509_crt& publicCert,
                     const mbedtls_pk_context& privateKey,
                     const mbedtls_x509_crt& publicCA,

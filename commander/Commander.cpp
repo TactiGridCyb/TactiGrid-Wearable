@@ -1,8 +1,8 @@
-#include "CommanderModule.h"
+#include "Commander.h"
 #include <stdexcept>
 #include <cstring>
 
-CommanderModule::CommanderModule(const std::string& name,
+Commander::Commander(const std::string& name,
                                const mbedtls_x509_crt& publicCert,
                                const mbedtls_pk_context& privateKey,
                                const mbedtls_x509_crt& publicCA,
@@ -35,10 +35,10 @@ CommanderModule::CommanderModule(const std::string& name,
     }
 }
 
-int CommanderModule::getCurrentHeartRate() const {
+int Commander::getCurrentHeartRate() const {
     return currentHeartRate;
 }
 
-void CommanderModule::setCurrentHeartRate(int heartRate) {
+void Commander::setCurrentHeartRate(int heartRate) {
     currentHeartRate = heartRate;
 }
