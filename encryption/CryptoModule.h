@@ -18,6 +18,7 @@ struct Ciphertext {
     ByteVec tag;
 };
 
+
 class CryptoModule {
 public:
     static void init();
@@ -32,6 +33,7 @@ public:
     static ByteVec decrypt(const Key256& gk, const Ciphertext& ct);
 
     static Key256 strToKey256(const std::string& s);
+
 };
 
 }

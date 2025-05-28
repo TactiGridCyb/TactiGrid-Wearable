@@ -221,3 +221,36 @@ bool certModule::loadSingleCertificate(const String& pemCert) {
     }
     return true;
 }
+
+NameId certModule::parseNameIdFromCertPem(const std::string& pem) {
+
+    mbedtls_x509_crt cert;
+    mbedtls_x509_crt_init(&cert);
+    if (mbedtls_x509_crt_parse(&cert, reinterpret_cast<const unsigned char*>(pem.c_str()), pem.size() + 1) != 0)
+    {
+        mbedtls_x509_crt_free(&cert);
+        throw std::runtime_error("Failed to parse certificate PEM");
+    }
+
+    char cnBuf[128] = {0};
+    for (auto p = &cert.subject; p; p = p->next) {
+        if (MBEDTLS_OID_CMP(MBEDTLS_OID_AT_CN, &p->oid) == 0) {
+            size_t len = std::min<size_t>(p->val.len, sizeof(cnBuf) - 1);
+            std::memcpy(cnBuf, p->val.p, len);
+            cnBuf[len] = '\0';
+            break;
+        }
+    }
+    
+    mbedtls_x509_crt_free(&cert);
+
+    std::string cnStr(cnBuf);
+    auto pos = cnStr.find_last_of(' ');
+    if (pos == std::string::npos)
+        throw std::runtime_error("CN format invalid, expected 'Name Surname ID'");
+
+    NameId result;
+    result.name = cnStr.substr(0, pos);
+    result.id   = static_cast<uint16_t>(std::stoul(cnStr.substr(pos + 1)));
+    return result;
+}

@@ -1,6 +1,7 @@
 #include "receiveParametersPageSoldier.h"
 #include <mbedtls/x509_crt.h>
 #include <mbedtls/pk.h>
+#include "mbedtls/oid.h"
 #include <stdexcept>
 #include <string>
 #include <regex>
@@ -57,7 +58,7 @@ void receiveParametersPageSoldier::onSocketOpened(lv_event_t* event)
       throw std::runtime_error("Certificate PEM block not found");
 
     c1 += strlen(CERT_END);
-    const std::string serverCertPem = combinedPem.substr(c0, c1-c0);
+    const std::string ownCertPem = combinedPem.substr(c0, c1-c0);
 
     constexpr const char* KEY_BEG = "-----BEGIN RSA PRIVATE KEY-----";
     constexpr const char* KEY_END = "-----END RSA PRIVATE KEY-----";
@@ -68,12 +69,11 @@ void receiveParametersPageSoldier::onSocketOpened(lv_event_t* event)
     k1 += strlen(KEY_END);
     const std::string privateKeyPem = combinedPem.substr(k0, k1-k0);
 
-    mbedtls_x509_crt serverCert;
-    mbedtls_x509_crt_init(&serverCert);
-    if (mbedtls_x509_crt_parse(&serverCert,
-          (const unsigned char*)serverCertPem.c_str(),
-          serverCertPem.size()+1) != 0)
+    mbedtls_x509_crt ownCert;
+    mbedtls_x509_crt_init(&ownCert);
+    if (mbedtls_x509_crt_parse(&ownCert, (const unsigned char*)ownCertPem.c_str(), ownCertPem.size()+1) != 0)
       throw std::runtime_error("Failed to parse server certificate");
+    
     updateLabel(0);
 
 
@@ -84,12 +84,14 @@ void receiveParametersPageSoldier::onSocketOpened(lv_event_t* event)
           (const unsigned char*)caPem.c_str(),
           caPem.size()+1) != 0)
       throw std::runtime_error("Failed to parse CA certificate");
+
     updateLabel(1);
 
     const std::string gmkStr = doc["gmk"].as<std::string>();
     crypto::Key256 GMK = crypto::CryptoModule::strToKey256(gmkStr);
 
     updateLabel(2);
+    
 
     std::vector<float> freqs;
     for (auto v : doc["frequencies"].as<JsonArray>())
@@ -97,63 +99,57 @@ void receiveParametersPageSoldier::onSocketOpened(lv_event_t* event)
 
     updateLabel(3);
 
-    std::vector<SoldierInfo> soldierInfos;
-    for (auto v : doc["soldiers"].as<JsonArray>()) {
-        const std::string pem = v.as<std::string>();
+    const uint16_t intervalMs = doc["intervalMs"].as<uint16_t>();
 
-        SoldierInfo info;
-
-        mbedtls_x509_crt_init(&info.cert);
-        if (mbedtls_x509_crt_parse(&info.cert,
-                (const unsigned char*)pem.c_str(),
-                pem.size()+1) != 0) {
-            mbedtls_x509_crt_free(&info.cert);
-            continue;
-        }
-
-        char cn[128] = {0};
-        for (auto p = &info.cert.subject; p; p = p->next) {
-            if (MBEDTLS_OID_CMP(MBEDTLS_OID_AT_CN, &p->oid) == 0) {
-            size_t len = std::min<size_t>(p->val.len, sizeof(cn)-1);
-            memcpy(cn, p->val.p, len);
-            cn[len] = '\0';
-            break;
-            }
-        }
-        info.name = cn;
-        soldierInfos.push_back(std::move(info));
-    }
     updateLabel(4);
 
-    // 10) pull out the heart-beat interval
-    const uint16_t intervalMs = doc["intervalMs"].as<uint16_t>();
-    updateLabel(5);
-
-    // 11) parse the private key
     mbedtls_pk_context privKey;
     mbedtls_pk_init(&privKey);
     if (mbedtls_pk_parse_key(&privKey,
           (const unsigned char*)privateKeyPem.c_str(),
           privateKeyPem.size()+1, nullptr, 0) != 0)
       throw std::runtime_error("Failed to parse private key");
-    updateLabel(6);
 
-    // 12) build your Soldier object
+
     this->soldierModule = std::make_unique<Soldier>(
-      /* name         */ doc["name"].as<std::string>(),
-      /* publicCert   */ serverCert,
-      /* privateKey   */ privKey,
-      /* caPublicCert */ caCert,
-      /* soldierNum   */ doc["soldierNumber"].as<uint16_t>(),
-      /* intervalMS   */ intervalMs
+        doc["name"].as<std::string>(),
+        ownCert,
+        privKey,
+        caCert,
+        doc["soldierNumber"].as<uint16_t>(),
+        intervalMs
     );
-    this->soldierModule->appendFrequencies(freqs);
-    for (auto &si : soldierInfos)
-      this->soldierModule->addCert(si.cert);
 
-    // 13) clean up the locals (the Soldier constructor and addCert() should
-    //     have taken ownership or copied as needed)
-    mbedtls_x509_crt_free(&serverCert);
+    this->soldierModule->appendFrequencies(freqs);
+
+    for (auto v : doc["soldiers"].as<JsonArray>()) {
+        const std::string pem = v.as<std::string>();
+
+        CommanderInfo info;
+        mbedtls_x509_crt_init(&info.cert);
+        if (mbedtls_x509_crt_parse(&info.cert, reinterpret_cast<const unsigned char*>(pem.c_str()), pem.size() + 1) != 0)
+        {
+            mbedtls_x509_crt_free(&info.cert);
+            continue;
+        }
+
+        try {
+            NameId ni = certModule::parseNameIdFromCertPem(pem);
+            info.name = std::move(ni.name);
+            info.commanderNumber = ni.id;
+        }
+        catch (...) {
+            mbedtls_x509_crt_free(&info.cert);
+            continue;
+        }
+
+        this->soldierModule->addOther(std::move(info));
+    }
+
+    updateLabel(5);
+
+
+    mbedtls_x509_crt_free(&ownCert);
     mbedtls_x509_crt_free(&caCert);
     mbedtls_pk_free(&privKey);
 

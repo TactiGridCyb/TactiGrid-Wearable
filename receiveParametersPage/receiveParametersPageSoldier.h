@@ -1,8 +1,11 @@
+#pragma once
+
 #include <LVGLPage.h>
 #include <LV_Helper.h>
 #include <WifiModule.h>
 #include <ArduinoJson.h>
 #include <Soldier.h>
+#include <certModule.h>
 
 class receiveParametersPageSoldier : public LVGLPage{
     public:
@@ -19,8 +22,7 @@ class receiveParametersPageSoldier : public LVGLPage{
         std::unique_ptr<Soldier> soldierModule;
 
         const char* messages[6] = {
-            "Received Cert", "Received CA Cert", "Received GMK", "Received Freqs", "Received Commanders Certs",
-            "Received Interval"
+            "Received Cert", "Received CA Cert", "Received GMK", "Received Freqs", "Received Interval", "Received Commanders Certs"
         };
 
         void onSocketOpened(lv_event_t* event);

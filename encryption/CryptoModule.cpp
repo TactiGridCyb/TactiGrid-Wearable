@@ -92,15 +92,15 @@ namespace crypto {
     }
 
     Key256 CryptoModule::strToKey256(const std::string& s) {
-    if (s.size() != Key256().size()) {
-        throw std::runtime_error(
-            "Expected string of length " + std::to_string(Key256().size())
-            + ", got " + std::to_string(s.size())
-        );
+        if (s.size() != Key256().size()) {
+            throw std::runtime_error(
+                "Expected string of length " + std::to_string(Key256().size())
+                + ", got " + std::to_string(s.size())
+            );
+        }
+        Key256 key;
+        std::copy_n(s.begin(), key.size(), key.begin());
+        return key;
     }
-    Key256 key;
-    std::copy_n(s.begin(), key.size(), key.begin());
-    return key;
-}
 
 }

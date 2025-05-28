@@ -3,7 +3,14 @@
 #include "mbedtls/pk.h"
 #include "mbedtls/x509_crt.h"
 #include "mbedtls/ctr_drbg.h"
+#include "mbedtls/oid.h"
 #include "mbedtls/entropy.h"
+#include <cstring>
+
+struct NameId {
+    std::string name;
+    uint16_t id;
+};
 
 class certModule {
 public:
@@ -31,6 +38,7 @@ public:
 
     static certModule fromPrivateKeyString(const std::string& privateKeyStr);
     
+    static NameId parseNameIdFromCertPem(const std::string& pem);
 
 private:
     mbedtls_pk_context privateKey;
