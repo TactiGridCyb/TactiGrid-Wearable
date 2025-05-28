@@ -1,19 +1,44 @@
 #include <SoldiersMainPage.h>
 #include <SoldiersReceiveParametersPage.h>
+#include <SoldierSendCoordsPage.h>
+#include <LoraModule.h>
+#include <GPSModule.h>
 
 const char* ssid = "default";
 const char* password = "1357924680";
 
 std::unique_ptr<SoldiersReceiveParametersPage> receiveParametersPage;
 std::unique_ptr<SoldiersMainPage> soldiersMainPage;
+std::unique_ptr<SoldierSendCoordsPage> soldierSendCoordsPage;
+
 std::unique_ptr<WifiModule> wifiModule;
+std::shared_ptr<LoraModule> loraModule;
+std::shared_ptr<GPSModule> gpsModule;
+
+
+void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiModule)
+{
+    Serial.println("transferFromMainToSendCoordsPage");
+    loraModule = std::make_shared<LoraModule>(433.5);
+    gpsModule = std::make_shared<GPSModule>();
+
+    loraModule->setup(true);
+    loraModule->setupListening();
+
+    soldierSendCoordsPage = std::make_unique<SoldierSendCoordsPage>(loraModule, std::move(currentWifiModule), gpsModule);
+    soldierSendCoordsPage->createPage();
+}
 
 void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> currentWifiModule)
 {
     Serial.println("transferFromReceiveParametersToMainPage");
     soldiersMainPage = std::make_unique<SoldiersMainPage>(std::move(currentWifiModule));
     soldiersMainPage->createPage();
+
+    soldiersMainPage->setOnTransferPage(transferFromMainToSendCoordsPage);
 }
+
+
 
 void setup()
 {
@@ -45,7 +70,14 @@ void setup()
 
 void loop()
 {
-    lv_timer_handler();
+    if(loraModule)
+    {
+        Serial.println("IN LOOP");
+        loraModule->readData();
+        loraModule->clearFinishedFlag();
+    }
+
+    lv_task_handler();
     delay(5);
 
 }

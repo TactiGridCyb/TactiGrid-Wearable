@@ -13,6 +13,8 @@ class SoldiersMainPage : public LVGLPage {
 
     const char* helmentDownloadLink = "https://iconduck.com/api/v2/vectors/vctr0xb8urkk/media/png/256/download";
 
+    std::function<void(std::unique_ptr<WifiModule>)> onTransferPage;
+
     public:
     SoldiersMainPage(std::unique_ptr<WifiModule>);
     void createPage();
@@ -20,4 +22,6 @@ class SoldiersMainPage : public LVGLPage {
     void showHelmet();
 
     void transferToSendCoordsPage(lv_event_t*);
+
+    void setOnTransferPage(std::function<void(std::unique_ptr<WifiModule>)> cb);
 };

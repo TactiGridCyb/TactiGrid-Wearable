@@ -369,7 +369,7 @@ void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
 
 void LoraModule::clearFinishedFlag()
 {
-    if(this->transmissionMode && finishedFlag)
+    if(finishedFlag)
     {
         Serial.println("clearFinishedFlag");
         finishedFlag = false;

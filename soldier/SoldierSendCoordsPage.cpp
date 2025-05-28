@@ -13,8 +13,8 @@ bool isZero(float x)
     return std::fabs(x) < 1e-9f;
 }
 
-SoldierSendCoordsPage::SoldierSendCoordsPage(std::unique_ptr<LoraModule> loraModule,
-     std::unique_ptr<WifiModule> wifiModule, std::unique_ptr<GPSModule> gpsModule, bool fakeGPS)
+SoldierSendCoordsPage::SoldierSendCoordsPage(std::shared_ptr<LoraModule> loraModule,
+     std::unique_ptr<WifiModule> wifiModule, std::shared_ptr<GPSModule> gpsModule, bool fakeGPS)
 {
     this->loraModule = std::move(loraModule);
     this->wifiModule = std::move(wifiModule);
@@ -30,6 +30,10 @@ SoldierSendCoordsPage::SoldierSendCoordsPage(std::unique_ptr<LoraModule> loraMod
     }();
 
     this->fakeGPS = fakeGPS;
+    this->currentIndex = 0;
+    Serial.println(true ? this->wifiModule->isConnected() : false);
+
+    this->coordCount = 5;
 }
 
 void SoldierSendCoordsPage::createPage()
@@ -53,7 +57,7 @@ void SoldierSendCoordsPage::createPage()
 
     if(this->fakeGPS)
     {
-        lv_timer_t * sendTimer = lv_timer_create(SoldierSendCoordsPage::sendTimerCallback, 5000, NULL);
+        lv_timer_t * sendTimer = lv_timer_create(SoldierSendCoordsPage::sendTimerCallback, 7000, this);
     }
     else
     {
@@ -119,19 +123,23 @@ void SoldierSendCoordsPage::sendCoordinate(float lat, float lon, uint16_t heartR
 }
 
 void SoldierSendCoordsPage::sendTimerCallback(lv_timer_t *timer) {
-    auto *self = static_cast<SoldierSendCoordsPage*>(timer->user_data);
+    auto* self = static_cast<SoldierSendCoordsPage*>(timer->user_data);
+    Serial.println("sendTimerCallback");
+    Serial.println(self->currentIndex);
 
     if(self->currentIndex < 20) {
 
         struct tm timeInfo;
         char timeStr[9];
-
+        Serial.println("timeStr");
         if(getLocalTime(&timeInfo)) {
             strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeInfo);
         } else {
             strcpy(timeStr, "00:00:00");
         }
-        
+
+        Serial.println(timeStr);
+        Serial.println("getLocalTime");
         self->sendCoordinate(coords[self->currentIndex % self->coordCount].posLat, coords[self->currentIndex % self->coordCount].posLon,
         coords[self->currentIndex % self->coordCount].heartRate, coords[self->currentIndex % self->coordCount].soldiersID);
         

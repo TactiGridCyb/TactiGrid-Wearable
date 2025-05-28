@@ -14,9 +14,9 @@
 class SoldierSendCoordsPage : public LVGLPage
 {
     private:
-    std::unique_ptr<LoraModule> loraModule;
+    std::shared_ptr<LoraModule> loraModule;
     std::unique_ptr<WifiModule> wifiModule;
-    std::unique_ptr<GPSModule> gpsModule;
+    std::shared_ptr<GPSModule> gpsModule;
 
     lv_obj_t* mainPage;
     lv_obj_t* sendLabel;
@@ -33,10 +33,8 @@ class SoldierSendCoordsPage : public LVGLPage
     void sendCoordinate(float, float, uint16_t, uint16_t);
 
     public:
-    SoldierSendCoordsPage(std::unique_ptr<LoraModule>, std::unique_ptr<WifiModule>, std::unique_ptr<GPSModule>, bool);
+    SoldierSendCoordsPage(std::shared_ptr<LoraModule>, std::unique_ptr<WifiModule>, std::shared_ptr<GPSModule>, bool = true);
     void createPage();
-    void showPage();
-    void destroyPage();
 
     static std::pair<float, float> getTileCenterLatLon(float lat, float lon, int zoomLevel, float tileSize);
 

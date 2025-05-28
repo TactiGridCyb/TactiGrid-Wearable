@@ -193,11 +193,11 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     
     this->destroyPage();
-    delay(500);
+    delay(10);
     Serial.println("AFTER destroyPage");
     if (this->onTransferPage) {
       Serial.println("onTransferPage Exists");
-        this->onTransferPage(std::move(this->wifiModule));
+      this->onTransferPage(std::move(this->wifiModule));
     }
     else
     {
@@ -207,9 +207,6 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
   catch (const std::exception &e) {
     Serial.printf("⚠️ onSocketOpened error: %s\n", e.what());
   }
-
-
-
 }
 
 void SoldiersReceiveParametersPage::updateLabel(uint8_t index)

@@ -9,6 +9,7 @@ SoldiersMainPage::SoldiersMainPage(std::unique_ptr<WifiModule> wifiModule)
 
 void SoldiersMainPage::createPage()
 {
+    Serial.println("SoldiersMainPage::createPage");
 
     lv_obj_set_style_bg_color(this->mainPage, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(this->mainPage, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -27,9 +28,11 @@ void SoldiersMainPage::createPage()
     lv_obj_add_event_cb(sendCoordsBtn, [](lv_event_t* e) 
     {
         auto * self = static_cast<SoldiersMainPage*>(lv_event_get_user_data(e));
-        self->transferToSendCoordsPage(e);
+        self->destroyPage();
+        delay(10);
+        self->onTransferPage(std::move(self->wifiModule));
     },
-    LV_EVENT_CLICKED, NULL);
+    LV_EVENT_CLICKED, this);
 
     lv_obj_t *sendCoordsLabel = lv_label_create(sendCoordsBtn);
     lv_label_set_text(sendCoordsLabel, "Send Coords");
@@ -52,4 +55,9 @@ void SoldiersMainPage::showHelmet()
 
     lv_img_set_zoom(helmetIMG, 64);
 
+}
+
+void SoldiersMainPage::setOnTransferPage(std::function<void(std::unique_ptr<WifiModule>)> cb)
+{
+    this->onTransferPage = std::move(cb);
 }
