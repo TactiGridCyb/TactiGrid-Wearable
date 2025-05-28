@@ -15,7 +15,6 @@ public:
 
     const std::string& getName() const;
     const mbedtls_x509_crt& getPublicCert() const;
-    const mbedtls_pk_context& getPrivateKey() const;
     const mbedtls_x509_crt& getCAPublicCert() const;
     uint16_t getSoldierNumber() const;
     uint16_t getCurrentHeartRate() const;
@@ -24,8 +23,8 @@ public:
     void setPublicCert(const std::string& publicCert);
     void setPrivateKey(const std::string& privateKey);
     void setCAPublicCert(const std::string& caPublicCert);
-    void setSoldierNumber(int soldierNumber);
-    void setCurrentHeartRate(int heartRate);
+    void setSoldierNumber(uint16_t soldierNumber);
+    void setCurrentHeartRate(uint16_t heartRate);
 
 private:
     std::string name;

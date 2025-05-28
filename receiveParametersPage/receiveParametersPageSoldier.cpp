@@ -10,7 +10,10 @@ void receiveParametersPageSoldier::createPage()
 {
     lv_obj_t *btn = lv_btn_create(this->mainPage);
     lv_obj_align(btn, LV_ALIGN_CENTER, 0, -40);
-    lv_obj_add_event_cb(btn, receiveParametersPageSoldier::onSocketOpened,
+    lv_obj_add_event_cb(btn, [](lv_event_t* e) {
+        auto* self = static_cast<receiveParametersPageSoldier*>(lv_event_get_user_data(e));
+        if (self) self->onSocketOpened(e);
+    },
     LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *btn_label = lv_label_create(btn);
@@ -34,7 +37,9 @@ void receiveParametersPageSoldier::destroy()
 
 void receiveParametersPageSoldier::onSocketOpened(lv_event_t* event)
 {
-    
+    // TCP SSL
+    JsonDocument
+
 }
 
 void receiveParametersPageSoldier::updateLabel(uint8_t index)

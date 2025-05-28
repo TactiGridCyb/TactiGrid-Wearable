@@ -1,0 +1,91 @@
+#include <Soldier.h>
+#include <cstring>
+#include <stdexcept>
+
+Soldier::Soldier(const std::string& name,
+                 const mbedtls_x509_crt& publicCert,
+                 const mbedtls_pk_context& privateKey,
+                 const mbedtls_x509_crt& caPublicCert,
+                 uint16_t soldierNumber)
+    : name(name),
+      soldierNumber(soldierNumber),
+      currentHeartRate(0)
+{
+    mbedtls_pk_init(&this->privateKey);
+    mbedtls_x509_crt_init(&this->caCertificate);
+    mbedtls_x509_crt_init(&this->ownCertificate);
+
+    if (mbedtls_x509_crt_parse_der(&this->ownCertificate, publicCert.raw.p, publicCert.raw.len) != 0) {
+        throw std::runtime_error("Failed to copy public certificate");
+    }
+
+    if (mbedtls_x509_crt_parse_der(&this->caCertificate, caPublicCert.raw.p, caPublicCert.raw.len) != 0) {
+        throw std::runtime_error("Failed to copy CA certificate");
+    }
+
+    unsigned char buf[4096];
+    int ret = mbedtls_pk_write_key_der(const_cast<mbedtls_pk_context*>(&privateKey), buf, sizeof(buf));
+    if (ret > 0) {
+        if (mbedtls_pk_parse_key(&this->privateKey, buf + sizeof(buf) - ret, ret, nullptr, 0) != 0) {
+            throw std::runtime_error("Failed to copy private key");
+        }
+    } else {
+        throw std::runtime_error("Failed to export private key");
+    }
+}
+
+const std::string& Soldier::getName() const {
+    return name;
+}
+
+const mbedtls_x509_crt& Soldier::getPublicCert() const {
+    return ownCertificate;
+}
+
+const mbedtls_x509_crt& Soldier::getCAPublicCert() const {
+    return caCertificate;
+}
+
+uint16_t Soldier::getSoldierNumber() const {
+    return soldierNumber;
+}
+
+uint16_t Soldier::getCurrentHeartRate() const {
+    return currentHeartRate;
+}
+
+void Soldier::setName(const std::string& name) {
+    this->name = name;
+}
+
+void Soldier::setPublicCert(const std::string& publicCert) {
+    mbedtls_x509_crt_free(&ownCertificate);
+    mbedtls_x509_crt_init(&ownCertificate);
+    if (mbedtls_x509_crt_parse(&ownCertificate, reinterpret_cast<const unsigned char*>(publicCert.c_str()), publicCert.size() + 1) != 0) {
+        throw std::runtime_error("Failed to parse public certificate");
+    }
+}
+
+void Soldier::setPrivateKey(const std::string& privateKey) {
+    mbedtls_pk_free(&this->privateKey);
+    mbedtls_pk_init(&this->privateKey);
+    if (mbedtls_pk_parse_key(&this->privateKey, reinterpret_cast<const unsigned char*>(privateKey.c_str()), privateKey.size() + 1, nullptr, 0) != 0) {
+        throw std::runtime_error("Failed to parse private key");
+    }
+}
+
+void Soldier::setCAPublicCert(const std::string& caPublicCert) {
+    mbedtls_x509_crt_free(&caCertificate);
+    mbedtls_x509_crt_init(&caCertificate);
+    if (mbedtls_x509_crt_parse(&caCertificate, reinterpret_cast<const unsigned char*>(caPublicCert.c_str()), caPublicCert.size() + 1) != 0) {
+        throw std::runtime_error("Failed to parse CA public certificate");
+    }
+}
+
+void Soldier::setSoldierNumber(uint16_t soldierNumber) {
+    this->soldierNumber = soldierNumber;
+}
+
+void Soldier::setCurrentHeartRate(uint16_t heartRate) {
+    this->currentHeartRate = heartRate;
+}

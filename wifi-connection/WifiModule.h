@@ -4,6 +4,7 @@
 #include <WiFiUdp.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include "../FFatHelper/FFatHelper.h"
 
 class WifiModule {
@@ -30,5 +31,5 @@ class WifiModule {
 
     bool downloadFile(const char* downloadLink, const char* fileName);
 
-    DynamicJsonDocument receiveJSONTCP(const char* serverIP, uint16_t serverPort, uint32_t timeoutMs = 5000);
+    JsonDocument receiveJSONTCP(const char* serverIP, uint16_t serverPort, uint32_t timeoutMs = 10000);
 };
