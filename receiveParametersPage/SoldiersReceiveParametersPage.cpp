@@ -14,15 +14,18 @@ SoldiersReceiveParametersPage::SoldiersReceiveParametersPage(std::unique_ptr<Wif
 
 void SoldiersReceiveParametersPage::createPage()
 {
-    lv_obj_t *btn = lv_btn_create(this->mainPage);
-    lv_obj_align(btn, LV_ALIGN_CENTER, 0, -40);
-    lv_obj_add_event_cb(btn, [](lv_event_t* e) {
+    this->openSocketButton = lv_btn_create(this->mainPage);
+    lv_obj_align(this->openSocketButton, LV_ALIGN_CENTER, 0, -40);
+    lv_obj_add_event_cb(this->openSocketButton, [](lv_event_t* e) {
         auto* self = static_cast<SoldiersReceiveParametersPage*>(lv_event_get_user_data(e));
-        if (self) self->onSocketOpened(e);
+        if (self) {
+            lv_obj_add_flag(self->openSocketButton, LV_OBJ_FLAG_HIDDEN);
+            self->onSocketOpened(e);
+        }
     },
     LV_EVENT_CLICKED, this);
     
-    lv_obj_t *btn_label = lv_label_create(btn);
+    lv_obj_t *btn_label = lv_label_create(this->openSocketButton);
     lv_label_set_text(btn_label, "Open Socket");
     lv_obj_center(btn_label);
 
@@ -33,13 +36,6 @@ void SoldiersReceiveParametersPage::createPage()
     }
 }
 
-void SoldiersReceiveParametersPage::destroy()
-{
-    lv_obj_t* mainPage = lv_scr_act();
-    lv_obj_remove_style_all(mainPage);
-    lv_obj_clean(mainPage);
-}
- 
 void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 {
   // TCP SSL
@@ -81,8 +77,7 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     mbedtls_x509_crt caCert;
     mbedtls_x509_crt_init(&caCert);
     if (mbedtls_x509_crt_parse(&caCert,
-          (const unsigned char*)caPem.c_str(),
-          caPem.size()+1) != 0)
+          (const unsigned char*)caPem.c_str(), caPem.size()+1) != 0)
       throw std::runtime_error("Failed to parse CA certificate");
 
     updateLabel(1);
@@ -120,6 +115,7 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     this->soldierModule->appendFrequencies(freqs);
 
+
     for (auto v : doc["soldiers"].as<JsonArray>()) {
         const std::string pem = v.as<std::string>();
 
@@ -150,6 +146,26 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     mbedtls_x509_crt_free(&ownCert);
     mbedtls_x509_crt_free(&caCert);
     mbedtls_pk_free(&privKey);
+
+    if (this->soldierModule) {
+        Serial.println("Soldier parameters:");
+        Serial.print("Name: ");
+        Serial.println(this->soldierModule->getName().c_str());
+        Serial.print("Soldier Number: ");
+        Serial.println(this->soldierModule->getSoldierNumber());
+        Serial.print("Current Heart Rate: ");
+        Serial.println(this->soldierModule->getCurrentHeartRate());
+        Serial.print("Frequencies count: ");
+        Serial.println(this->soldierModule->getFrequencies().size());
+    }
+
+    Serial.println("Certificates and Private Key:");
+    Serial.println("Own Certificate PEM:");
+    Serial.println(ownCertPem.c_str());
+    Serial.println("Private Key PEM:");
+    Serial.println(privateKeyPem.c_str());
+    Serial.println("CA Certificate PEM:");
+    Serial.println(caPem.c_str());
 
   } 
   catch (const std::exception &e) {

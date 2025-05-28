@@ -6,6 +6,7 @@ WifiModule::WifiModule(String wifiName, String password) : wifiName(wifiName), p
 }
 
 
+
 JsonDocument WifiModule::receiveJSONTCP(const char* serverIP, uint16_t serverPort, uint32_t timeoutMs) {
     WiFiClientSecure client;
     client.setInsecure();
