@@ -10,7 +10,7 @@ CommandersMainPage::CommandersMainPage(std::unique_ptr<LoraModule> loraModule, s
     std::string logFilePath = "/spiffs/log.txt";
 
     this->uploadLogPage = std::make_shared<UploadLogPage>(this->wifiModule, logFilePath);
-    this->mainPocPage = std::make_shared<MainPocPage>(this->loraModule, logFilePath);
+    this->commandersMissionPage = std::make_shared<CommandersMissionPage>(this->loraModule, logFilePath);
     this->receiveLogsPage = std::make_shared<ReceiveLogsPage>(this->loraModule);
 
     this->mainPage = lv_scr_act();
@@ -55,7 +55,7 @@ void CommandersMainPage::createPage()
     lv_obj_set_style_flex_grow(receiveCoordsBtn, 1, 0);
     lv_obj_add_event_cb(receiveCoordsBtn, [](lv_event_t* e) {
         auto* self = static_cast<CommandersMainPage*>(lv_event_get_user_data(e));
-        if (self && self->mainPocPage) self->mainPocPage->createPage();
+        if (self && self->commandersMissionPage) self->commandersMissionPage->createPage();
     }, LV_EVENT_CLICKED, this);
 
     lv_obj_t *receiveCoordsLabel = lv_label_create(receiveCoordsBtn);

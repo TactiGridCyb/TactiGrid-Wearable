@@ -8,7 +8,7 @@
 
 #include <SoldierSendCoordsPage.h>
 #include "UploadLogPage.h"
-#include "MainPocPage.h"
+#include "CommandersMissionPage.h"
 #include "ReceiveLogsPage.h"
 
 class CommandersMainPage : public LVGLPage {
@@ -18,7 +18,7 @@ class CommandersMainPage : public LVGLPage {
     std::shared_ptr<GPSModule> gpsModule;
 
     std::shared_ptr<UploadLogPage> uploadLogPage;
-    std::shared_ptr<MainPocPage> mainPocPage;
+    std::shared_ptr<CommandersMissionPage> commandersMissionPage;
     std::shared_ptr<ReceiveLogsPage> receiveLogsPage;
 
     lv_obj_t* mainPage;
