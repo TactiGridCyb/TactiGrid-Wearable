@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <sodium.h>
 #include <stdexcept>
+#include <algorithm>
 
 namespace crypto {
 
@@ -29,6 +30,8 @@ public:
 
     static Ciphertext encrypt(const Key256& gk, const ByteVec& plaintext);
     static ByteVec decrypt(const Key256& gk, const Ciphertext& ct);
+
+    static Key256 strToKey256(const std::string& s);
 };
 
 }

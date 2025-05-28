@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include "mbedtls/x509_crt.h"
 #include "CryptoModule.h"
 #include "mbedtls/pk.h"
@@ -19,11 +20,16 @@ public:
     int getCurrentHeartRate() const;
     void setCurrentHeartRate(int heartRate);
 
+    const std::vector<float>& getFrequencies() const;
+    void appendFrequencies(const std::vector<float>& freqs);
+
 private:
     std::string name;
     uint16_t soldierNumber;
     uint16_t currentHeartRate;
     uint16_t intervalMS;
+
+    std::vector<float> frequencies;
 
     crypto::Key256 GK;
     crypto::Key256 GMK;

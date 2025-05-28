@@ -92,3 +92,11 @@ void Soldier::setSoldierNumber(uint16_t soldierNumber) {
 void Soldier::setCurrentHeartRate(uint16_t heartRate) {
     this->currentHeartRate = heartRate;
 }
+
+const std::vector<float>& Soldier::getFrequencies() const {
+    return frequencies;
+}
+
+void Soldier::appendFrequencies(const std::vector<float>& freqs) {
+    frequencies.insert(frequencies.end(), freqs.begin(), freqs.end());
+}

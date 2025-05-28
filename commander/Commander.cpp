@@ -42,3 +42,11 @@ int Commander::getCurrentHeartRate() const {
 void Commander::setCurrentHeartRate(int heartRate) {
     currentHeartRate = heartRate;
 }
+
+const std::vector<float>& Commander::getFrequencies() const {
+    return frequencies;
+}
+
+void Commander::appendFrequencies(const std::vector<float>& freqs) {
+    frequencies.insert(frequencies.end(), freqs.begin(), freqs.end());
+}
