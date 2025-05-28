@@ -8,6 +8,11 @@ SoldiersSentData coords[] = {
   {0, 0, 31.970880, 34.785703, 120, 2}
 };
 
+bool isZero(float x)
+{
+    return std::fabs(x) < 1e-9f;
+}
+
 SoldierSendCoordsPage::SoldierSendCoordsPage(std::unique_ptr<LoraModule> loraModule,
      std::unique_ptr<WifiModule> wifiModule, std::unique_ptr<GPSModule> gpsModule, bool fakeGPS)
 {
@@ -198,10 +203,4 @@ void SoldierSendCoordsPage::parseGPSData()
         lv_label_set_text_fmt(this->sendLabel, "Sats:%u\nHDOP:%.1f\nLat:%.5f\nLon:%.5f\nDate:%d/%d/%d \nTime:%d/%d/%d\nAlt:%.2f m \nSpeed:%.2f",
                             satellites, hdop, lat, lon, year, month, day, hour, minute, second, meters, kmph);
     }
-}
-
-
-bool isZero(float x)
-{
-    return std::fabs(x) < 1e-9f;
 }

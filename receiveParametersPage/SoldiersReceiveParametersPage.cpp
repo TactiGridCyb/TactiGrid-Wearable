@@ -12,6 +12,21 @@ SoldiersReceiveParametersPage::SoldiersReceiveParametersPage(std::unique_ptr<Wif
     this->mainPage = lv_scr_act();
 }
 
+std::string SoldiersReceiveParametersPage::extractPemBlock(const std::string& blob,
+                                   const char* header,
+                                   const char* footer)
+{
+    auto b = blob.find(header);
+    auto e = (b == std::string::npos)
+           ? std::string::npos
+           : blob.find(footer, b);
+    if (b == std::string::npos || e == std::string::npos) {
+        throw std::runtime_error(std::string(header) + " … " + footer + " block not found");
+    }
+    e += std::strlen(footer);
+    return blob.substr(b, e - b);
+}
+
 void SoldiersReceiveParametersPage::createPage()
 {
     this->openSocketButton = lv_btn_create(this->mainPage);
@@ -38,32 +53,27 @@ void SoldiersReceiveParametersPage::createPage()
 
 void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 {
+  Serial.println("onSocketOpened");
   // TCP SSL
   JsonDocument doc;
-  doc = this->wifiModule->receiveJSONTCP("127.0.0.1", 8743);
+  doc = this->wifiModule->receiveJSONTCP("192.168.0.44", 8743);
 
   try {
+
     const std::string combinedPem = doc["certificate"].as<std::string>();
 
-    constexpr const char* CERT_BEG = "-----BEGIN CERTIFICATE-----";
-    constexpr const char* CERT_END = "-----END CERTIFICATE-----";
-    auto c0 = combinedPem.find(CERT_BEG);
-    auto c1 = combinedPem.find(CERT_END, c0);
 
-    if (c0==std::string::npos || c1==std::string::npos)
-      throw std::runtime_error("Certificate PEM block not found");
+    std::string ownCertPem = extractPemBlock(
+      combinedPem,
+      "-----BEGIN CERTIFICATE-----",
+      "-----END CERTIFICATE-----"
+    );
 
-    c1 += strlen(CERT_END);
-    const std::string ownCertPem = combinedPem.substr(c0, c1-c0);
-
-    constexpr const char* KEY_BEG = "-----BEGIN RSA PRIVATE KEY-----";
-    constexpr const char* KEY_END = "-----END RSA PRIVATE KEY-----";
-    auto k0 = combinedPem.find(KEY_BEG);
-    auto k1 = combinedPem.find(KEY_END, k0);
-    if (k0==std::string::npos || k1==std::string::npos)
-      throw std::runtime_error("Private-key PEM block not found");
-    k1 += strlen(KEY_END);
-    const std::string privateKeyPem = combinedPem.substr(k0, k1-k0);
+    std::string privateKeyPem = extractPemBlock(
+      combinedPem,
+      "-----BEGIN PRIVATE KEY-----",
+      "-----END PRIVATE KEY-----"
+    );
 
     mbedtls_x509_crt ownCert;
     mbedtls_x509_crt_init(&ownCert);
@@ -103,13 +113,14 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     if (mbedtls_pk_parse_key(&privKey, (const unsigned char*)privateKeyPem.c_str(), privateKeyPem.size()+1, nullptr, 0) != 0)
       throw std::runtime_error("Failed to parse private key");
 
+    NameId ownNi = certModule::parseNameIdFromCertPem(ownCertPem);
 
     this->soldierModule = std::make_unique<Soldier>(
-        doc["name"].as<std::string>(),
+        ownNi.name,
         ownCert,
         privKey,
         caCert,
-        doc["soldierNumber"].as<uint16_t>(),
+        ownNi.id,
         intervalMs
     );
 
@@ -138,6 +149,19 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
         }
 
         this->soldierModule->addOther(std::move(info));
+    }
+
+    const auto& others = this->soldierModule->getOthers();
+    Serial.println("CommanderInfo entries:");
+    for (const auto& [id, info] : others) {
+        Serial.print("Commander Number: ");
+        Serial.println(info.commanderNumber);
+        Serial.print("Name: ");
+        Serial.println(info.name.c_str());
+        Serial.print("Certificate subject name: ");
+        char buf[256];
+        mbedtls_x509_dn_gets(buf, sizeof(buf), &info.cert.subject);
+        Serial.println(buf);
     }
 
     updateLabel(5);

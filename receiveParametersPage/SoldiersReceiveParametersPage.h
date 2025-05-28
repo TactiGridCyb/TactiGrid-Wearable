@@ -13,6 +13,10 @@ class SoldiersReceiveParametersPage : public LVGLPage {
 
         void createPage() override;
 
+        static std::string extractPemBlock(const std::string& blob,
+                                   const char* header,
+                                   const char* footer);
+
     private:
         std::unique_ptr<WifiModule> wifiModule;
         lv_obj_t* mainPage;

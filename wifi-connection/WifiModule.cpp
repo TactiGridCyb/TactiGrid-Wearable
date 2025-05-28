@@ -8,6 +8,7 @@ WifiModule::WifiModule(String wifiName, String password) : wifiName(wifiName), p
 
 
 JsonDocument WifiModule::receiveJSONTCP(const char* serverIP, uint16_t serverPort, uint32_t timeoutMs) {
+    Serial.println("receiveJSONTCP");
     WiFiClientSecure client;
     client.setInsecure();
     
@@ -20,7 +21,7 @@ JsonDocument WifiModule::receiveJSONTCP(const char* serverIP, uint16_t serverPor
 
     client.setTimeout(timeoutMs / 100);
 
-
+    Serial.println("setTimeout");
     DeserializationError error = deserializeJson(doc, client);
     if (error) {
         Serial.print("❌ JSON parse failed: ");
@@ -69,7 +70,7 @@ bool WifiModule::downloadFile(const char* donwloadLink, const char* fileName)
     }
 }
 
-void WifiModule::connect(uint32_t timeoutMillisec = 0)
+void WifiModule::connect(uint32_t timeoutMillisec)
 {
 
     WiFi.begin(this->wifiName, this->password);
