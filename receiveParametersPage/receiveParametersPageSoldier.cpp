@@ -4,6 +4,8 @@ receiveParametersPageSoldier::receiveParametersPageSoldier(std::unique_ptr<WifiM
 {
     this->wifiModule = std::move(wifiModule);
     this->mainPage = lv_scr_act();
+
+    this->
 }
 
 void receiveParametersPageSoldier::createPage()
@@ -38,7 +40,8 @@ void receiveParametersPageSoldier::destroy()
 void receiveParametersPageSoldier::onSocketOpened(lv_event_t* event)
 {
     // TCP SSL
-    JsonDocument
+    JsonDocument parameters = this->wifiModule->receiveJSONTCP("127.0.0.1", 8743);
+    
 
 }
 

@@ -1,4 +1,6 @@
-#include <Soldier.h>
+// Soldier.cpp
+
+#include "Soldier.h"
 #include <cstring>
 #include <stdexcept>
 
@@ -6,10 +8,11 @@ Soldier::Soldier(const std::string& name,
                  const mbedtls_x509_crt& publicCert,
                  const mbedtls_pk_context& privateKey,
                  const mbedtls_x509_crt& caPublicCert,
-                 uint16_t soldierNumber)
+                 uint16_t soldierNumber, uint16_t intervalMS)
     : name(name),
       soldierNumber(soldierNumber),
-      currentHeartRate(0)
+      currentHeartRate(0),
+      intervalMS(intervalMS)
 {
     mbedtls_pk_init(&this->privateKey);
     mbedtls_x509_crt_init(&this->caCertificate);

@@ -4,14 +4,16 @@
 #include "mbedtls/x509_crt.h"
 #include "CryptoModule.h"
 #include "mbedtls/pk.h"
+#include "PersonBase.h"
 
-class Soldier {
+class Soldier : public PersonBase<CommanderInfo> {
 public:
     Soldier(const std::string& name,
             const mbedtls_x509_crt& publicCert,
             const mbedtls_pk_context& privateKey,
             const mbedtls_x509_crt& caPublicCert,
-            uint16_t soldierNumber);
+            uint16_t soldierNumber,
+            uint16_t intervalMS);
 
     const std::string& getName() const;
     const mbedtls_x509_crt& getPublicCert() const;
@@ -28,9 +30,9 @@ public:
 
 private:
     std::string name;
-    
     uint16_t soldierNumber;
     uint16_t currentHeartRate;
+    uint16_t intervalMS;
 
     crypto::Key256 GK;
     crypto::Key256 GMK;
@@ -38,5 +40,4 @@ private:
     mbedtls_pk_context privateKey;
     mbedtls_x509_crt caCertificate;
     mbedtls_x509_crt ownCertificate;
-
 };
