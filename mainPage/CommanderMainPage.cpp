@@ -1,19 +1,13 @@
-#include <CommandersMainPage.h>
+#include "CommandersMainPage.h"
 
-CommandersMainPage::CommandersMainPage(std::unique_ptr<LoraModule> loraModule, std::unique_ptr<WifiModule> wifiModule, std::unique_ptr<GPSModule> gpsModule)
+CommandersMainPage::CommandersMainPage(std::unique_ptr<WifiModule> wifiModule)
 {
-    this->loraModule = std::shared_ptr<LoraModule>(std::move(loraModule));
-    this->wifiModule = std::shared_ptr<WifiModule>(std::move(wifiModule));
-    this->gpsModule = std::shared_ptr<GPSModule>(std::move(gpsModule));
 
-    // Example log file path, adjust as needed
     std::string logFilePath = "/spiffs/log.txt";
 
-    this->uploadLogPage = std::make_shared<UploadLogPage>(this->wifiModule, logFilePath);
-    this->commandersMissionPage = std::make_shared<CommandersMissionPage>(this->loraModule, logFilePath);
-    this->receiveLogsPage = std::make_shared<ReceiveLogsPage>(this->loraModule);
-
     this->mainPage = lv_scr_act();
+
+
 }
 
 void CommandersMainPage::createPage()
@@ -27,18 +21,6 @@ void CommandersMainPage::createPage()
     lv_label_set_text(mainLabel, "Main Menu");
     lv_obj_align(mainLabel, LV_ALIGN_TOP_MID, 0, 0);
     lv_obj_set_style_text_color(mainLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-
-    lv_obj_t *receiveFile = lv_btn_create(mainPage);
-    lv_obj_set_size(receiveFile, 240, 60);
-    lv_obj_set_style_bg_color(receiveFile, lv_color_hex(0x346eeb), LV_STATE_DEFAULT);
-    lv_obj_add_event_cb(receiveFile, [](lv_event_t* e) {
-        auto* self = static_cast<CommandersMainPage*>(lv_event_get_user_data(e));
-        if (self && self->receiveLogsPage) self->receiveLogsPage->createPage();
-    }, LV_EVENT_CLICKED, this);
-
-    lv_obj_t *receiveFileLabel = lv_label_create(receiveFile);
-    lv_label_set_text(receiveFileLabel, "Receive Logs");
-    lv_obj_center(receiveFileLabel);
 
     lv_obj_t *cont = lv_obj_create(lv_scr_act());
     lv_obj_set_size(cont, 240, 60);
@@ -55,7 +37,12 @@ void CommandersMainPage::createPage()
     lv_obj_set_style_flex_grow(receiveCoordsBtn, 1, 0);
     lv_obj_add_event_cb(receiveCoordsBtn, [](lv_event_t* e) {
         auto* self = static_cast<CommandersMainPage*>(lv_event_get_user_data(e));
-        if (self && self->commandersMissionPage) self->commandersMissionPage->createPage();
+        if (self && self->onTransferReceiveCoordsPage)
+        {
+            self->destroyPage();
+            delay(10);
+            self->onTransferReceiveCoordsPage(std::move(self->wifiModule));
+        }
     }, LV_EVENT_CLICKED, this);
 
     lv_obj_t *receiveCoordsLabel = lv_label_create(receiveCoordsBtn);
@@ -68,10 +55,25 @@ void CommandersMainPage::createPage()
     lv_obj_set_style_bg_color(uploadLogsBtn, lv_color_hex(0x346eeb), LV_STATE_DEFAULT);
     lv_obj_add_event_cb(uploadLogsBtn, [](lv_event_t* e) {
         auto* self = static_cast<CommandersMainPage*>(lv_event_get_user_data(e));
-        if (self && self->uploadLogPage) self->uploadLogPage->createPage();
+        if (self && self->onTransferUploadLogsPage)
+        {
+            self->destroyPage();
+            delay(10);
+            self->onTransferUploadLogsPage(std::move(self->wifiModule));
+        }
     }, LV_EVENT_CLICKED, this);
 
     lv_obj_t *uploadLogsLabel = lv_label_create(uploadLogsBtn);
     lv_label_set_text(uploadLogsLabel, "Upload Logs");
     lv_obj_center(uploadLogsLabel);
+}
+
+void CommandersMainPage::setOnTransferReceiveCoordsPage(std::function<void(std::unique_ptr<WifiModule>)> cb)
+{
+    this->onTransferReceiveCoordsPage = std::move(cb);
+}
+
+void CommandersMainPage::setOnTransferUploadLogsPage(std::function<void(std::unique_ptr<WifiModule>)> cb)
+{
+    this->onTransferUploadLogsPage = std::move(cb);
 }

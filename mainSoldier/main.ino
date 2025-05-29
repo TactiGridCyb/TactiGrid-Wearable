@@ -1,5 +1,5 @@
-#include <SoldiersMainPage.h>
-#include <SoldiersReceiveParametersPage.h>
+#include "../mainPage/SoldiersMainPage.h"
+#include "../receiveParametersPage/SoldiersReceiveParametersPage.h"
 #include <SoldierSendCoordsPage.h>
 #include <LoraModule.h>
 #include <GPSModule.h>

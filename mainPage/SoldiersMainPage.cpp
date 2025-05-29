@@ -1,4 +1,4 @@
-#include <SoldiersMainPage.h>
+#include "SoldiersMainPage.h"
 
 SoldiersMainPage::SoldiersMainPage(std::unique_ptr<WifiModule> wifiModule)
 {
@@ -37,12 +37,6 @@ void SoldiersMainPage::createPage()
     lv_obj_t *sendCoordsLabel = lv_label_create(sendCoordsBtn);
     lv_label_set_text(sendCoordsLabel, "Send Coords");
     lv_obj_center(sendCoordsLabel);
-}
-
-void SoldiersMainPage::transferToSendCoordsPage(lv_event_t* event)
-{
-    SoldierSendCoordsPage* newPage = static_cast<SoldierSendCoordsPage*>(lv_event_get_user_data(event));
-    this->transferToAnotherPage(newPage);
 }
 
 void SoldiersMainPage::showHelmet()

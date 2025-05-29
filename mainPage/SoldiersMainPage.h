@@ -21,7 +21,5 @@ class SoldiersMainPage : public LVGLPage {
 
     void showHelmet();
 
-    void transferToSendCoordsPage(lv_event_t*);
-
     void setOnTransferPage(std::function<void(std::unique_ptr<WifiModule>)> cb);
 };

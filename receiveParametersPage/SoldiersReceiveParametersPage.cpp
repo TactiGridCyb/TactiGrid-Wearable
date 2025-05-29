@@ -127,7 +127,7 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     this->soldierModule->appendFrequencies(freqs);
 
-    for (auto v : doc["soldiers"].as<JsonArray>()) {
+    for (auto v : doc["commanders"].as<JsonArray>()) {
         const std::string pem = v.as<std::string>();
 
         CommanderInfo info;

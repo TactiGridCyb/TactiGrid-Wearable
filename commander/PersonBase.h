@@ -21,16 +21,38 @@ template<typename InfoType>
 class PersonBase {
 public:
     void addOther(const InfoType& info) {
-        others[infoNumber(info)] = info;
+        uint16_t id = infoNumber(info);
+        auto [it, inserted] = others.emplace(id, info);
+        if (inserted) {
+            insertionOrder.push_back(id);
+        } else {
+            it->second = info;
+        }
     }
     void removeOther(uint16_t id) {
         others.erase(id);
+        insertionOrder.erase(std::remove(insertionOrder.begin(), insertionOrder.end(), id), insertionOrder.end());
     }
-    const std::map<uint16_t, InfoType>& getOthers() const {
+
+    
+    const std::unordered_map<uint16_t, InfoType>& getOthers() const {
         return others;
     }
+
+    std::vector<std::pair<uint16_t, InfoType>> getOthersInInsertionOrder() const {
+        std::vector<std::pair<uint16_t, InfoType>> orderedOthers;
+        orderedOthers.reserve(insertionOrder.size());
+        for (auto id : insertionOrder) {
+            auto it = others.find(id);
+            if (it != others.end()) {
+                orderedOthers.emplace_back(*it);
+            }
+        }
+        return orderedOthers;
+    }
 protected:
-    std::map<uint16_t, InfoType> others;
+    std::unordered_map<uint16_t, InfoType> others;
+    std::vector<uint16_t> insertionOrder;
 
     static uint16_t infoNumber(const CommanderInfo& info) { return info.commanderNumber; }
     static uint16_t infoNumber(const SoldierInfo& info) { return info.soldierNumber; }
