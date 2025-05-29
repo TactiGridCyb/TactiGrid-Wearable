@@ -23,7 +23,6 @@ void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiMod
     gpsModule = std::make_shared<GPSModule>();
 
     loraModule->setup(true);
-    loraModule->setupListening();
 
     soldierSendCoordsPage = std::make_unique<SoldierSendCoordsPage>(loraModule, std::move(currentWifiModule), gpsModule);
     soldierSendCoordsPage->createPage();
@@ -60,6 +59,17 @@ void setup()
     {
         Serial.println("Failed to connect to wifi!");
     }
+
+    struct tm timeInfo;
+    setenv("TZ", "GMT-3", 1);
+    tzset();
+    
+
+    configTime(0, 0, "pool.ntp.org");
+    while (!getLocalTime(&timeInfo)) {
+        Serial.println("Waiting for time sync...");
+        delay(500);
+    }
     
     receiveParametersPage = std::make_unique<SoldiersReceiveParametersPage>(std::move(wifiModule));
     receiveParametersPage->createPage();
@@ -70,13 +80,6 @@ void setup()
 
 void loop()
 {
-    if(loraModule)
-    {
-        Serial.println("IN LOOP");
-        loraModule->readData();
-        loraModule->clearFinishedFlag();
-    }
-
     lv_task_handler();
     delay(5);
 

@@ -90,6 +90,7 @@ lv_color_t secondBallColor = lv_color_hex(0xff0000);
 
 void notifySoldiersNotAvailable() {
     const char* msg = "CMD_BUSY";
+    loraModule->cancelReceive();
     int16_t status = loraModule->sendData(msg);
     Serial.printf("Notify soldiers not available, send status: %d\n", status);
 }
@@ -406,9 +407,6 @@ void init_main_poc_page(lv_event_t * event)
     lv_obj_center(waitingLabel);
     lv_label_set_text(waitingLabel, "Waiting For Initial Coords");
     lv_obj_set_style_text_color(waitingLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-
-
-    loraModule->setupListening();
 }
 
 GPSCoordTuple parseCoordinates(const String &message) {
@@ -527,7 +525,7 @@ void compromisedEvent()
     for(int i = 0; i < 10; ++i)
     {
         notifySoldiersNotAvailable();
-        delay(100);
+        delay(200);
     }
 }
 
@@ -743,7 +741,7 @@ void setup() {
     loraModule = std::make_unique<LoraModule>(433.5);
     loraModule->setup(false);
     loraModule->setOnReadData(init_p2p_test);
-
+    
     fhfModule = std::make_unique<FHFModule>(freqList, hopIntervalSeconds);
     currentLoraFreq = 433.5;
 
@@ -781,8 +779,8 @@ void setup() {
         XPOWERS_AXP2101_PKEY_LONG_IRQ
     );
         
-    loraModule->setupListening();
     Serial.println("End of setup");
+    loraModule->readData();
 }
 
 static unsigned long lastFreqCheck = 0;
@@ -797,21 +795,25 @@ void loop() {
         watch.clearPMU();
     }
   
-    loraModule->readData();
+    loraModule->handleCompletedOperation();
 
-    unsigned long currentMillis = millis();
+    // unsigned long now = millis();
+    // if (!loraModule->isBusy() &&
+    //     now - lastFreqCheck >= 1000UL)
+    // {
+    //     lastFreqCheck = now;
+    //     float newFreq = fhfModule->currentFrequency();
+    //     if (!isZero(newFreq - currentLoraFreq)) {
+    //         currentLoraFreq = newFreq;
+    //         loraModule->setFrequency(currentLoraFreq);
+    //         Serial.printf("Frequency hopped to %.3f MHz\n", currentLoraFreq);
+    //     }
+    // }
 
-    if (currentMillis - lastFreqCheck >= 1000 && !loraModule->isBusy()) {
-        lastFreqCheck = currentMillis;
-        float newFreqMHz = fhfModule->currentFrequency();
-        if (!isZero(newFreqMHz - currentLoraFreq)) {
-            currentLoraFreq = newFreqMHz;
-            loraModule->setFrequency(currentLoraFreq);
-            Serial.printf("Frequency hopped to %.3f MHz\n", currentLoraFreq);
-        }
+    if (!loraModule->isBusy()) {
+        loraModule->readData();
     }
 
-    loraModule->clearFinishedFlag();
     lv_task_handler();
     delay(10);
 }

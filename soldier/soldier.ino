@@ -474,6 +474,7 @@ void loop() {
 
   }
 
+  Serial.println("IN LOOP");
   loraModule->readData();
   loraModule->clearFinishedFlag();
   lv_task_handler();

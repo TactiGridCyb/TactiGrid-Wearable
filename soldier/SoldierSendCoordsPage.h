@@ -28,6 +28,14 @@ class SoldierSendCoordsPage : public LVGLPage
 
     bool fakeGPS;
 
+    static constexpr SoldiersSentData coords[5] = {
+        {0.0f, 0.0f, 31.970866f, 34.785664f,  78, 2, REGULAR},
+        {0.0f, 0.0f, 31.970870f, 34.785683f, 100, 2, REGULAR},
+        {0.0f, 0.0f, 31.970855f, 34.785643f,  55, 2, REGULAR}, 
+        {0.0f, 0.0f, 31.970840f, 34.785623f,   0, 2, REGULAR},
+        {0.0f, 0.0f, 31.970880f, 34.785703f, 120, 2, REGULAR}
+    };
+
     static void sendTimerCallback(lv_timer_t *);
 
     void sendCoordinate(float, float, uint16_t, uint16_t);
@@ -39,4 +47,6 @@ class SoldierSendCoordsPage : public LVGLPage
     static std::pair<float, float> getTileCenterLatLon(float lat, float lon, int zoomLevel, float tileSize);
 
     void parseGPSData();
+
+    static inline bool isZero(float);
 };

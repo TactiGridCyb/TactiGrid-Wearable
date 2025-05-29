@@ -24,7 +24,4 @@ void CommandersMissionPage::createPage() {
     lv_label_set_text(waitingLabel, "Waiting For Initial Coords");
     lv_obj_set_style_text_color(waitingLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    if (loraModule) {
-        loraModule->setupListening();
-    }
 }

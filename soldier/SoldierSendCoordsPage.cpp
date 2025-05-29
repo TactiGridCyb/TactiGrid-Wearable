@@ -1,14 +1,6 @@
 #include <SoldierSendCoordsPage.h>
 
-SoldiersSentData coords[] = {
-  {0, 0, 31.970866, 34.785664,  78, 2},
-  {0, 0, 31.970870, 34.785683, 100, 2},
-  {0, 0, 31.970855, 34.785643,  55, 2}, 
-  {0, 0, 31.970840, 34.785623,   0, 2},
-  {0, 0, 31.970880, 34.785703, 120, 2}
-};
-
-bool isZero(float x)
+inline bool SoldierSendCoordsPage::isZero(float x)
 {
     return std::fabs(x) < 1e-9f;
 }
@@ -63,12 +55,21 @@ void SoldierSendCoordsPage::createPage()
     {
 
     }
+
+    lv_timer_create([](lv_timer_t* t){
+        auto *self = static_cast<SoldierSendCoordsPage*>(t->user_data);
+        self->loraModule->handleCompletedOperation();
+
+        if (!self->loraModule->isBusy()) {
+            self->loraModule->readData();
+        }
+    }, 100, this);
     
 }
 
 void SoldierSendCoordsPage::sendCoordinate(float lat, float lon, uint16_t heartRate, uint16_t soldiersID) {
   Serial.println("sendCoordinate");
-
+  
   this->loraModule->switchToTransmitterMode();
 
   SoldiersSentData coord;
@@ -102,10 +103,9 @@ void SoldierSendCoordsPage::sendCoordinate(float lat, float lon, uint16_t heartR
   msg += "|";
   for (auto b : ct.tag)   appendHex(msg, b);
 
-  int16_t transmissionState = loraModule->sendData(msg.c_str());
+  this->loraModule->cancelReceive();
   
-  loraModule->switchToReceiverMode();
-  loraModule->setupListening();
+  int16_t transmissionState = loraModule->sendData(msg.c_str());
 
   struct tm timeInfo;
   char timeStr[9];
@@ -140,15 +140,15 @@ void SoldierSendCoordsPage::sendTimerCallback(lv_timer_t *timer) {
 
         Serial.println(timeStr);
         Serial.println("getLocalTime");
-        self->sendCoordinate(coords[self->currentIndex % self->coordCount].posLat, coords[self->currentIndex % self->coordCount].posLon,
-        coords[self->currentIndex % self->coordCount].heartRate, coords[self->currentIndex % self->coordCount].soldiersID);
+        self->sendCoordinate(self->coords[self->currentIndex % self->coordCount].posLat, self->coords[self->currentIndex % self->coordCount].posLon,
+        self->coords[self->currentIndex % self->coordCount].heartRate, self->coords[self->currentIndex % self->coordCount].soldiersID);
         
         const char *current_text = lv_label_get_text(self->sendLabel);
         
         lv_label_set_text_fmt(self->sendLabel, "%s%s - sent coords {%.5f, %.5f}\n", 
                             current_text, timeStr, 
-                            coords[self->currentIndex % self->coordCount].posLat, 
-                            coords[self->currentIndex % self->coordCount].posLon);
+                            self->coords[self->currentIndex % self->coordCount].posLat, 
+                            self->coords[self->currentIndex % self->coordCount].posLon);
                             
         self->currentIndex++;
     } else {
