@@ -8,23 +8,23 @@
 #include <GPSModule.h>
 #include <SoldiersSentData.h>
 #include <CryptoModule.h>
+#include <Soldier.h>
 
 #include <LVGLPage.h>
 
-class SoldierSendCoordsPage : public LVGLPage
+class SoldiersMissionPage : public LVGLPage
 {
     private:
     std::shared_ptr<LoraModule> loraModule;
     std::unique_ptr<WifiModule> wifiModule;
     std::shared_ptr<GPSModule> gpsModule;
+    std::unique_ptr<Soldier> soldierModule;
 
     lv_obj_t* mainPage;
     lv_obj_t* sendLabel;
 
     uint16_t currentIndex;
     uint16_t coordCount;
-
-    crypto::Key256 sharedKey;
 
     bool fakeGPS;
 
@@ -41,7 +41,8 @@ class SoldierSendCoordsPage : public LVGLPage
     void sendCoordinate(float, float, uint16_t, uint16_t);
 
     public:
-    SoldierSendCoordsPage(std::shared_ptr<LoraModule>, std::unique_ptr<WifiModule>, std::shared_ptr<GPSModule>, bool = true);
+    SoldiersMissionPage(std::shared_ptr<LoraModule>, std::unique_ptr<WifiModule>,
+         std::shared_ptr<GPSModule>, std::unique_ptr<Soldier>, bool = true);
     void createPage();
 
     static std::pair<float, float> getTileCenterLatLon(float lat, float lon, int zoomLevel, float tileSize);

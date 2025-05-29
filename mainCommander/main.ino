@@ -1,6 +1,6 @@
 #include "../mainPage/CommandersMainPage.h"
 #include "../receiveParametersPage/CommandersReceiveParametersPage.h"
-#include <SoldierSendCoordsPage.h>
+#include "../missionPage/CommandersMissionPage.h"
 #include <LoraModule.h>
 #include <GPSModule.h>
 
@@ -9,7 +9,7 @@ const char* password = "1357924680";
 
 std::unique_ptr<CommandersReceiveParametersPage> commandersReceiveParametersPage;
 std::unique_ptr<CommandersMainPage> commandersMainPage;
-std::unique_ptr<SoldierSendCoordsPage> soldierSendCoordsPage;
+std::unique_ptr<CommandersMissionPage> commandersMissionPage;
 
 std::unique_ptr<WifiModule> wifiModule;
 std::shared_ptr<LoraModule> loraModule;
@@ -24,8 +24,8 @@ void transferFromMainToReceiveCoordsPage(std::unique_ptr<WifiModule> currentWifi
 
     loraModule->setup(true);
 
-    soldierSendCoordsPage = std::make_unique<SoldierSendCoordsPage>(loraModule, std::move(currentWifiModule), gpsModule);
-    soldierSendCoordsPage->createPage();
+    commandersMissionPage = std::make_unique<CommandersMissionPage>(loraModule, std::move(currentWifiModule), gpsModule);
+    commandersMissionPage->createPage();
 }
 
 void transferFromMainToUploadLogsPage(std::unique_ptr<WifiModule> currentWifiModule)

@@ -1,25 +1,20 @@
-#include <SoldierSendCoordsPage.h>
+#include "SoldiersMissionPage.h"
 
-inline bool SoldierSendCoordsPage::isZero(float x)
+inline bool SoldiersMissionPage::isZero(float x)
 {
     return std::fabs(x) < 1e-9f;
 }
 
-SoldierSendCoordsPage::SoldierSendCoordsPage(std::shared_ptr<LoraModule> loraModule,
-     std::unique_ptr<WifiModule> wifiModule, std::shared_ptr<GPSModule> gpsModule, bool fakeGPS)
+SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
+     std::unique_ptr<WifiModule> wifiModule, std::shared_ptr<GPSModule> gpsModule,
+      std::unique_ptr<Soldier> soldierModule, bool fakeGPS)
 {
     this->loraModule = std::move(loraModule);
     this->wifiModule = std::move(wifiModule);
     this->gpsModule = std::move(gpsModule);
+    this->soldierModule = std::move(soldierModule);
 
     this->mainPage = lv_scr_act();
-
-    this->sharedKey = []() {
-        crypto::Key256 key{};
-        const char* raw = "0123456789abcdef0123456789abcdef"; 
-        std::memcpy(key.data(), raw, 32);
-        return key;
-    }();
 
     this->fakeGPS = fakeGPS;
     this->currentIndex = 0;
@@ -28,7 +23,7 @@ SoldierSendCoordsPage::SoldierSendCoordsPage(std::shared_ptr<LoraModule> loraMod
     this->coordCount = 5;
 }
 
-void SoldierSendCoordsPage::createPage()
+void SoldiersMissionPage::createPage()
 {
     lv_obj_set_style_bg_color(mainPage, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(mainPage, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -49,7 +44,7 @@ void SoldierSendCoordsPage::createPage()
 
     if(this->fakeGPS)
     {
-        lv_timer_t * sendTimer = lv_timer_create(SoldierSendCoordsPage::sendTimerCallback, 7000, this);
+        lv_timer_t * sendTimer = lv_timer_create(SoldiersMissionPage::sendTimerCallback, 7000, this);
     }
     else
     {
@@ -57,7 +52,7 @@ void SoldierSendCoordsPage::createPage()
     }
 
     lv_timer_create([](lv_timer_t* t){
-        auto *self = static_cast<SoldierSendCoordsPage*>(t->user_data);
+        auto *self = static_cast<SoldiersMissionPage*>(t->user_data);
         self->loraModule->handleCompletedOperation();
 
         if (!self->loraModule->isBusy()) {
@@ -67,7 +62,7 @@ void SoldierSendCoordsPage::createPage()
     
 }
 
-void SoldierSendCoordsPage::sendCoordinate(float lat, float lon, uint16_t heartRate, uint16_t soldiersID) {
+void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRate, uint16_t soldiersID) {
   Serial.println("sendCoordinate");
   
   this->loraModule->switchToTransmitterMode();
@@ -89,7 +84,7 @@ void SoldierSendCoordsPage::sendCoordinate(float lat, float lon, uint16_t heartR
   payload.resize(sizeof(SoldiersSentData));
   std::memcpy(payload.data(), &coord, sizeof(SoldiersSentData));
   
-  crypto::Ciphertext ct = crypto::CryptoModule::encrypt(this->sharedKey, payload);
+  crypto::Ciphertext ct = crypto::CryptoModule::encrypt(this->soldierModule->getGMK(), payload);
 
   auto appendHex = [](String& s, uint8_t b) {
     if (b < 0x10) s += "0";
@@ -122,8 +117,8 @@ void SoldierSendCoordsPage::sendCoordinate(float lat, float lon, uint16_t heartR
                         lon);
 }
 
-void SoldierSendCoordsPage::sendTimerCallback(lv_timer_t *timer) {
-    auto* self = static_cast<SoldierSendCoordsPage*>(timer->user_data);
+void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
+    auto* self = static_cast<SoldiersMissionPage*>(timer->user_data);
     Serial.println("sendTimerCallback");
     Serial.println(self->currentIndex);
 
@@ -158,7 +153,7 @@ void SoldierSendCoordsPage::sendTimerCallback(lv_timer_t *timer) {
 }
 
 
-std::pair<float, float> SoldierSendCoordsPage::getTileCenterLatLon(float lat, float lon, int zoomLevel, float tileSize) {
+std::pair<float, float> SoldiersMissionPage::getTileCenterLatLon(float lat, float lon, int zoomLevel, float tileSize) {
 
   double lat_rad = lat * M_PI / 180.0;
   double n = std::pow(2.0, zoomLevel);
@@ -176,7 +171,7 @@ std::pair<float, float> SoldierSendCoordsPage::getTileCenterLatLon(float lat, fl
   return {static_cast<float>(lat_deg), static_cast<float>(lon_deg)};
 }
 
-void SoldierSendCoordsPage::parseGPSData()
+void SoldiersMissionPage::parseGPSData()
 {
     if(this->fakeGPS)
     {

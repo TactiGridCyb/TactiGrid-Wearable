@@ -22,6 +22,9 @@ public:
     const mbedtls_x509_crt& getCAPublicCert() const;
     uint16_t getCommanderNumber() const;
     uint16_t getCurrentHeartRate() const;
+    const crypto::Key256& getGMK() const {
+        return GMK;
+    }
 
     void setName(const std::string& name);
     void setPublicCert(const std::string& publicCert);
@@ -42,7 +45,12 @@ private:
     std::vector<float> frequencies;
 
     crypto::Key256 GK;
-    crypto::Key256 GMK;
+    crypto::Key256 GMK = []() {
+        crypto::Key256 key{};
+        const char* raw = "0123456789abcdef0123456789abcdef"; 
+        std::memcpy(key.data(), raw, 32);
+        return key;
+    }();
 
     mbedtls_pk_context privateKey;
     mbedtls_x509_crt caCertificate;

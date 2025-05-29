@@ -4,7 +4,7 @@
 #include <LilyGoLib.h>
 #include <WifiModule.h>
 
-#include <SoldierSendCoordsPage.h>
+#include "../missionPage/SoldiersMissionPage.h"
 
 class SoldiersMainPage : public LVGLPage {
     private:

@@ -6,9 +6,8 @@
 #include <WifiModule.h>
 #include <GPSModule.h>
 
-#include <SoldierSendCoordsPage.h>
 #include "UploadLogPage.h"
-#include "CommandersMissionPage.h"
+#include "../missionPage/CommandersMissionPage.h"
 #include "ReceiveLogsPage.h"
 
 class CommandersMainPage : public LVGLPage {
