@@ -1,13 +1,13 @@
 #include "SoldiersReceiveParametersPage.h"
 
 
-CommandersReceiveParametersPage::CommandersReceiveParametersPage(std::unique_ptr<WifiModule> wifiModule)
+SoldiersReceiveParametersPage::SoldiersReceiveParametersPage(std::unique_ptr<WifiModule> wifiModule)
 {
     this->wifiModule = std::move(wifiModule);
     this->mainPage = lv_scr_act();
 }
 
-std::string CommandersReceiveParametersPage::extractPemBlock(const std::string& blob,
+std::string SoldiersReceiveParametersPage::extractPemBlock(const std::string& blob,
                                    const char* header,
                                    const char* footer)
 {
@@ -22,12 +22,12 @@ std::string CommandersReceiveParametersPage::extractPemBlock(const std::string& 
     return blob.substr(b, e - b);
 }
 
-void CommandersReceiveParametersPage::createPage()
+void SoldiersReceiveParametersPage::createPage()
 {
     this->openSocketButton = lv_btn_create(this->mainPage);
     lv_obj_align(this->openSocketButton, LV_ALIGN_CENTER, 0, -40);
     lv_obj_add_event_cb(this->openSocketButton, [](lv_event_t* e) {
-        auto* self = static_cast<CommandersReceiveParametersPage*>(lv_event_get_user_data(e));
+        auto* self = static_cast<SoldiersReceiveParametersPage*>(lv_event_get_user_data(e));
         if (self) {
             lv_obj_add_flag(self->openSocketButton, LV_OBJ_FLAG_HIDDEN);
             self->onSocketOpened(e);
@@ -48,11 +48,11 @@ void CommandersReceiveParametersPage::createPage()
 
 #include <functional>
 
-void CommandersReceiveParametersPage::setOnTransferPage(std::function<void(std::unique_ptr<WifiModule>)> cb) {
+void SoldiersReceiveParametersPage::setOnTransferPage(std::function<void(std::unique_ptr<WifiModule>)> cb) {
     this->onTransferPage = std::move(cb);
 }
 
-void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
+void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 {
   Serial.println("onSocketOpened");
   // TCP SSL
@@ -116,7 +116,7 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     NameId ownNi = certModule::parseNameIdFromCertPem(ownCertPem);
 
-    this->commanderModule = std::make_unique<Soldier>(
+    this->soldierModule = std::make_unique<Soldier>(
         ownNi.name,
         ownCert,
         privKey,
@@ -125,7 +125,7 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
         intervalMs
     );
 
-    this->commanderModule->appendFrequencies(freqs);
+    this->soldierModule->appendFrequencies(freqs);
 
     for (auto v : doc["soldiers"].as<JsonArray>()) {
         const std::string pem = v.as<std::string>();
@@ -148,10 +148,10 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
             continue;
         }
 
-        this->commanderModule->addOther(std::move(info));
+        this->soldierModule->addOther(std::move(info));
     }
 
-    const auto& others = this->commanderModule->getOthers();
+    const auto& others = this->soldierModule->getOthers();
     Serial.println("CommanderInfo entries:");
     for (const auto& [id, info] : others) {
         Serial.print("Commander Number: ");
@@ -171,16 +171,16 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     mbedtls_x509_crt_free(&caCert);
     mbedtls_pk_free(&privKey);
 
-    if (this->commanderModule) {
+    if (this->soldierModule) {
         Serial.println("Soldier parameters:");
         Serial.print("Name: ");
-        Serial.println(this->commanderModule->getName().c_str());
+        Serial.println(this->soldierModule->getName().c_str());
         Serial.print("Soldier Number: ");
-        Serial.println(this->commanderModule->getSoldierNumber());
+        Serial.println(this->soldierModule->getSoldierNumber());
         Serial.print("Current Heart Rate: ");
-        Serial.println(this->commanderModule->getCurrentHeartRate());
+        Serial.println(this->soldierModule->getCurrentHeartRate());
         Serial.print("Frequencies count: ");
-        Serial.println(this->commanderModule->getFrequencies().size());
+        Serial.println(this->soldierModule->getFrequencies().size());
     }
 
     Serial.println("Certificates and Private Key:");
@@ -209,7 +209,7 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
   }
 }
 
-void CommandersReceiveParametersPage::updateLabel(uint8_t index)
+void SoldiersReceiveParametersPage::updateLabel(uint8_t index)
 {
     lv_label_set_text(this->statusLabels[index], this->messages[index]);
 }

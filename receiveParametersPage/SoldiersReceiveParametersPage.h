@@ -13,9 +13,9 @@
 #include <string>
 #include <SoldiersMainPage.h>
 
-class CommandersReceiveParametersPage : public LVGLPage {
+class SoldiersReceiveParametersPage : public LVGLPage {
     public:
-        CommandersReceiveParametersPage(std::unique_ptr<WifiModule> wifiModule);
+        SoldiersReceiveParametersPage(std::unique_ptr<WifiModule> wifiModule);
 
         void createPage() override;
 
@@ -31,7 +31,7 @@ class CommandersReceiveParametersPage : public LVGLPage {
         lv_obj_t* openSocketButton;
         lv_obj_t* statusLabels[6];
 
-        std::unique_ptr<Soldier> commanderModule;
+        std::unique_ptr<Soldier> soldierModule;
 
         std::function<void(std::unique_ptr<WifiModule>)> onTransferPage;
 
