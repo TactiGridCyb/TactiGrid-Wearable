@@ -4,7 +4,7 @@
 #include <LV_Helper.h>
 #include <WifiModule.h>
 #include <ArduinoJson.h>
-#include <Soldier.h>
+#include <Commander.h>
 #include <certModule.h>
 #include <mbedtls/x509_crt.h>
 #include <mbedtls/pk.h>
@@ -25,18 +25,20 @@ class CommandersReceiveParametersPage : public LVGLPage {
                                    const char* header,
                                    const char* footer);
 
+        
+
     private:
         std::unique_ptr<WifiModule> wifiModule;
         lv_obj_t* mainPage;
         lv_obj_t* openSocketButton;
         lv_obj_t* statusLabels[6];
 
-        std::unique_ptr<Soldier> commanderModule;
+        std::unique_ptr<Commander> commanderModule;
 
         std::function<void(std::unique_ptr<WifiModule>)> onTransferPage;
 
         const char* messages[6] = {
-            "Received Cert", "Received CA Cert", "Received GMK", "Received Freqs", "Received Interval", "Received Commanders Certs"
+            "Received Cert", "Received CA Cert", "Received GMK", "Received Freqs", "Received Interval", "Received Soldiers Certs"
         };
 
         void onSocketOpened(lv_event_t* event);

@@ -1,4 +1,4 @@
-#include "SoldiersReceiveParametersPage.h"
+#include "CommandersReceiveParametersPage.h"
 
 
 CommandersReceiveParametersPage::CommandersReceiveParametersPage(std::unique_ptr<WifiModule> wifiModule)
@@ -116,7 +116,7 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     NameId ownNi = certModule::parseNameIdFromCertPem(ownCertPem);
 
-    this->commanderModule = std::make_unique<Soldier>(
+    this->commanderModule = std::make_unique<Commander>(
         ownNi.name,
         ownCert,
         privKey,
@@ -130,7 +130,7 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     for (auto v : doc["soldiers"].as<JsonArray>()) {
         const std::string pem = v.as<std::string>();
 
-        CommanderInfo info;
+        SoldierInfo info;
         mbedtls_x509_crt_init(&info.cert);
         if (mbedtls_x509_crt_parse(&info.cert, reinterpret_cast<const unsigned char*>(pem.c_str()), pem.size() + 1) != 0)
         {
@@ -141,7 +141,7 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
         try {
             NameId ni = certModule::parseNameIdFromCertPem(pem);
             info.name = std::move(ni.name);
-            info.commanderNumber = ni.id;
+            info.soldierNumber = ni.id;
         }
         catch (...) {
             mbedtls_x509_crt_free(&info.cert);
@@ -155,7 +155,7 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     Serial.println("CommanderInfo entries:");
     for (const auto& [id, info] : others) {
         Serial.print("Commander Number: ");
-        Serial.println(info.commanderNumber);
+        Serial.println(info.soldierNumber);
         Serial.print("Name: ");
         Serial.println(info.name.c_str());
         Serial.print("Certificate subject name: ");
@@ -176,7 +176,7 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
         Serial.print("Name: ");
         Serial.println(this->commanderModule->getName().c_str());
         Serial.print("Soldier Number: ");
-        Serial.println(this->commanderModule->getSoldierNumber());
+        Serial.println(this->commanderModule->getCommanderNumber());
         Serial.print("Current Heart Rate: ");
         Serial.println(this->commanderModule->getCurrentHeartRate());
         Serial.print("Frequencies count: ");

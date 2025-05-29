@@ -17,15 +17,25 @@ public:
                     const mbedtls_x509_crt& publicCA,
                     uint16_t soldierNumber, uint16_t intervalMS);
 
-    int getCurrentHeartRate() const;
-    void setCurrentHeartRate(int heartRate);
+    const std::string& getName() const;
+    const mbedtls_x509_crt& getPublicCert() const;
+    const mbedtls_x509_crt& getCAPublicCert() const;
+    uint16_t getCommanderNumber() const;
+    uint16_t getCurrentHeartRate() const;
+
+    void setName(const std::string& name);
+    void setPublicCert(const std::string& publicCert);
+    void setPrivateKey(const std::string& privateKey);
+    void setCAPublicCert(const std::string& caPublicCert);
+    void setCommanderNumber(uint16_t soldierNumber);
+    void setCurrentHeartRate(uint16_t heartRate);
 
     const std::vector<float>& getFrequencies() const;
     void appendFrequencies(const std::vector<float>& freqs);
 
 private:
     std::string name;
-    uint16_t soldierNumber;
+    uint16_t commanderNumber;
     uint16_t currentHeartRate;
     uint16_t intervalMS;
 

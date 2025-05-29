@@ -8,7 +8,7 @@ Commander::Commander(const std::string& name,
                                const mbedtls_x509_crt& publicCA,
                                uint16_t soldierNumber, uint16_t intervalMS)
     : name(name),
-      soldierNumber(soldierNumber),
+      commanderNumber(soldierNumber),
       currentHeartRate(0),
       intervalMS(intervalMS)
 {
@@ -35,12 +35,60 @@ Commander::Commander(const std::string& name,
     }
 }
 
-int Commander::getCurrentHeartRate() const {
+const std::string& Commander::getName() const {
+    return name;
+}
+
+const mbedtls_x509_crt& Commander::getPublicCert() const {
+    return ownCertificate;
+}
+
+const mbedtls_x509_crt& Commander::getCAPublicCert() const {
+    return caCertificate;
+}
+
+uint16_t Commander::getCommanderNumber() const {
+    return commanderNumber;
+}
+
+uint16_t Commander::getCurrentHeartRate() const {
     return currentHeartRate;
 }
 
-void Commander::setCurrentHeartRate(int heartRate) {
-    currentHeartRate = heartRate;
+void Commander::setName(const std::string& name) {
+    this->name = name;
+}
+
+void Commander::setPublicCert(const std::string& publicCert) {
+    mbedtls_x509_crt_free(&ownCertificate);
+    mbedtls_x509_crt_init(&ownCertificate);
+    if (mbedtls_x509_crt_parse(&ownCertificate, reinterpret_cast<const unsigned char*>(publicCert.c_str()), publicCert.size() + 1) != 0) {
+        throw std::runtime_error("Failed to parse public certificate");
+    }
+}
+
+void Commander::setPrivateKey(const std::string& privateKey) {
+    mbedtls_pk_free(&this->privateKey);
+    mbedtls_pk_init(&this->privateKey);
+    if (mbedtls_pk_parse_key(&this->privateKey, reinterpret_cast<const unsigned char*>(privateKey.c_str()), privateKey.size() + 1, nullptr, 0) != 0) {
+        throw std::runtime_error("Failed to parse private key");
+    }
+}
+
+void Commander::setCAPublicCert(const std::string& caPublicCert) {
+    mbedtls_x509_crt_free(&caCertificate);
+    mbedtls_x509_crt_init(&caCertificate);
+    if (mbedtls_x509_crt_parse(&caCertificate, reinterpret_cast<const unsigned char*>(caPublicCert.c_str()), caPublicCert.size() + 1) != 0) {
+        throw std::runtime_error("Failed to parse CA public certificate");
+    }
+}
+
+void Commander::setCommanderNumber(uint16_t commanderNumber) {
+    this->commanderNumber = commanderNumber;
+}
+
+void Commander::setCurrentHeartRate(uint16_t heartRate) {
+    this->currentHeartRate = heartRate;
 }
 
 const std::vector<float>& Commander::getFrequencies() const {
