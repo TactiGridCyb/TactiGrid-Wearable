@@ -4,6 +4,7 @@
 #include <LilyGoLib.h>
 #include <tuple>
 
+using GPSCoordTuple = std::tuple<float, float, float, float>;
 class GPSModule{
     private:
     TinyGPSPlus gpsInstance;
@@ -13,6 +14,7 @@ class GPSModule{
     float currentLon;
 
     void readGPSData();
+
     public:
     GPSModule(float readInterval = 1.2f);
 
@@ -27,6 +29,8 @@ class GPSModule{
     TinyGPSAltitude getGPSAltitude();
     TinyGPSInteger getGPSSatellites();
     TinyGPSSpeed getGPSSpeed();
+
+    static inline GPSCoordTuple parseCoordinates(const String &message);
 
 
     

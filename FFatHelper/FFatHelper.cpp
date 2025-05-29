@@ -23,3 +23,22 @@ bool FFatHelper::deleteFile(const char* filePath)
   return false;
 }
 
+bool FFatHelper::writeToFile(const char* filePath, const char* content)
+{
+    File file = FFat.open(filePath, FILE_APPEND);
+
+    if (!file) {
+        Serial.println("Failed to open file for writing!");
+    } else {
+        
+        file.println(content);
+        file.close();
+    }
+}
+
+bool FFatHelper::isFileExisting(const char* filePath)
+{
+    return FFat.exists(filePath);
+}
+
+

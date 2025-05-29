@@ -79,3 +79,10 @@ TinyGPSSpeed GPSModule::getGPSSpeed()
 {
     return this->gpsInstance.speed;
 }
+
+inline GPSCoordTuple GPSModule::parseCoordinates(const String &message)
+{
+    float lat1 = 0, lon1 = 0, lat2 = 0, lon2 = 0;
+    sscanf(message.c_str(), "%f,%f;%f,%f", &lat1, &lon1, &lat2, &lon2);
+    return std::make_tuple(lat1, lon1, lat2, lon2);
+}

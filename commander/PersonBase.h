@@ -34,7 +34,7 @@ public:
         insertionOrder.erase(std::remove(insertionOrder.begin(), insertionOrder.end(), id), insertionOrder.end());
     }
 
-    
+
     const std::unordered_map<uint16_t, InfoType>& getOthers() const {
         return others;
     }
