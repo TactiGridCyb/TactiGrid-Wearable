@@ -19,7 +19,9 @@ public:
 
 
 private:
-    static void handleLoRaData(const uint8_t* data, size_t len);
+    static void handleLoRaDataStatic(const uint8_t* data, size_t len);
+
+    void handleLoRaData(const uint8_t* data, size_t len);
     static bool decodeBase64(const String& input, std::vector<uint8_t>& output);
     static String toBase64(const std::vector<uint8_t>& input);
 

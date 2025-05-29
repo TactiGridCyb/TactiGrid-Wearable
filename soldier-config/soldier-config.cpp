@@ -21,6 +21,9 @@ SoldierConfigModule::SoldierConfigModule(const String& rawJson) {
     _certificatePEM = doc["certificate_pem"] | "";
     _caCertificatePEM = doc["ca_certificate_pem"] | "";
 
+    //load the commanders public key as base64 pem
+    _commanderPublicKeyPEM = doc["commander"] | "";
+
     _fhf = doc["FHF"] | "";
     _gkf = doc["GKF"] | "";
 }
@@ -58,4 +61,6 @@ String SoldierConfigModule::getGKF() const {
     return _gkf;
 }
 
-
+String SoldierConfigModule::getCommanderPubKey() {
+    return _commanderPublicKeyPEM;
+}

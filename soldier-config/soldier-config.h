@@ -19,12 +19,14 @@ public:
     String getCaCertificatePEM() const;
     String getFHF() const;
     String getGKF() const;
+    String getCommanderPubKey();
 
 private:
     String _gmk; // gmk
     int _id; // soldiers id
     std::vector<int> _hierarchy; // commanders hierarchy
     String _privateKeyPEM; // private key in pem
+    String _commanderPublicKeyPEM; // commander's public key in pem
     String _certificatePEM; // soldiers certificate in pem
     String _caCertificatePEM; // ca's certificate as pem
     String _fhf;  // FHF as string
