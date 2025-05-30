@@ -1,6 +1,7 @@
+#pragma once
 #include <stdint.h>
 #include <lvgl.h>
-#pragma once
+
 
 
 enum SoldiersStatus
@@ -21,7 +22,7 @@ struct SoldiersSentData {
     enum SoldiersStatus status;
 };
 
-lv_color_t getColorFromHeartRate(uint16_t hr) {
+inline lv_color_t getColorFromHeartRate(uint16_t hr) {
     if (hr <= 0) return lv_color_black();
 
     const int min_hr = 40;
@@ -30,11 +31,11 @@ lv_color_t getColorFromHeartRate(uint16_t hr) {
     if (hr < min_hr)
     {
         hr = min_hr;
-    } 
+    }
     else if (hr > max_hr)
     {
         hr = max_hr;
-    } 
+    }
 
     int hue = 120 * (hr - min_hr) / (max_hr - min_hr);
 

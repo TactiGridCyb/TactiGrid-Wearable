@@ -19,7 +19,7 @@ class SoldiersReceiveParametersPage : public LVGLPage {
 
         void createPage() override;
 
-        void setOnTransferPage(std::function<void(std::unique_ptr<WifiModule>)> cb);
+        void setOnTransferPage(std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Soldier>)> cb);
 
         static std::string extractPemBlock(const std::string& blob,
                                    const char* header,
@@ -33,7 +33,7 @@ class SoldiersReceiveParametersPage : public LVGLPage {
 
         std::unique_ptr<Soldier> soldierModule;
 
-        std::function<void(std::unique_ptr<WifiModule>)> onTransferPage;
+        std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Soldier>)> onTransferPage;
 
         const char* messages[6] = {
             "Received Cert", "Received CA Cert", "Received GMK", "Received Freqs", "Received Interval", "Received Commanders Certs"

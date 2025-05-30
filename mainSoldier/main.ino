@@ -15,6 +15,10 @@ std::unique_ptr<WifiModule> wifiModule;
 std::shared_ptr<LoraModule> loraModule;
 std::shared_ptr<GPSModule> gpsModule;
 
+std::unique_ptr<Soldier> soldiersModule;
+
+
+
 
 void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiModule)
 {
@@ -24,17 +28,19 @@ void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiMod
 
     loraModule->setup(true);
 
-    soldiersMissionPage = std::make_unique<SoldiersMissionPage>(loraModule, std::move(currentWifiModule), gpsModule);
+    soldiersMissionPage = std::make_unique<SoldiersMissionPage>(loraModule, std::move(currentWifiModule), gpsModule, std::move(soldiersModule));
     soldiersMissionPage->createPage();
 }
 
-void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> currentWifiModule)
+void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Soldier> soldierModule)
 {
     Serial.println("transferFromReceiveParametersToMainPage");
     soldiersMainPage = std::make_unique<SoldiersMainPage>(std::move(currentWifiModule));
     soldiersMainPage->createPage();
 
     soldiersMainPage->setOnTransferPage(transferFromMainToSendCoordsPage);
+
+    soldiersModule = std::move(soldierModule);
 }
 
 
@@ -45,6 +51,12 @@ void setup()
     watch.begin(&Serial);
 
     beginLvglHelper();
+
+    if (!FFat.begin(true)) 
+    {
+        Serial.println("Failed to mount FFat!");
+        return;
+    }
     
     String ssidString(ssid);
     String passwordString(password);

@@ -1,6 +1,5 @@
 #include "LoraModule.h"
 #include <Arduino.h>
-#include <LoraModule.h>
 
 #define RADIOLIB_ERR_CHANNEL_BUSY -1000
 

@@ -1,7 +1,9 @@
 #pragma once
 
 #include <string>
-#include <map>
+#include <unordered_map>
+#include <vector>
+#include <algorithm>
 #include "mbedtls/x509_crt.h"
 
 struct CommanderInfo {
@@ -29,9 +31,17 @@ public:
             it->second = info;
         }
     }
+
     void removeOther(uint16_t id) {
         others.erase(id);
-        insertionOrder.erase(std::remove(insertionOrder.begin(), insertionOrder.end(), id), insertionOrder.end());
+
+        auto newEnd = std::remove(
+            insertionOrder.begin(),
+            insertionOrder.end(),
+            id
+        );
+
+        insertionOrder.erase(newEnd, insertionOrder.end());
     }
 
 

@@ -48,7 +48,7 @@ void SoldiersReceiveParametersPage::createPage()
 
 #include <functional>
 
-void SoldiersReceiveParametersPage::setOnTransferPage(std::function<void(std::unique_ptr<WifiModule>)> cb) {
+void SoldiersReceiveParametersPage::setOnTransferPage(std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Soldier>)> cb) {
     this->onTransferPage = std::move(cb);
 }
 
@@ -197,7 +197,7 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     Serial.println("AFTER destroyPage");
     if (this->onTransferPage) {
       Serial.println("onTransferPage Exists");
-      this->onTransferPage(std::move(this->wifiModule));
+      this->onTransferPage(std::move(this->wifiModule), std::move(this->soldierModule));
     }
     else
     {

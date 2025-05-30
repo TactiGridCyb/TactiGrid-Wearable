@@ -27,7 +27,12 @@ public:
     const std::string tileUrlInitial = "https://tile.openstreetmap.org/";
     const char* tileFilePath = "/middleTile.png";
 
-    static std::pair<double,double> CommandersMissionPage::tileCenterLatLon(int zoom, int x_tile, int y_tile);
+    static std::pair<double,double> tileCenterLatLon(int zoom, int x_tile, int y_tile);
+
+    void create_fading_circle(double markerLat, double markerLon, double centerLat, double centerLon, uint16_t soldiersID, int zoom,
+     lv_color_t* ballColor, lv_obj_t*& marker, lv_obj_t*& label);
+    
+    static std::tuple<int,int> latlon_to_pixel(double lat, double lon, double centerLat, double centerLon, int zoom);
 
 private:
     std::shared_ptr<LoraModule> loraModule;
@@ -44,7 +49,7 @@ private:
 
     std::unordered_map<uint16_t, lv_color_t> ballColors;
     std::unordered_map<uint16_t, lv_obj_t*> labels;
-    std::unordered_map<uint16_t, lv_color_t> markers;
+    std::unordered_map<uint16_t, lv_obj_t*> markers;
 
     void onDataReceived(const uint8_t* data, size_t len);
     void showMiddleTile();

@@ -1,8 +1,9 @@
-#include "../mainPage/CommandersMainPage.h"
-#include "../receiveParametersPage/CommandersReceiveParametersPage.h"
-#include "../missionPage/CommandersMissionPage.h"
+#include <CommandersMainPage.h>
+#include <CommandersReceiveParametersPage.h>
+#include <CommandersMissionPage.h>
 #include <LoraModule.h>
 #include <GPSModule.h>
+#include <Commander.h>
 
 const char* ssid = "default";
 const char* password = "1357924680";
@@ -15,6 +16,9 @@ std::unique_ptr<WifiModule> wifiModule;
 std::shared_ptr<LoraModule> loraModule;
 std::shared_ptr<GPSModule> gpsModule;
 
+std::unique_ptr<Commander> commandersModule;
+
+const std::string logFilePath = "/log.txt";
 
 void transferFromMainToReceiveCoordsPage(std::unique_ptr<WifiModule> currentWifiModule)
 {
@@ -24,7 +28,8 @@ void transferFromMainToReceiveCoordsPage(std::unique_ptr<WifiModule> currentWifi
 
     loraModule->setup(true);
 
-    commandersMissionPage = std::make_unique<CommandersMissionPage>(loraModule, std::move(currentWifiModule), gpsModule);
+    commandersMissionPage = std::make_unique<CommandersMissionPage>(loraModule,
+         std::move(currentWifiModule), gpsModule, std::move(commandersModule), logFilePath);
     commandersMissionPage->createPage();
 }
 
@@ -33,7 +38,7 @@ void transferFromMainToUploadLogsPage(std::unique_ptr<WifiModule> currentWifiMod
 
 }
 
-void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> currentWifiModule)
+void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Commander> commanderModule)
 {
     Serial.println("transferFromReceiveParametersToMainPage");
     commandersMainPage = std::make_unique<CommandersMainPage>(std::move(currentWifiModule));
@@ -41,6 +46,8 @@ void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> current
 
     commandersMainPage->setOnTransferReceiveCoordsPage(transferFromMainToReceiveCoordsPage);
     commandersMainPage->setOnTransferUploadLogsPage(transferFromMainToUploadLogsPage);
+
+    commandersModule = std::move(commanderModule);
 }
 
 
@@ -51,6 +58,17 @@ void setup()
     watch.begin(&Serial);
 
     beginLvglHelper();
+    lv_png_init();
+
+    if (!FFat.begin(true)) 
+    {
+        Serial.println("Failed to mount FFat!");
+        return;
+    }
+    else
+    {
+        Serial.println("Mounted FFat!");
+    }
     
     String ssidString(ssid);
     String passwordString(password);

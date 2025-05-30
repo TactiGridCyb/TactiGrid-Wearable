@@ -17,7 +17,7 @@ class SoldiersMainPage : public LVGLPage {
 
     public:
     SoldiersMainPage(std::unique_ptr<WifiModule>);
-    void createPage();
+    void createPage() override;
 
     void showHelmet();
 

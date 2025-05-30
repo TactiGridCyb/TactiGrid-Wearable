@@ -10,4 +10,5 @@ class FFatHelper
     static bool deleteFile(const char* filePath);
     static bool writeToFile(const char* filePath, const char* content);
     static bool isFileExisting(const char* filePath);
+    static void listFiles(const char* path = "/", uint8_t depth = 0);
 };
