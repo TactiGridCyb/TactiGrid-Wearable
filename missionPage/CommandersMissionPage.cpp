@@ -158,6 +158,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     lv_color_t color = getColorFromHeartRate(heartRate);
 
     ballColors[newG->soldiersID] = color;
+    Serial.println(ballColors[newG->soldiersID].full);
 
     lv_obj_t* marker = nullptr;
     lv_obj_t* label = nullptr;
@@ -206,8 +207,6 @@ std::tuple<int, int, int> CommandersMissionPage::positionToTile(float lat, float
     int x_tile = floor((lon + 180.0) / 360.0 * n);
     int y_tile = floor((1.0 - log(tan(lat_rad) + 1.0 / cos(lat_rad)) / PI) / 2.0 * n);
     
-    Serial.println("CommandersMissionPage::positionToTile");
-
     return std::make_tuple(zoom, x_tile, y_tile);
 }
 
@@ -240,19 +239,24 @@ std::pair<double,double> CommandersMissionPage::tileCenterLatLon(int zoom, int x
 }
 
 void CommandersMissionPage::create_fading_circle(double markerLat, double markerLon, double centerLat, double centerLon, uint16_t soldiersID, int zoom,
-     lv_color_t* ballColor, lv_obj_t*& marker, lv_obj_t*& label) {
+     lv_color_t* ballColor, lv_obj_t*& marker, lv_obj_t*& label) 
+{
+    Serial.println(marker != NULL);
 
     if (marker != NULL) {
         lv_obj_del(marker);
         marker = NULL;
     }
 
+
     auto [pixel_x, pixel_y] = latlon_to_pixel(markerLat, markerLon, centerLat, centerLon, zoom);
+
 
     marker = lv_obj_create(lv_scr_act());
     lv_obj_set_size(marker, 10, 10);
     lv_obj_set_style_bg_color(marker, *ballColor, 0);
     lv_obj_set_style_radius(marker, LV_RADIUS_CIRCLE, 0);
+
 
     lv_obj_set_pos(marker, pixel_x, pixel_y);
 
@@ -268,12 +272,27 @@ void CommandersMissionPage::create_fading_circle(double markerLat, double marker
     });
     lv_anim_start(&a);
 
+
     if(!label)
     {
+        
         label = lv_label_create(lv_scr_act());
 
-        std::string s = this->commanderModule->getOthers().at(soldiersID).name;
-        lv_label_set_text(label, s.c_str());
+        const auto& others = this->commanderModule->getOthers();
+        for (const auto& kv : others) {
+            Serial.printf("Other ID: %u\n", kv.first);
+        }
+        auto it = others.find(soldiersID);
+
+        if (it != others.end()) {
+            Serial.printf("Soldier %u found in map!!\n", soldiersID);
+            std::string s = it->second.name;
+            lv_label_set_text(label, s.c_str());
+        } else {
+            Serial.printf("Soldier %u not found in map\n", soldiersID);
+        }
+        
+
     }
     
     lv_obj_align_to(label, marker, LV_ALIGN_TOP_MID, 0, -35);
