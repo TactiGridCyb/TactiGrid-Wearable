@@ -10,13 +10,14 @@
 #include "LoraModule.h"
 #include "../wifi-connection/WifiModule.h"
 #include "../FHFModule/FHFModule.h"
+#include "../env.h"
 
 std::unique_ptr<LoraModule> loraModule;
 std::unique_ptr<WifiModule> wifiModule;
 std::unique_ptr<FHFModule> fhfModule;
 
-const char* ssid = "default";
-const char* password = "1357924680";
+const char* ssid = WIFI_SSID;
+const char* password = WIFI_PASS;
 
 const char *udpAddress = "192.168.0.44";
 const int udpPort = 3333;

@@ -64,6 +64,8 @@ protected:
     std::unordered_map<uint16_t, InfoType> others;
     std::vector<uint16_t> insertionOrder;
 
+    static float intervalMS;
+
     static uint16_t infoNumber(const CommanderInfo& info) { return info.commanderNumber; }
     static uint16_t infoNumber(const SoldierInfo& info) { return info.soldierNumber; }
 };

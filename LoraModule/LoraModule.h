@@ -54,6 +54,8 @@ public:
 
     void onLoraFileDataReceived(const uint8_t* pkt, size_t len);
 
+    void syncFrequency();
+
 private:
     bool tryStartOp(Op desired);
 
@@ -64,15 +66,17 @@ private:
     float freq;
     bool transmissionMode = true;
 
+    uint64_t lastFrequencyCheck;
+
     std::function<void(const uint8_t*, size_t)> onReadData;
     std::function<void(const uint8_t*, size_t)> onFileReceived;
 
     std::vector<uint8_t> fileBuffer;
-    uint16_t expectedChunks    = 0;
-    uint16_t receivedChunks    = 0;
+    uint16_t expectedChunks = 0;
+    uint16_t receivedChunks = 0;
     size_t   transferChunkSize = 0;
 
-    std::atomic<Op>   currentOp  { Op::None };
+    std::atomic<Op> currentOp { Op::None };
     std::atomic<bool> opFinished { false   };
 
     static LoraModule* instance;

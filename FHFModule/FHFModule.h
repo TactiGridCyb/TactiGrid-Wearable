@@ -5,9 +5,11 @@
 #include <chrono>
 #include <LilyGoLib.h>
 
+#define HOP_INTERVAL_SEC 30
+
 class FHFModule {
 public:
-    FHFModule(const std::vector<float>& freqs, uint16_t hopIntervalSeconds);
+    FHFModule(const std::vector<float>& freqs, uint16_t hopIntervalSeconds = HOP_INTERVAL_SEC);
 
     float currentFrequency() const;
 

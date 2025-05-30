@@ -166,7 +166,7 @@ bool certModule::encryptWithPublicKey(const mbedtls_x509_crt& cert, const std::s
     return true;
 }
 
-bool certModule::decryptWithPrivateKey(const mbedtls_pk_context& privateKey,
+bool certModule::decryptWithPrivateKey(mbedtls_pk_context& privateKey,
                                        const std::vector<uint8_t>& input,
                                        std::string& output)
 {
@@ -251,6 +251,6 @@ NameId certModule::parseNameIdFromCertPem(const std::string& pem) {
 
     NameId result;
     result.name = cnStr.substr(0, pos);
-    result.id   = static_cast<uint16_t>(std::stoul(cnStr.substr(pos + 1)));
+    result.id = static_cast<uint16_t>(std::stoul(cnStr.substr(pos + 1)));
     return result;
 }

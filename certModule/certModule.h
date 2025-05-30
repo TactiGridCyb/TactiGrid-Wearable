@@ -30,7 +30,7 @@ public:
     static bool encryptWithPublicKey(const mbedtls_x509_crt& cert, const std::string& data,
                                     std::vector<uint8_t>& output);
    
-    static bool decryptWithPrivateKey(const mbedtls_pk_context& privateKey,
+    static bool decryptWithPrivateKey(mbedtls_pk_context& privateKey,
                                       const std::vector<uint8_t>& input,
                                       std::string& output);
                                     

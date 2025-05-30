@@ -3,9 +3,11 @@
 #include "../missionPage/SoldiersMissionPage.h"
 #include <LoraModule.h>
 #include <GPSModule.h>
+#include <FHFModule.h>
+#include "../env.h"
 
-const char* ssid = "default";
-const char* password = "1357924680";
+const char* ssid = WIFI_SSID;
+const char* password = WIFI_PASS;
 
 std::unique_ptr<SoldiersReceiveParametersPage> receiveParametersPage;
 std::unique_ptr<SoldiersMainPage> soldiersMainPage;
@@ -14,10 +16,9 @@ std::unique_ptr<SoldiersMissionPage> soldiersMissionPage;
 std::unique_ptr<WifiModule> wifiModule;
 std::shared_ptr<LoraModule> loraModule;
 std::shared_ptr<GPSModule> gpsModule;
+std::unique_ptr<FHFModule> fhfModule;
 
 std::unique_ptr<Soldier> soldiersModule;
-
-
 
 
 void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiModule)
@@ -27,6 +28,8 @@ void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiMod
     gpsModule = std::make_shared<GPSModule>();
 
     loraModule->setup(true);
+
+    fhfModule = std::make_unique<FHFModule>(soldiersModule->getFrequencies());
 
     soldiersMissionPage = std::make_unique<SoldiersMissionPage>(loraModule, std::move(currentWifiModule), gpsModule, std::move(soldiersModule));
     soldiersMissionPage->createPage();

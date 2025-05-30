@@ -224,3 +224,13 @@ void LoraModule::handleCompletedOperation()
     loraDevice.startReceive();
   }
 }
+
+void LoraModule::syncFrequency()
+{
+  uint64_t currentFreqCheck = millis();
+
+  if(currentFreqCheck - this->lastFrequencyCheck >= 1000 && !NOTBUSY!)
+  {
+    float newFreq = 
+  }
+}

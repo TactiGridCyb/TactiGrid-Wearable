@@ -18,6 +18,7 @@
 #include "../envLoader.cpp"
 #include "../soldier/SoldiersSentData.h"
 #include "../FHFModule/FHFModule.h"
+#include "../env.h"
 
 const crypto::Key256 SHARED_KEY = []() {
     crypto::Key256 key{};
@@ -712,8 +713,9 @@ void setup() {
     lv_png_init();
     Serial.println("LVGL set!");
 
-    const char* ssid = "default";
-    const char* password = "1357924680";
+
+    const char* ssid = WIFI_SSID;
+    const char* password = WIFI_PASS;
 
     wifiModule = std::make_unique<WifiModule>(ssid, password);
     wifiModule->connect(10000);

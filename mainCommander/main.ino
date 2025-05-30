@@ -4,9 +4,10 @@
 #include <LoraModule.h>
 #include <GPSModule.h>
 #include <Commander.h>
+#include "../env.h"
 
-const char* ssid = "default";
-const char* password = "1357924680";
+const char* ssid = WIFI_SSID;
+const char* password = WIFI_PASS;
 
 std::unique_ptr<CommandersReceiveParametersPage> commandersReceiveParametersPage;
 std::unique_ptr<CommandersMainPage> commandersMainPage;
