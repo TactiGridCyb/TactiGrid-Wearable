@@ -6,17 +6,27 @@
 #include <algorithm>
 #include "mbedtls/x509_crt.h"
 
+
+enum SoldiersStatus
+{
+    REGULAR,
+    COMPROMISED,
+    DEAD,
+    SOS
+};
+
 struct CommanderInfo {
     std::string name;
     uint16_t commanderNumber;
     mbedtls_x509_crt cert;
+    enum SoldiersStatus status;
 };
 
 struct SoldierInfo {
     std::string name;
     uint16_t soldierNumber;
     mbedtls_x509_crt cert;
-    
+    enum SoldiersStatus status;
 };
 
 template<typename InfoType>

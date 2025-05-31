@@ -15,7 +15,7 @@ using ByteVec = std::vector<unsigned char>;
 struct Ciphertext {
     ByteVec nonce;
     ByteVec data;
-    ByteVec tag;
+    ByteVec tag;    
 };
 
 
@@ -34,6 +34,9 @@ public:
 
     static Key256 strToKey256(const std::string& s);
 
+    static std::string key256ToString(const Key256& key);
+
+    static std::string key256ToAsciiString(const Key256& key);
 };
 
 }

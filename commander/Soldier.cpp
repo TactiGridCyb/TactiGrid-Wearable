@@ -8,7 +8,7 @@ Soldier::Soldier(const std::string& name,
                  const mbedtls_x509_crt& publicCert,
                  const mbedtls_pk_context& privateKey,
                  const mbedtls_x509_crt& caPublicCert,
-                 uint16_t soldierNumber, uint16_t intervalMS)
+                 uint8_t soldierNumber, uint16_t intervalMS)
     : name(name),
       soldierNumber(soldierNumber),
       currentHeartRate(0),
@@ -48,8 +48,16 @@ const mbedtls_x509_crt& Soldier::getPublicCert() const {
 const mbedtls_x509_crt& Soldier::getCAPublicCert() const {
     return caCertificate;
 }
+void Soldier::setGMK(const crypto::Key256& gmk) {
+    this->GMK = gmk;
+}
 
-uint16_t Soldier::getSoldierNumber() const {
+const mbedtls_pk_context& Soldier::getPrivateKey() const
+{
+    return privateKey;
+}
+
+uint8_t Soldier::getSoldierNumber() const {
     return soldierNumber;
 }
 
@@ -85,7 +93,7 @@ void Soldier::setCAPublicCert(const std::string& caPublicCert) {
     }
 }
 
-void Soldier::setSoldierNumber(uint16_t soldierNumber) {
+void Soldier::setSoldierNumber(uint8_t soldierNumber) {
     this->soldierNumber = soldierNumber;
 }
 

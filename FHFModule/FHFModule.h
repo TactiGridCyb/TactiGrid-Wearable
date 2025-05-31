@@ -5,7 +5,7 @@
 #include <chrono>
 #include <LilyGoLib.h>
 
-#define HOP_INTERVAL_SEC 30
+#define HOP_INTERVAL_SEC 60
 
 class FHFModule {
 public:

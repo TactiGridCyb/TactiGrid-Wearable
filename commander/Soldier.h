@@ -13,13 +13,14 @@ public:
             const mbedtls_x509_crt& publicCert,
             const mbedtls_pk_context& privateKey,
             const mbedtls_x509_crt& caPublicCert,
-            uint16_t soldierNumber,
+            uint8_t soldierNumber,
             uint16_t intervalMS);
 
     const std::string& getName() const;
     const mbedtls_x509_crt& getPublicCert() const;
     const mbedtls_x509_crt& getCAPublicCert() const;
-    uint16_t getSoldierNumber() const;
+    const mbedtls_pk_context& getPrivateKey() const;
+    uint8_t getSoldierNumber() const;
     uint16_t getCurrentHeartRate() const;
     const crypto::Key256& getGMK() const {
         return GMK;
@@ -29,11 +30,13 @@ public:
     void setPublicCert(const std::string& publicCert);
     void setPrivateKey(const std::string& privateKey);
     void setCAPublicCert(const std::string& caPublicCert);
-    void setSoldierNumber(uint16_t soldierNumber);
+    void setSoldierNumber(uint8_t soldierNumber);
     void setCurrentHeartRate(uint16_t heartRate);
 
     const std::vector<float>& getFrequencies() const;
     void appendFrequencies(const std::vector<float>& freqs);
+
+    void setGMK(const crypto::Key256& gmk);
 
     mbedtls_pk_context privateKey;
     mbedtls_x509_crt caCertificate;
@@ -41,7 +44,7 @@ public:
 
 private:
     std::string name;
-    uint16_t soldierNumber;
+    uint8_t soldierNumber;
     uint16_t currentHeartRate;
     uint16_t intervalMS;
 
@@ -54,5 +57,4 @@ private:
         std::memcpy(key.data(), raw, 32);
         return key;
     }();
-    
 };

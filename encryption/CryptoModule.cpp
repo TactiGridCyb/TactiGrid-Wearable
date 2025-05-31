@@ -1,6 +1,7 @@
 #include "CryptoModule.h"
 #include <stdexcept>
 #include <sstream>
+#include <iomanip>
 
 namespace crypto {
 
@@ -69,6 +70,19 @@ namespace crypto {
         ct.data.resize(pt.size());
         return ct;
     }
+    
+    std::string CryptoModule::key256ToString(const Key256& key) {
+        std::ostringstream oss;
+        oss << std::hex << std::setfill('0');
+        for (unsigned char byte : key) {
+            oss << std::setw(2) << static_cast<int>(byte);
+        }
+        return oss.str();
+    }
+    
+    std::string CryptoModule::key256ToAsciiString(const Key256& key) {
+        return std::string(reinterpret_cast<const char*>(key.data()), key.size());
+    }
 
     ByteVec CryptoModule::decrypt(const Key256& gk, const Ciphertext& ct) {
         ByteVec full(ct.data);
@@ -92,14 +106,14 @@ namespace crypto {
     }
 
     Key256 CryptoModule::strToKey256(const std::string& s) {
-        if (s.size() != Key256().size()) {
+        if (s.size() != KEY_LEN) {
             throw std::runtime_error(
-                "Expected string of length " + std::to_string(Key256().size())
+                "Expected string of length " + std::to_string(KEY_LEN)
                 + ", got " + std::to_string(s.size())
             );
         }
         Key256 key = {};
-        std::memcpy(key.data(), s.c_str(), 32);
+        std::memcpy(key.data(), s.c_str(), KEY_LEN);
         return key;
     }
 

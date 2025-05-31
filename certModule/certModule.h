@@ -6,6 +6,8 @@
 #include "mbedtls/oid.h"
 #include "mbedtls/entropy.h"
 #include <cstring>
+#include <string>
+#include <vector>
 
 struct NameId {
     std::string name;
@@ -30,9 +32,12 @@ public:
     static bool encryptWithPublicKey(const mbedtls_x509_crt& cert, const std::string& data,
                                     std::vector<uint8_t>& output);
    
-    static bool decryptWithPrivateKey(mbedtls_pk_context& privateKey,
+    static bool decryptWithPrivateKey(const mbedtls_pk_context& privateKey,
                                       const std::vector<uint8_t>& input,
                                       std::string& output);
+    
+    static std::string certToString(const mbedtls_x509_crt& cert);
+    static std::string privateKeyToString(const mbedtls_pk_context& privateKey);
                                     
     static certModule fromCertificateString(const std::string& certStr);
 

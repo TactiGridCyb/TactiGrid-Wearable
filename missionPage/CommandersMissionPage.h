@@ -55,4 +55,6 @@ private:
 
     void onDataReceived(const uint8_t* data, size_t len);
     void showMiddleTile();
+
+    void compromisedEvent(uint8_t soldiersID);
 };

@@ -1,6 +1,8 @@
 #include "LoraModule.h"
+#include <CryptoModule.h>
 
 std::unique_ptr<LoraModule> loraModule;
+
 
 void init_p2p_test(const uint8_t* data, size_t len)
 {
@@ -21,14 +23,23 @@ void setup()
     loraModule = std::make_unique<LoraModule>(433.5);
     loraModule->setup(false);
     loraModule->setOnReadData(init_p2p_test);
-    loraModule->setupListening();
-    Serial.println("LORA IS READY1");
+
+    crypto::Key256 GMK = []() {
+        crypto::Key256 key{};
+        const char* raw = "0123456789abcdef0123456789abcdef"; 
+        std::memcpy(key.data(), raw, 32);
+        return key;
+    }();
+
+    std::string strGMK = crypto::CryptoModule::key256ToAsciiString(GMK);
+
+    Serial.printf("STRING KEY: %s\n", strGMK.c_str());
+
 }
 
 
 
 void loop()
 {
-    delay(20000);
-    loraModule->sendData("SENDING DATA");
+    delay(100);
 }

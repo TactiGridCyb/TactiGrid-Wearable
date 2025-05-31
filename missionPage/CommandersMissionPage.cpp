@@ -178,9 +178,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     if(newG->heartRate == 0)
     {
         Serial.println("compromisedEvent");
-        // TODO: Implement compromisedEvent function or remove these calls if not needed
-        // compromisedEvent();
-        // init_main_menu();
+        this->compromisedEvent(newG->soldiersID);
     }
 
     
@@ -323,4 +321,29 @@ std::tuple<int,int> CommandersMissionPage::latlon_to_pixel(double lat, double lo
     int localY = markerY - centerY + (LV_VER_RES_MAX / 2);
 
     return std::make_tuple(localX, localY);
+}
+
+void CommandersMissionPage::compromisedEvent(uint8_t soldiersID)
+{
+    SwitchGMK payload;
+    payload.msgID = 0x01;
+    payload.soldiersID = soldiersID;
+
+    certModule::encryptWithPublicKey(this->commanderModule->getOthers().at(soldiersID).cert,
+     crypto::CryptoModule::key256ToAsciiString(this->commanderModule->getGMK()), payload.encryptedGMK);
+
+    std::string buffer;
+    buffer += static_cast<char>(payload.msgID);
+    buffer += static_cast<char>(payload.soldiersID);
+    buffer.append(reinterpret_cast<const char*>(payload.encryptedGMK.data()), payload.encryptedGMK.size());
+
+    Serial.printf("CERT: %s\n", certModule::certToString(this->commanderModule->getOthers().at(soldiersID).cert).c_str());
+    Serial.printf("GMK SENT: %s\n", crypto::CryptoModule::key256ToAsciiString(this->commanderModule->getGMK()).c_str());
+    Serial.printf("PAYLOAD SENT: %s %d\n", buffer.c_str(), soldiersID);
+
+    while(this->loraModule->isBusy())
+    {
+        delay(1);
+    }
+    this->loraModule->sendData(buffer.c_str());
 }

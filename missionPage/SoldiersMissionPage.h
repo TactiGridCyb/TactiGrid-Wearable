@@ -10,6 +10,7 @@
 #include <CryptoModule.h>
 #include <Soldier.h>
 #include <FHFModule.h>
+#include <Commander.h>
 
 #include <LVGLPage.h>
 
@@ -31,16 +32,20 @@ class SoldiersMissionPage : public LVGLPage
     bool fakeGPS;
 
     static constexpr SoldiersSentData coords[5] = {
-        {0.0f, 0.0f, 31.970866f, 34.785664f,  78, 2, REGULAR},
-        {0.0f, 0.0f, 31.970870f, 34.785683f, 100, 3, REGULAR},
-        {0.0f, 0.0f, 31.970855f, 34.785643f,  55, 2, REGULAR}, 
-        {0.0f, 0.0f, 31.970840f, 34.785623f,   0, 3, REGULAR},
-        {0.0f, 0.0f, 31.970880f, 34.785703f, 120, 2, REGULAR}
+        {0.0f, 0.0f, 31.970866f, 34.785664f,  78, 2},
+        {0.0f, 0.0f, 31.970870f, 34.785683f, 100, 3},
+        {0.0f, 0.0f, 31.970855f, 34.785643f,  55, 2}, 
+        {0.0f, 0.0f, 31.970840f, 34.785623f,   0, 2},
+        {0.0f, 0.0f, 31.970880f, 34.785703f, 120, 3}
     };
 
     static void sendTimerCallback(lv_timer_t *);
 
     void sendCoordinate(float, float, uint16_t, uint16_t);
+
+    void onGMKSwitchEvent(SwitchGMK);
+
+    void onDataReceived(const uint8_t*, size_t);
 
     public:
     SoldiersMissionPage(std::shared_ptr<LoraModule>, std::unique_ptr<WifiModule>,

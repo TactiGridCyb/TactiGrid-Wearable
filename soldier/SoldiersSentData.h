@@ -2,16 +2,6 @@
 #include <stdint.h>
 #include <lvgl.h>
 
-
-
-enum SoldiersStatus
-{
-    REGULAR,
-    COMPROMISED,
-    DEAD,
-    SOS
-};
-
 struct SoldiersSentData {
     float tileLat;
     float tileLon;
@@ -19,7 +9,6 @@ struct SoldiersSentData {
     float posLon;
     uint16_t heartRate;
     uint16_t soldiersID;
-    enum SoldiersStatus status;
 };
 
 inline lv_color_t getColorFromHeartRate(uint16_t hr) {

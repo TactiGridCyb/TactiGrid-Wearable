@@ -8,6 +8,12 @@
 #include "PersonBase.h"
 #include "../certModule/certModule.h"
 
+struct SwitchGMK{
+    uint8_t msgID;
+    uint8_t soldiersID;
+    std::vector<uint8_t> encryptedGMK;
+};
+
 class Commander : public PersonBase<SoldierInfo>
 {
 public:
@@ -48,6 +54,13 @@ private:
     crypto::Key256 GMK = []() {
         crypto::Key256 key{};
         const char* raw = "0123456789abcdef0123456789abcdef"; 
+        std::memcpy(key.data(), raw, 32);
+        return key;
+    }();
+
+    crypto::Key256 CompGMK = []() {
+        crypto::Key256 key{};
+        const char* raw = "11111111111111111111111111111111"; 
         std::memcpy(key.data(), raw, 32);
         return key;
     }();

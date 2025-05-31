@@ -1,4 +1,6 @@
 #include "SoldiersMissionPage.h"
+#include <Commander.h>
+#include <cstring>
 
 inline bool SoldiersMissionPage::isZero(float x)
 {
@@ -14,6 +16,10 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
     this->gpsModule = std::move(gpsModule);
     this->fhfModule = std::move(fhfModule);
     this->soldierModule = std::move(soldierModule);
+
+    this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
+        this->onDataReceived(data, len);
+    });
 
     this->mainPage = lv_scr_act();
 
@@ -63,6 +69,52 @@ void SoldiersMissionPage::createPage()
         self->loraModule->syncFrequency(self->fhfModule.get());
     }, 100, this);
     
+}
+
+void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
+{
+    if (len < 2) {
+        Serial.println("Received data too short to be SwitchGMK");
+        return;
+    }
+
+    SwitchGMK payload;
+    payload.msgID = static_cast<uint8_t>(data[0]);
+    Serial.println(payload.msgID);
+
+    if (payload.msgID == 0x01) {
+        payload.soldiersID = static_cast<uint8_t>(data[1]);
+        Serial.println(payload.soldiersID);
+        if(payload.soldiersID != this->soldierModule->getSoldierNumber())
+        {
+            return;
+        }
+
+        payload.encryptedGMK.assign(data + 2, data + len);
+        this->onGMKSwitchEvent(payload);
+    } else {
+        // Not SwitchGMK event
+    }
+
+    Serial.printf("Deserialized SwitchGMK: msgID=%d, soldiersID=%d, encryptedGMK size=%zu\n",
+                  payload.msgID, payload.soldiersID, payload.encryptedGMK.size());
+
+}
+
+void SoldiersMissionPage::onGMKSwitchEvent(SwitchGMK payload)
+{
+    std::string decryptedStr;
+    Serial.printf("PRIVATE KEY: %s\n", certModule::privateKeyToString(this->soldierModule->getPrivateKey()).c_str());
+    bool success = certModule::decryptWithPrivateKey(this->soldierModule->getPrivateKey(), payload.encryptedGMK, decryptedStr);
+
+    if (!success) {
+        Serial.println("Decryption failed in onGMKSwitchEvent");
+        return;
+    }
+    crypto::Key256 newGMK = crypto::CryptoModule::strToKey256(decryptedStr);
+    //this->soldierModule->setGMK(newGMK);
+
+    Serial.printf("NEW GMK: %s\n", crypto::CryptoModule::key256ToAsciiString(newGMK).c_str());
 }
 
 void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRate, uint16_t soldiersID) {

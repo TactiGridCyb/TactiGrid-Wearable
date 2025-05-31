@@ -142,6 +142,7 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
             NameId ni = certModule::parseNameIdFromCertPem(pem);
             info.name = std::move(ni.name);
             info.commanderNumber = ni.id;
+            info.status = SoldiersStatus::REGULAR;
         }
         catch (...) {
             mbedtls_x509_crt_free(&info.cert);
@@ -187,7 +188,7 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     Serial.println("Own Certificate PEM:");
     Serial.println(ownCertPem.c_str());
     Serial.println("Private Key PEM:");
-    Serial.println(privateKeyPem.c_str());
+    Serial.println(certModule::privateKeyToString(privKey).c_str());
     Serial.println("CA Certificate PEM:");
     Serial.println(caPem.c_str());
 
