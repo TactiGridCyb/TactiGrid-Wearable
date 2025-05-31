@@ -76,7 +76,7 @@ private:
     std::vector<uint8_t> fileBuffer;
     uint16_t expectedChunks = 0;
     uint16_t receivedChunks = 0;
-    size_t   transferChunkSize = 0;
+    size_t transferChunkSize = 0;
 
     std::atomic<Op> currentOp { Op::None };
     std::atomic<bool> opFinished { false   };

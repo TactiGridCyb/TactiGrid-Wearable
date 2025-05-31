@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <sstream>
 #include <iomanip>
+#include <algorithm>
 
 namespace crypto {
 
@@ -103,6 +104,25 @@ namespace crypto {
 
         pt.resize(ptlen);
         return pt;
+    }
+
+    std::string CryptoModule::base64Encode(const uint8_t* data, size_t len) {
+        size_t encodedLen = sodium_base64_encoded_len(len, sodium_base64_VARIANT_ORIGINAL);
+        std::string encoded(encodedLen, '\0');
+        sodium_bin2base64(&encoded[0], encodedLen, data, len, sodium_base64_VARIANT_ORIGINAL);
+
+        encoded.erase(std::find(encoded.begin(), encoded.end(), '\0'), encoded.end());
+        return encoded;
+    }
+
+    std::vector<uint8_t> CryptoModule::base64Decode(const std::string& s) {
+        std::vector<uint8_t> decoded(s.size());
+        size_t decodedLen = 0;
+        if (sodium_base642bin(decoded.data(), decoded.size(), s.c_str(), s.size(), nullptr, &decodedLen, nullptr, sodium_base64_VARIANT_ORIGINAL) != 0) {
+            throw std::runtime_error("Base64 decode failed");
+        }
+        decoded.resize(decodedLen);
+        return decoded;
     }
 
     Key256 CryptoModule::strToKey256(const std::string& s) {

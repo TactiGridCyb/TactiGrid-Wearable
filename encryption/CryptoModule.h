@@ -37,6 +37,9 @@ public:
     static std::string key256ToString(const Key256& key);
 
     static std::string key256ToAsciiString(const Key256& key);
+
+    static std::string base64Encode(const uint8_t* data, size_t len);
+    static std::vector<uint8_t> base64Decode(const std::string& s);
 };
 
 }

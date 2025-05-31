@@ -71,14 +71,16 @@ int16_t LoraModule::setup(bool transmissionMode_)
 
 int16_t LoraModule::sendData(const char* data, bool interrupt)
 {
+  Serial.println("sendData");
   if (!tryStartOp(Op::Transmit)) {
     return RADIOLIB_ERR_CHANNEL_BUSY;
   }
+  Serial.println("moved in sendData");
 
   int16_t status = interrupt
       ? loraDevice.startTransmit(data)
       : loraDevice.transmit(data);
-
+  Serial.printf("transmission status: %d", status);
   if (status != RADIOLIB_ERR_NONE) {
     currentOp.store(Op::None, std::memory_order_release);
     return status;
@@ -89,10 +91,12 @@ int16_t LoraModule::sendData(const char* data, bool interrupt)
 
 int16_t LoraModule::readData()
 {
+  Serial.println("ReadData called");
   if (!tryStartOp(Op::Receive)) {
     return RADIOLIB_ERR_NONE;
   }
 
+  Serial.println("moved in ReadData");
   int16_t status = loraDevice.startReceive();
   if (status != RADIOLIB_ERR_NONE) {
     currentOp.store(Op::None, std::memory_order_release);
@@ -118,7 +122,7 @@ int16_t LoraModule::sendFile(const uint8_t* data, size_t length, size_t chunkSiz
     currentOp.store(Op::None, std::memory_order_release);
     return status;
   }
-  delay(100);
+  delay(150);
 
   uint16_t totalChunks = (length + chunkSize - 1) / chunkSize;
   for (uint16_t i = 0; i < totalChunks; ++i) {
@@ -144,8 +148,68 @@ int16_t LoraModule::sendFile(const uint8_t* data, size_t length, size_t chunkSiz
   while (!opFinished.load(std::memory_order_acquire)) {
     delay(1);
   }
+
+
   handleCompletedOperation();
   return status;
+}
+
+void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
+{
+    if (len == 0)
+    {
+      return;
+    }
+
+    Serial.printf("📦 Incoming packet: %.*s\n", len, pkt);
+
+    if (memcmp(pkt, kFileInitTag, strlen(kFileInitTag)) == 0) {
+        size_t totalSize = 0;
+        this->transferChunkSize = 0;
+
+        if (sscanf((const char*)pkt, "FILE_INIT:%zu:%zu", &totalSize, &this->transferChunkSize) == 2) {
+            this->expectedChunks = (totalSize + this->transferChunkSize - 1) / this->transferChunkSize;
+            this->fileBuffer.clear();
+            this->fileBuffer.resize(totalSize);
+            this->receivedChunks = 0;
+
+            Serial.printf("📥 INIT: totalSize=%zu, chunkSize=%zu, expectedChunks=%u\n",
+                          totalSize, this->transferChunkSize, this->expectedChunks);
+        } else {
+            Serial.println("❌ INIT frame parse failed!");
+        }
+        return;
+    }
+
+    if (memcmp(pkt, kFileEndTag, strlen(kFileEndTag)) == 0) {
+        if (this->onFileReceived && this->receivedChunks == this->expectedChunks) {
+            Serial.printf("✅ File complete (%u chunks)\n", this->receivedChunks);
+            this->onFileReceived(this->fileBuffer.data(), this->fileBuffer.size());
+            Serial.printf("returning from function");
+            return;
+        } else {
+            Serial.printf("❌ Incomplete file (%u/%u chunks)\n", this->receivedChunks, this->expectedChunks);
+        }
+        return;
+    }
+
+    if (pkt[0] == 0xAB && len >= 4) {
+        uint16_t chunkIndex = (pkt[1] << 8) | pkt[2];
+        uint8_t chunkLen = pkt[3];
+        size_t offset = chunkIndex * this->transferChunkSize;
+
+        if (offset + chunkLen > this->fileBuffer.size()) {
+            Serial.printf("❌ Chunk %u out of bounds (offset %zu + len %u > buffer %zu)\n",
+                          chunkIndex, offset, chunkLen, this->fileBuffer.size());
+            return;
+        }
+
+        memcpy(&this->fileBuffer[offset], pkt + 4, chunkLen);
+        this->receivedChunks++;
+
+        Serial.printf("🧩 Chunk #%u received: offset=%zu, len=%u, totalChunks=%u/%u\n",
+                      chunkIndex, offset, chunkLen, this->receivedChunks, this->expectedChunks);
+    }
 }
 
 int16_t LoraModule::setFrequency(float newFreq)
@@ -181,7 +245,6 @@ bool LoraModule::isChannelFree()
 }
 
 void LoraModule::cancelReceive() {
-  loraDevice.standby();
   currentOp.store(Op::None, std::memory_order_release);
   opFinished.store(false, std::memory_order_release);
 }
@@ -209,6 +272,15 @@ void LoraModule::handleCompletedOperation()
   opFinished.store(false, std::memory_order_release);
 
   Serial.println("moved in handleCompletedOperation");
+
+  if (op == Op::Receive)
+  {
+    Serial.println("RECEIVE FINISHED");
+  }
+  else if(op == Op::Transmit)
+  {
+    Serial.println("TRANSMIT FINISHED");
+  }
 
   if (op == Op::Receive) {
     uint8_t buf[512];

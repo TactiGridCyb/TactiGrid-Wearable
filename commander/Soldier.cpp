@@ -26,7 +26,7 @@ Soldier::Soldier(const std::string& name,
         throw std::runtime_error("Failed to copy CA certificate");
     }
 
-    unsigned char buf[4096];
+    static unsigned char buf[4096];
     int ret = mbedtls_pk_write_key_der(const_cast<mbedtls_pk_context*>(&privateKey), buf, sizeof(buf));
     if (ret > 0) {
         if (mbedtls_pk_parse_key(&this->privateKey, buf + sizeof(buf) - ret, ret, nullptr, 0) != 0) {

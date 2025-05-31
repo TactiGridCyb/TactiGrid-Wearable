@@ -167,10 +167,13 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     updateLabel(5);
 
-
+    Serial.println("Private Key PEM:");
+    Serial.println(certModule::privateKeyToString(privKey).c_str());
+    
     mbedtls_x509_crt_free(&ownCert);
     mbedtls_x509_crt_free(&caCert);
     mbedtls_pk_free(&privKey);
+
 
     if (this->soldierModule) {
         Serial.println("Soldier parameters:");
@@ -187,12 +190,10 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     Serial.println("Certificates and Private Key:");
     Serial.println("Own Certificate PEM:");
     Serial.println(ownCertPem.c_str());
-    Serial.println("Private Key PEM:");
-    Serial.println(certModule::privateKeyToString(privKey).c_str());
+
     Serial.println("CA Certificate PEM:");
     Serial.println(caPem.c_str());
 
-    
     this->destroyPage();
     delay(10);
     Serial.println("AFTER destroyPage");

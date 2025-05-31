@@ -5,7 +5,6 @@
 #include <WifiModule.h>
 
 #include "../missionPage/SoldiersMissionPage.h"
-
 class SoldiersMainPage : public LVGLPage {
     private:
     std::unique_ptr<WifiModule> wifiModule;

@@ -54,6 +54,8 @@ void setup()
     watch.begin(&Serial);
 
     beginLvglHelper();
+    
+    crypto::CryptoModule::init();
 
     if (!FFat.begin(true)) 
     {
@@ -86,6 +88,7 @@ void setup()
         delay(500);
     }
     
+
     receiveParametersPage = std::make_unique<SoldiersReceiveParametersPage>(std::move(wifiModule));
     receiveParametersPage->createPage();
     receiveParametersPage->setOnTransferPage(transferFromReceiveParametersToMainPage);

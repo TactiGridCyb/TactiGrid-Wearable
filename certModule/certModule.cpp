@@ -5,6 +5,10 @@
 #include "mbedtls/x509_crt.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/entropy.h"
+#include "mbedtls/version.h"
+#include "mbedtls/pem.h"
+#include "mbedtls/rsa.h"
+
 
 certModule::certModule() {
     mbedtls_pk_init(&privateKey);
@@ -203,17 +207,55 @@ certModule certModule::fromCertificateString(const std::string& certStr) {
 
 std::string certModule::certToString(const mbedtls_x509_crt& cert) {
     unsigned char buf[4096];
-    int len = mbedtls_x509_crt_info(reinterpret_cast<char*>(buf), sizeof(buf), "", &cert);
-    if (len < 0) {
+    size_t olen = 0;
+
+    int ret = mbedtls_pem_write_buffer(
+                  "-----BEGIN CERTIFICATE-----\n",
+                  "-----END CERTIFICATE-----\n",
+                  cert.raw.p,
+                  cert.raw.len,
+                  buf,
+                  sizeof(buf),
+                  &olen
+              );
+    if (ret != 0) {
         return "";
     }
-    return std::string(reinterpret_cast<char*>(buf), len);
+
+    return std::string(reinterpret_cast<char*>(buf), olen);
 }
 
 std::string certModule::privateKeyToString(const mbedtls_pk_context& privateKey) {
-    unsigned char buf[4096];
-    int len = mbedtls_pk_write_key_pem(const_cast<mbedtls_pk_context*>(&privateKey), buf, sizeof(buf));
-    if (len != 0) {
+    static unsigned char buf[4096];
+    char ver[100];
+
+    Serial.println("mbedTLS version: ");
+    mbedtls_version_get_string(ver);
+    Serial.println(ver);
+    mbedtls_pk_type_t t = mbedtls_pk_get_type(&privateKey);
+    Serial.print("Key type is: ");
+    switch (t) {
+    case MBEDTLS_PK_RSA:
+        Serial.println("MBEDTLS_PK_RSA");
+        break;
+    case MBEDTLS_PK_ECKEY:
+        Serial.println("MBEDTLS_PK_ECKEY");
+        break;
+    case MBEDTLS_PK_NONE:
+        Serial.println("MBEDTLS_PK_NONE");
+        break;
+    case MBEDTLS_PK_OPAQUE:
+        Serial.println("MBEDTLS_PK_OPAQUE (likely hardware key, not supported by pem_write)");
+        break;
+    default:
+        Serial.printf("Other type: %d\n", (int)t);
+        break;
+    }
+    int ret = mbedtls_pk_write_key_pem(const_cast<mbedtls_pk_context*>(&privateKey), buf, sizeof(buf));
+    if (ret != 0) {
+        char errbuf[100];
+        mbedtls_strerror(ret, errbuf, sizeof(errbuf));
+        Serial.printf("❌ Private key PEM conversion failed: %s\n", errbuf);
         return "";
     }
     return std::string(reinterpret_cast<char*>(buf));

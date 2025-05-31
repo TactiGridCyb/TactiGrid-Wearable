@@ -116,13 +116,14 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
     Serial.println("Before writeToFile");
 
+
     bool writeResult = FFatHelper::writeToFile(this->logFilePath.c_str(), result);
     Serial.print("writeToFile result: ");
     Serial.println(writeResult ? "success" : "failure");
 
     Serial.println(this->logFilePath.c_str());
 
-    FFatHelper::writeToFile(this->logFilePath.c_str(), result);
+    // Removed redundant writeToFile call here
 
     Serial.println("writeToFile");
 
@@ -178,6 +179,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     if(newG->heartRate == 0)
     {
         Serial.println("compromisedEvent");
+        delay(1000);
         this->compromisedEvent(newG->soldiersID);
     }
 
@@ -339,11 +341,17 @@ void CommandersMissionPage::compromisedEvent(uint8_t soldiersID)
 
     Serial.printf("CERT: %s\n", certModule::certToString(this->commanderModule->getOthers().at(soldiersID).cert).c_str());
     Serial.printf("GMK SENT: %s\n", crypto::CryptoModule::key256ToAsciiString(this->commanderModule->getGMK()).c_str());
-    Serial.printf("PAYLOAD SENT: %s %d\n", buffer.c_str(), soldiersID);
+
+    std::string base64Payload = crypto::CryptoModule::base64Encode(
+        reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
+
+    Serial.printf("PAYLOAD SENT (base64): %s %d\n", base64Payload.c_str(), soldiersID);
 
     while(this->loraModule->isBusy())
     {
         delay(1);
     }
-    this->loraModule->sendData(buffer.c_str());
+
+    Serial.println("SENDING base64Payload");
+    this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
 }
