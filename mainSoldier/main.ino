@@ -31,7 +31,7 @@ void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiMod
 
     fhfModule = std::make_unique<FHFModule>(soldiersModule->getFrequencies());
 
-    soldiersMissionPage = std::make_unique<SoldiersMissionPage>(loraModule, std::move(currentWifiModule), gpsModule, std::move(soldiersModule));
+    soldiersMissionPage = std::make_unique<SoldiersMissionPage>(loraModule, std::move(currentWifiModule), gpsModule, std::move(fhfModule), std::move(soldiersModule));
     soldiersMissionPage->createPage();
 }
 

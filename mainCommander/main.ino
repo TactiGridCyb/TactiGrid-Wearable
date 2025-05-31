@@ -4,6 +4,7 @@
 #include <LoraModule.h>
 #include <GPSModule.h>
 #include <Commander.h>
+#include <FHFModule.h>
 #include "../env.h"
 
 const char* ssid = WIFI_SSID;
@@ -16,6 +17,7 @@ std::unique_ptr<CommandersMissionPage> commandersMissionPage;
 std::unique_ptr<WifiModule> wifiModule;
 std::shared_ptr<LoraModule> loraModule;
 std::shared_ptr<GPSModule> gpsModule;
+std::unique_ptr<FHFModule> fhfModule;
 
 std::unique_ptr<Commander> commandersModule;
 
@@ -26,11 +28,12 @@ void transferFromMainToReceiveCoordsPage(std::unique_ptr<WifiModule> currentWifi
     Serial.println("transferFromMainToSendCoordsPage");
     loraModule = std::make_shared<LoraModule>(433.5);
     gpsModule = std::make_shared<GPSModule>();
+    fhfModule = std::make_unique<FHFModule>(commandersModule->getFrequencies());
 
     loraModule->setup(true);
 
     commandersMissionPage = std::make_unique<CommandersMissionPage>(loraModule,
-         std::move(currentWifiModule), gpsModule, std::move(commandersModule), logFilePath);
+         std::move(currentWifiModule), gpsModule, std::move(fhfModule), std::move(commandersModule), logFilePath);
     commandersMissionPage->createPage();
 }
 
