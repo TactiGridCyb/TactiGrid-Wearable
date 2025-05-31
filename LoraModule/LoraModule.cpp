@@ -64,6 +64,8 @@ int16_t LoraModule::setup(bool transmissionMode_)
   loraDevice.setDio1Action(dio1ISR);
 
   transmissionMode = transmissionMode_;
+
+  this->lastFrequencyCheck = millis();
   return RADIOLIB_ERR_NONE;
 }
 
@@ -151,6 +153,7 @@ int16_t LoraModule::setFrequency(float newFreq)
   if (isBusy()) {
     return freq;
   }
+
   freq = newFreq;
   loraDevice.setFrequency(freq);
   return freq;
@@ -225,12 +228,18 @@ void LoraModule::handleCompletedOperation()
   }
 }
 
-void LoraModule::syncFrequency()
+void LoraModule::syncFrequency(const FHFModule* module)
 {
   uint64_t currentFreqCheck = millis();
 
-  if(currentFreqCheck - this->lastFrequencyCheck >= 1000 && !NOTBUSY!)
+  if(currentFreqCheck - this->lastFrequencyCheck >= 1000 && !isBusy())
   {
-    float newFreq = 
+    float currentFreq = module->currentFrequency();
+
+    if(std::fabs(currentFreq - this->lastFrequencyCheck) > 1e-9)
+    {
+      this->setFrequency(currentFreq);
+      this->lastFrequencyCheck = currentFreqCheck;
+    }
   }
 }

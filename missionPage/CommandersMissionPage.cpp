@@ -1,12 +1,13 @@
 #include "CommandersMissionPage.h"
 
 CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraModule, std::unique_ptr<WifiModule> wifiModule,
-     std::shared_ptr<GPSModule> gpsModule, std::unique_ptr<Commander> commanderModule, const std::string& logFilePath, bool fakeGPS)
+     std::shared_ptr<GPSModule> gpsModule, std::unique_ptr<FHFModule> fhfModule, std::unique_ptr<Commander> commanderModule, const std::string& logFilePath, bool fakeGPS)
     : logFilePath(logFilePath) 
     {
         this->loraModule = std::move(loraModule);
         this->wifiModule = std::move(wifiModule);
         this->gpsModule = std::move(gpsModule);
+        this->fhfModule = std::move(fhfModule);
         this->commanderModule = std::move(commanderModule);
 
         this->mainPage = lv_scr_act();
@@ -45,6 +46,8 @@ void CommandersMissionPage::createPage() {
         if (!self->loraModule->isBusy()) {
             self->loraModule->readData();
         }
+
+        self->loraModule->syncFrequency(self->fhfModule.get());
     }, 100, this);
 }
 

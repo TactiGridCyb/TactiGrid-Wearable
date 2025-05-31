@@ -6,12 +6,13 @@ inline bool SoldiersMissionPage::isZero(float x)
 }
 
 SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
-     std::unique_ptr<WifiModule> wifiModule, std::shared_ptr<GPSModule> gpsModule,
-      std::unique_ptr<Soldier> soldierModule, bool fakeGPS)
+     std::unique_ptr<WifiModule> wifiModule, std::shared_ptr<GPSModule> gpsModule, std::unique_ptr<FHFModule> fhfModule, 
+     std::unique_ptr<Soldier> soldierModule, bool fakeGPS)
 {
     this->loraModule = std::move(loraModule);
     this->wifiModule = std::move(wifiModule);
     this->gpsModule = std::move(gpsModule);
+    this->fhfModule = std::move(fhfModule);
     this->soldierModule = std::move(soldierModule);
 
     this->mainPage = lv_scr_act();
@@ -58,6 +59,8 @@ void SoldiersMissionPage::createPage()
         if (!self->loraModule->isBusy()) {
             self->loraModule->readData();
         }
+
+        self->loraModule->syncFrequency(self->fhfModule.get());
     }, 100, this);
     
 }

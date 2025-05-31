@@ -10,11 +10,12 @@
 #include <FFatHelper.h>
 #include <Commander.h>
 #include <SoldiersSentData.h>
+#include <FHFModule.h>
 
 class CommandersMissionPage : public LVGLPage {
 public:
     CommandersMissionPage(std::shared_ptr<LoraModule>, std::unique_ptr<WifiModule>,
-         std::shared_ptr<GPSModule>, std::unique_ptr<Commander>, const std::string&, bool = true);
+         std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Commander>, const std::string&, bool = true);
 
     void createPage() override;
 
@@ -38,6 +39,7 @@ private:
     std::shared_ptr<LoraModule> loraModule;
     std::unique_ptr<WifiModule> wifiModule;
     std::shared_ptr<GPSModule> gpsModule;
+    std::shared_ptr<FHFModule> fhfModule;
     std::unique_ptr<Commander> commanderModule;
 
     std::string logFilePath;

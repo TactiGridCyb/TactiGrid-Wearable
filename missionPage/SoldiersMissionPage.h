@@ -9,6 +9,7 @@
 #include <SoldiersSentData.h>
 #include <CryptoModule.h>
 #include <Soldier.h>
+#include <FHFModule.h>
 
 #include <LVGLPage.h>
 
@@ -18,6 +19,7 @@ class SoldiersMissionPage : public LVGLPage
     std::shared_ptr<LoraModule> loraModule;
     std::unique_ptr<WifiModule> wifiModule;
     std::shared_ptr<GPSModule> gpsModule;
+    std::unique_ptr<FHFModule> fhfModule;
     std::unique_ptr<Soldier> soldierModule;
 
     lv_obj_t* mainPage;
@@ -42,7 +44,7 @@ class SoldiersMissionPage : public LVGLPage
 
     public:
     SoldiersMissionPage(std::shared_ptr<LoraModule>, std::unique_ptr<WifiModule>,
-         std::shared_ptr<GPSModule>, std::unique_ptr<Soldier>, bool = true);
+         std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Soldier>, bool = true);
     void createPage();
 
     static std::pair<float, float> getTileCenterLatLon(float lat, float lon, int zoomLevel, float tileSize);

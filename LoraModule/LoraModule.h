@@ -8,6 +8,8 @@
 #include <vector>
 #include <cstdint>
 
+#include <FHFModule.h>
+
 static constexpr const char* kFileInitTag  = "FILE_INIT";
 static constexpr const char* kFileChunkTag = "FILE_CHUNK";
 static constexpr const char* kFileEndTag   = "FILE_END";
@@ -54,7 +56,7 @@ public:
 
     void onLoraFileDataReceived(const uint8_t* pkt, size_t len);
 
-    void syncFrequency();
+    void syncFrequency(const FHFModule* module);
 
 private:
     bool tryStartOp(Op desired);
