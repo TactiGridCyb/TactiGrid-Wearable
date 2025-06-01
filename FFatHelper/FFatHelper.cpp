@@ -44,6 +44,73 @@ bool FFatHelper::isFileExisting(const char* filePath)
     return FFat.exists(filePath);
 }
 
+#include <FFat.h>
+#include <Arduino.h>
+
+bool FFatHelper::appendJsonObjectToFile(const char* filePath, const char* jsonObject)
+{
+    if (!FFat.exists(filePath)) 
+    {
+
+        File file = FFat.open(filePath, FILE_WRITE);
+        if (!file) {
+            Serial.println("Failed to create JSON file");
+            return false;
+        }
+        file.print("[\n");
+        file.print(jsonObject);
+        file.print("\n]\n");
+        file.close();
+        return true;
+    }
+
+    File file = FFat.open(filePath, "r+");
+    if (!file) 
+    {
+        Serial.println("Failed to open existing JSON file for append!");
+        return false;
+    }
+
+    size_t fileSize = file.size();
+    if (fileSize < 2) 
+    {
+        Serial.println("JSON file is unexpectedly small—refusing to append.");
+        file.close();
+        return false;
+    }
+
+    ssize_t pos = fileSize - 1;
+    int foundIndex = -1;
+    while (pos >= 0) 
+    {
+        file.seek(pos);
+        char c = file.read();
+        if (c == ']') 
+        {
+            foundIndex = pos;
+            break;
+        }
+        pos--;
+    }
+
+    if (foundIndex < 0) 
+    {
+        Serial.println("Did not find closing ']' in JSON file—cannot append safely.");
+        file.close();
+        return false;
+    }
+
+    file.seek(foundIndex);
+    file.print(",\n");
+
+    file.print(jsonObject);
+    file.print("\n]\n");
+    file.close();
+    return true;
+}
+
+
+
 void FFatHelper::listFiles(const char* path, uint8_t depth) {
     File dir = FFat.open(path);
     if (!dir || !dir.isDirectory()) {

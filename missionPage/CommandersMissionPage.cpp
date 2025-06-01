@@ -102,30 +102,32 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     }
     Serial.println("isZero");
     struct tm timeInfo;
-    char timeStr[9];
-    if (getLocalTime(&timeInfo))
-        strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeInfo);
+    char timeStr[25];
+    if (getLocalTime(&timeInfo, 3000))
+        strftime(timeStr, sizeof(timeStr), "%Y-%m-%dT%H:%M:%SZ", &timeInfo);
     else
-        strcpy(timeStr, "00:00:00");
+        strcpy(timeStr, "1970-01-01T00:00:00Z");
 
     Serial.println("getLocalTime");
 
-    char result[128];
-    snprintf(result, sizeof(result), "%s - Soldier 1: {%.5f, %.5f}", 
-             timeStr, tile_lat, tile_lon);
+    JsonDocument currentEvent;
+    currentEvent["timestamp"] = timeStr;
+    currentEvent["isEvent"] = false;
 
-    Serial.println("Before writeToFile");
+    JsonObject soldInfo = currentEvent.createNestedObject("data");
+    soldInfo["lat"] = marker_lat;
+    soldInfo["lon"] = marker_lon;
+    soldInfo["heartRate"] = newG->heartRate;
+    soldInfo["name"] = this->commanderModule->getOthers().at(newG->soldiersID).name;
 
+    String jsonStr;
+    serializeJson(currentEvent, jsonStr);
 
-    bool writeResult = FFatHelper::writeToFile(this->logFilePath.c_str(), result);
+    bool writeResult = FFatHelper::appendJsonObjectToFile(this->logFilePath.c_str(), jsonStr.c_str());
     Serial.print("writeToFile result: ");
     Serial.println(writeResult ? "success" : "failure");
 
     Serial.println(this->logFilePath.c_str());
-
-    // Removed redundant writeToFile call here
-
-    Serial.println("writeToFile");
 
     std::tuple<int,int,int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
 

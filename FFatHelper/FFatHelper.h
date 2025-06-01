@@ -11,4 +11,5 @@ class FFatHelper
     static bool writeToFile(const char* filePath, const char* content);
     static bool isFileExisting(const char* filePath);
     static void listFiles(const char* path = "/", uint8_t depth = 0);
+    static bool appendJsonObjectToFile(const char* filePath, const char* jsonObject);
 };
