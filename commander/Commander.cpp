@@ -47,6 +47,10 @@ const mbedtls_x509_crt& Commander::getCAPublicCert() const {
     return caCertificate;
 }
 
+void Commander::setGMK(const crypto::Key256& gmk) {
+    this->GMK = gmk;
+}
+
 uint16_t Commander::getCommanderNumber() const {
     return commanderNumber;
 }

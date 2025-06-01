@@ -27,29 +27,48 @@ namespace crypto {
         return key;
     }
 
-    Key256 CryptoModule::deriveGK(const Key256& gmk,
-                                uint64_t unixTime,
-                                const std::string& missionInfo,
-                                const ByteVec& salt,
-                                uint32_t soldiers)
+    Key256 CryptoModule::deriveGK(
+        const Key256& gmk,
+        uint64_t       unixTime,
+        const std::string& missionInfo,
+        const ByteVec& salt,
+        uint32_t       soldiers)
     {
         std::ostringstream oss;
         oss << unixTime << "|" << missionInfo << "|" << soldiers;
         std::string info = oss.str();
 
-        unsigned char prk[crypto_kdf_hkdf_sha256_KEYBYTES];
-        chk(crypto_kdf_hkdf_sha256_extract(prk,
-            salt.data(), salt.size(),
-            gmk.data(), gmk.size()), "hkdf extract");
+        unsigned char prk[crypto_auth_hmacsha256_BYTES];
+        chk(
+        crypto_auth_hmacsha256(
+            prk,
+            gmk.data(),
+            (unsigned long long)gmk.size(),
+            salt.data()
+        ),
+        "hkdf‐sha256 extract (HMAC)"
+        );
+
+        std::vector<unsigned char> buf;
+        buf.reserve(info.size() + 1);
+        buf.insert(buf.end(),
+                reinterpret_cast<const unsigned char*>(info.data()),
+                reinterpret_cast<const unsigned char*>(info.data()) + info.size());
+        buf.push_back(0x01);
 
         Key256 gk;
-        chk(crypto_kdf_hkdf_sha256_expand(
-            gk.data(), gk.size(),
-            info.data(), info.size(),
-            prk),
-            "hkdf expand");
+        chk(
+        crypto_auth_hmacsha256(
+            gk.data(),
+            buf.data(),
+            (unsigned long long)buf.size(),
+            prk
+        ),
+        "hkdf‐sha256 expand (HMAC)"
+        );
 
         sodium_memzero(prk, sizeof prk);
+
         return gk;
     }
 

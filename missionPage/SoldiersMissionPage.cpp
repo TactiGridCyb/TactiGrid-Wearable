@@ -114,12 +114,8 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     }
 
     payload.encryptedGMK.assign(decodedData.begin() + 2, decodedData.end());
-    Serial.println("ENCRYPTED GMK: ");
-    std::string newGMK;
-    certModule::decryptWithPrivateKey(this->soldierModule->getPrivateKey(), payload.encryptedGMK, newGMK);
-
-    Serial.printf("NEW GMK: %s\n", newGMK.c_str());
-    //this->onGMKSwitchEvent(payload);
+    
+    this->onGMKSwitchEvent(payload);
 
     Serial.printf("Deserialized SwitchGMK: msgID=%d, soldiersID=%d, encryptedGMK size=%zu\n",
                   payload.msgID, payload.soldiersID, payload.encryptedGMK.size());
@@ -134,6 +130,8 @@ void SoldiersMissionPage::onGMKSwitchEvent(SwitchGMK payload)
         Serial.println("Decryption failed in onGMKSwitchEvent");
         return;
     }
+    Serial.println("ENCRYPTED GMK: ");
+    Serial.printf("NEW GMK SET: %s\n", decryptedStr.c_str());
     crypto::Key256 newGMK = crypto::CryptoModule::strToKey256(decryptedStr);
     this->soldierModule->setGMK(newGMK);
 }

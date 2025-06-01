@@ -38,6 +38,7 @@ public:
     void setCAPublicCert(const std::string& caPublicCert);
     void setCommanderNumber(uint16_t soldierNumber);
     void setCurrentHeartRate(uint16_t heartRate);
+    void setGMK(const crypto::Key256& gmk);
 
     const std::vector<float>& getFrequencies() const;
     void appendFrequencies(const std::vector<float>& freqs);

@@ -331,8 +331,14 @@ void CommandersMissionPage::compromisedEvent(uint8_t soldiersID)
     payload.msgID = 0x01;
     payload.soldiersID = soldiersID;
 
+    
+    std::string info("IMPORTANT INFO");
+    crypto::ByteVec salt(16);
+    randombytes_buf(salt.data(), salt.size());
+    crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), millis(), info, salt, this->commanderModule->getOthers().size());
+
     certModule::encryptWithPublicKey(this->commanderModule->getOthers().at(soldiersID).cert,
-     crypto::CryptoModule::key256ToAsciiString(this->commanderModule->getGMK()), payload.encryptedGMK);
+     crypto::CryptoModule::key256ToAsciiString(newGMK), payload.encryptedGMK);
 
     std::string buffer;
     buffer += static_cast<char>(payload.msgID);
@@ -340,7 +346,7 @@ void CommandersMissionPage::compromisedEvent(uint8_t soldiersID)
     buffer.append(reinterpret_cast<const char*>(payload.encryptedGMK.data()), payload.encryptedGMK.size());
 
     Serial.printf("CERT: %s\n", certModule::certToString(this->commanderModule->getOthers().at(soldiersID).cert).c_str());
-    Serial.printf("GMK SENT: %s\n", crypto::CryptoModule::key256ToAsciiString(this->commanderModule->getGMK()).c_str());
+    Serial.printf("GMK SENT: %s\n", crypto::CryptoModule::key256ToAsciiString(newGMK).c_str());
 
     std::string base64Payload = crypto::CryptoModule::base64Encode(
         reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
@@ -353,5 +359,6 @@ void CommandersMissionPage::compromisedEvent(uint8_t soldiersID)
     }
 
     Serial.println("SENDING base64Payload");
+    this->commanderModule->setGMK(newGMK);
     this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
 }
