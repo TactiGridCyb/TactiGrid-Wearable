@@ -83,16 +83,11 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         return;
     }
 
-    std::string base64Str(reinterpret_cast<const char*>(data), len);\
-    Serial.printf("DECODED DATA: %s", base64Str.c_str());
+    std::string base64Str(reinterpret_cast<const char*>(data), len);
+    Serial.printf("DECODED DATA: %s\n", base64Str.c_str());
+
     std::vector<uint8_t> decodedData;
     Serial.println("-----------------------------");
-
-    base64Str.erase(std::remove_if(base64Str.begin(), base64Str.end(), [](unsigned char c) {
-        return std::isspace(c);
-    }), base64Str.end());
-
-    Serial.printf("DECODED DATA: %s", base64Str.c_str());
 
     try {
         decodedData = crypto::CryptoModule::base64Decode(base64Str);
@@ -102,29 +97,29 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         return;
     }
 
-    if (decodedData.size() < 4) {
+    if (decodedData.size() < 2) {
         Serial.println("Decoded data too short for SwitchGMK with length prefix");
         return;
     }
 
-    uint16_t payloadLen = static_cast<uint8_t>(decodedData[0]) | (static_cast<uint8_t>(decodedData[1]) << 8);
-    Serial.printf("PAYLOAD LEN: %d\n", payloadLen);
-    // if (payloadLen + 2 > decodedData.size()) {
-    //     Serial.println("Payload length mismatch");
-    //     return;
-    // }
+    Serial.printf("PAYLOAD LEN: %d\n", base64Str.length());
 
     SwitchGMK payload;
-    payload.msgID = static_cast<uint8_t>(decodedData[2]);
-    payload.soldiersID = static_cast<uint8_t>(decodedData[3]);
+    payload.msgID = static_cast<uint8_t>(decodedData[0]);
+    payload.soldiersID = static_cast<uint8_t>(decodedData[1]);
 
     if(payload.soldiersID != this->soldierModule->getSoldierNumber())
     {
         return;
     }
 
-    payload.encryptedGMK.assign(decodedData.begin() + 4, decodedData.begin() + 4 + payloadLen - 2);
-    this->onGMKSwitchEvent(payload);
+    payload.encryptedGMK.assign(decodedData.begin() + 2, decodedData.end());
+    Serial.println("ENCRYPTED GMK: ");
+    std::string newGMK;
+    certModule::decryptWithPrivateKey(this->soldierModule->getPrivateKey(), payload.encryptedGMK, newGMK);
+
+    Serial.printf("NEW GMK: %s\n", newGMK.c_str());
+    //this->onGMKSwitchEvent(payload);
 
     Serial.printf("Deserialized SwitchGMK: msgID=%d, soldiersID=%d, encryptedGMK size=%zu\n",
                   payload.msgID, payload.soldiersID, payload.encryptedGMK.size());

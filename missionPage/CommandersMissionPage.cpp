@@ -345,7 +345,7 @@ void CommandersMissionPage::compromisedEvent(uint8_t soldiersID)
     std::string base64Payload = crypto::CryptoModule::base64Encode(
         reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
 
-    Serial.printf("PAYLOAD SENT (base64): %s %d\n", base64Payload.c_str(), soldiersID);
+    Serial.printf("PAYLOAD SENT (base64): %s %d\n", base64Payload.c_str(), base64Payload.length());
 
     while(this->loraModule->isBusy())
     {
