@@ -6,7 +6,6 @@
 #include <WifiModule.h>
 #include <GPSModule.h>
 
-#include "UploadLogPage.h"
 #include "../missionPage/CommandersMissionPage.h"
 #include "ReceiveLogsPage.h"
 

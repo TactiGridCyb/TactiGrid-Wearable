@@ -51,6 +51,10 @@ void Commander::setGMK(const crypto::Key256& gmk) {
     this->GMK = gmk;
 }
 
+void Commander::setCompGMK(const crypto::Key256& gmk) {
+    this->CompGMK = gmk;
+}
+
 uint16_t Commander::getCommanderNumber() const {
     return commanderNumber;
 }

@@ -31,6 +31,9 @@ public:
     const crypto::Key256& getGMK() const {
         return GMK;
     }
+    const crypto::Key256& getCompGMK() const {
+        return CompGMK;
+    }
 
     void setName(const std::string& name);
     void setPublicCert(const std::string& publicCert);
@@ -39,6 +42,7 @@ public:
     void setCommanderNumber(uint16_t soldierNumber);
     void setCurrentHeartRate(uint16_t heartRate);
     void setGMK(const crypto::Key256& gmk);
+    void setCompGMK(const crypto::Key256& gmk);
 
     const std::vector<float>& getFrequencies() const;
     void appendFrequencies(const std::vector<float>& freqs);

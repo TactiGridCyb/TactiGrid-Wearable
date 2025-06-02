@@ -26,6 +26,8 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
         this->loraModule->onLoraFileDataReceived(data, len);
     });
 
+    this->loraModule->readData();
+
     this->mainPage = lv_scr_act();
 
     this->fakeGPS = fakeGPS;
@@ -67,11 +69,11 @@ void SoldiersMissionPage::createPage()
         auto *self = static_cast<SoldiersMissionPage*>(t->user_data);
         self->loraModule->handleCompletedOperation();
 
-        if (!self->loraModule->isBusy()) {
-            self->loraModule->readData();
+        if (!self->loraModule->isBusy()) 
+        {
+            self->loraModule->syncFrequency(self->fhfModule.get());
         }
 
-        self->loraModule->syncFrequency(self->fhfModule.get());
     }, 50, this);
     
 }

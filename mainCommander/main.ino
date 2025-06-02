@@ -5,6 +5,7 @@
 #include <GPSModule.h>
 #include <Commander.h>
 #include <FHFModule.h>
+#include <CommandersUploadLogPage.h>
 #include "../env.h"
 
 const char* ssid = WIFI_SSID;
@@ -13,6 +14,7 @@ const char* password = WIFI_PASS;
 std::unique_ptr<CommandersReceiveParametersPage> commandersReceiveParametersPage;
 std::unique_ptr<CommandersMainPage> commandersMainPage;
 std::unique_ptr<CommandersMissionPage> commandersMissionPage;
+std::unique_ptr<CommandersUploadLogPage> commandersUploadLogPage;
 
 std::unique_ptr<WifiModule> wifiModule;
 std::shared_ptr<LoraModule> loraModule;
@@ -39,7 +41,8 @@ void transferFromMainToReceiveCoordsPage(std::unique_ptr<WifiModule> currentWifi
 
 void transferFromMainToUploadLogsPage(std::unique_ptr<WifiModule> currentWifiModule)
 {
-
+    commandersUploadLogPage = std::make_unique<CommandersUploadLogPage>(std::move(currentWifiModule), logFilePath);
+    commandersUploadLogPage->createPage();
 }
 
 void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Commander> commanderModule)

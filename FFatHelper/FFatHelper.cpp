@@ -44,8 +44,6 @@ bool FFatHelper::isFileExisting(const char* filePath)
     return FFat.exists(filePath);
 }
 
-#include <FFat.h>
-#include <Arduino.h>
 
 bool FFatHelper::appendJsonObjectToFile(const char* filePath, const char* jsonObject)
 {
@@ -109,7 +107,25 @@ bool FFatHelper::appendJsonObjectToFile(const char* filePath, const char* jsonOb
     return true;
 }
 
+bool FFatHelper::readFile(const char* filePath, String& outContent) {
+    File file = FFat.open(filePath, FILE_READ);
 
+    if (!file) {
+        Serial.printf("Failed to open '%s' for reading\n", filePath);
+        return false;
+    }
+
+    size_t fileSize = file.size();
+    outContent.clear();
+    outContent.reserve(fileSize);
+
+    while (file.available()) {
+        outContent += (char)file.read();
+    }
+
+    file.close();
+    return true;
+}
 
 void FFatHelper::listFiles(const char* path, uint8_t depth) {
     File dir = FFat.open(path);
