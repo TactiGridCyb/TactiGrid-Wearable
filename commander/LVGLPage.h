@@ -37,7 +37,7 @@ class LVGLPage {
         lv_label_set_text(label, initialText);
         lv_obj_center(label);
 
-        lv_obj_add_flag(info_box, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(infoBox, LV_OBJ_FLAG_HIDDEN);
 
         return infoBox;
     }

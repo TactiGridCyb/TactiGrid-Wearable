@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <vector>
 #include <algorithm>
+#include <LilyGoLib.h>
 #include "mbedtls/x509_crt.h"
 
 
@@ -66,7 +67,7 @@ public:
     void updateReceivedData(uint8_t id)
     {
         static_assert(
-            std::is_same<T,CommanderInfo>::value || std::is_same<T,SoldierInfo>::value,
+            std::is_same<InfoType,CommanderInfo>::value || std::is_same<InfoType,SoldierInfo>::value,
                 "PersonBase may only be instantiated with a class that has isComp var"
         );
 
@@ -76,7 +77,7 @@ public:
     void setCompromised(uint8_t id)
     {
         static_assert(
-            std::is_same<T,CommanderInfo>::value || std::is_same<T,SoldierInfo>::value,
+            std::is_same<InfoType,CommanderInfo>::value || std::is_same<InfoType,SoldierInfo>::value,
                 "PersonBase may only be instantiated with a class that has isComp var"
         );
 

@@ -115,6 +115,8 @@ int16_t LoraModule::sendFile(const uint8_t* data, size_t length, size_t chunkSiz
     return RADIOLIB_ERR_NONE;
   }
 
+  Serial.println("sendFile");
+
   while (!tryStartOp(Op::FileTx)) 
   {
     delay(1);
@@ -157,6 +159,7 @@ int16_t LoraModule::sendFile(const uint8_t* data, size_t length, size_t chunkSiz
     delay(50);
   }
 
+  Serial.println("RESETTING ACTION");
   loraDevice.setDio1Action(dio1ISR);
 
   if (status == RADIOLIB_ERR_NONE) 
@@ -169,7 +172,9 @@ int16_t LoraModule::sendFile(const uint8_t* data, size_t length, size_t chunkSiz
     delay(1);
   }
 
-
+  Serial.println("FINISHED FILE");
+  handleCompletedOperation();
+  
   return status;
 }
 

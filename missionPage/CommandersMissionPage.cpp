@@ -89,9 +89,19 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
     try {
         pt = crypto::CryptoModule::decrypt(this->commanderModule->getGMK(), ct);
-    } catch (const std::exception& e) {
+    } catch (const std::exception& e)
+    {
         Serial.printf("Decryption failed: %s\n", e.what());
-        return;
+        try
+        {
+            pt = crypto::CryptoModule::decrypt(this->commanderModule->getCompGMK(), ct);
+        }
+        catch(const std::exception& e)
+        {
+            Serial.printf("Comp Decryption failed: %s\n", e.what());
+            return;
+        }
+        
     }
 
     SoldiersSentData* newG = reinterpret_cast<SoldiersSentData*>(pt.data());
@@ -345,7 +355,7 @@ std::tuple<int,int> CommandersMissionPage::latlon_to_pixel(double lat, double lo
     return std::make_tuple(localX, localY);
 }
 
-void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t soldiersIDMoveToComp = -1)
+void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t soldiersIDMoveToComp)
 {
     this->commanderModule->setCompromised(soldiersIDMoveToComp);
 
