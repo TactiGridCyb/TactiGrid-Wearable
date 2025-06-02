@@ -45,14 +45,15 @@ class LVGLPage {
     static void restartInfoBoxFadeout(lv_obj_t * infoBox, uint32_t delay_ms, uint32_t fade_time_ms, const char* text)
     {
         lv_obj_t * label = lv_obj_get_child(infoBox, 0);
-
         if(label) 
         {
             lv_label_set_text(label, text);
         }
-
+        
         lv_obj_clear_flag(infoBox, LV_OBJ_FLAG_HIDDEN);
-
+        
+        lv_obj_move_foreground(infoBox);
+        
         lv_obj_set_style_opa(infoBox, LV_OPA_COVER, 0);
 
         lv_obj_fade_out(infoBox, fade_time_ms, delay_ms);

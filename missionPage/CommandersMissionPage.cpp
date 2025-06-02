@@ -359,11 +359,11 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
 {
     this->commanderModule->setCompromised(soldiersIDMoveToComp);
 
+    
+
     SwitchGMK payload;
     payload.msgID = 0x01;
     payload.soldiersID = soldiersIDMoveToComp;
-
-    LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, infoBoxText);
 
     std::string info("IMPORTANT INFO");
     crypto::ByteVec salt(16);
@@ -398,7 +398,7 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     }
     
     this->commanderModule->setGMK(newGMK);
-    
+    LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, infoBoxText);
 }
 
 void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID)
