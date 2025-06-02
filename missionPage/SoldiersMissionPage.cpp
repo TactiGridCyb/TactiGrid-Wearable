@@ -201,7 +201,7 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
     Serial.println("sendTimerCallback");
     Serial.println(self->currentIndex);
 
-    if(self->currentIndex < 20) {
+    if(self->currentIndex < 2) {
         if (self->delaySendFakeGPS)
         {
             delay(10000);

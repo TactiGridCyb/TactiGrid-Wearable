@@ -22,7 +22,8 @@ public:
         Transmit,
         Receive,
         FileTx,
-        FileRx
+        FileRx,
+        FreqSync
     };
 
     void setOnReadData(std::function<void(const uint8_t* data, size_t len)> cb) {

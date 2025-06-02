@@ -56,13 +56,13 @@ void CommandersMissionPage::createPage() {
         auto *self = static_cast<CommandersMissionPage*>(t->user_data);
         for (const auto& soldier : self->commanderModule->getOthers()) 
         {
-            if(millis() - soldier.second.lastTimeReceivedData >= 60000)
+            if(millis() - soldier.second.lastTimeReceivedData >= 10000)
             {
                 self->missingSoldierEvent(soldier.first);
                 break;
             }
         }
-    }, 60000, this);
+    }, 30000, this);
 }
 
 void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
@@ -206,7 +206,8 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
     if(newG->heartRate == 0 && !this->commanderModule->getOthers().at(newG->soldiersID).isComp)
     {
-        Serial.println("switchGMKEvent");
+        Serial.println("CompromisedEvent");
+        this->commanderModule->setCompromised(newG->soldiersID);
         delay(500);
         const std::string newEventText = "Compromised Soldier Event - " + 
         this->commanderModule->getOthers().at(newG->soldiersID).name;
@@ -357,28 +358,28 @@ std::tuple<int,int> CommandersMissionPage::latlon_to_pixel(double lat, double lo
 
 void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t soldiersIDMoveToComp)
 {
-    this->commanderModule->setCompromised(soldiersIDMoveToComp);
-
-    
+    Serial.println("switchGMKEvent");
 
     SwitchGMK payload;
     payload.msgID = 0x01;
     payload.soldiersID = soldiersIDMoveToComp;
 
+    Serial.println("IMPORTANT INFO");
     std::string info("IMPORTANT INFO");
     crypto::ByteVec salt(16);
     randombytes_buf(salt.data(), salt.size());
     const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), millis(), info, salt, this->commanderModule->getOthers().size());
-
+    Serial.println("newGMK");
     for (const auto& soldier : this->commanderModule->getOthers()) 
     {
         const crypto::Key256& keyRef = (soldier.first == soldiersIDMoveToComp ? this->commanderModule->getCompGMK() : newGMK);
         
         payload.encryptedGMK.clear();
         payload.soldiersID = soldier.first;
-        certModule::encryptWithPublicKey(this->commanderModule->getOthers().at(soldiersIDMoveToComp).cert,
+        Serial.printf("%d\n", payload.soldiersID);
+        certModule::encryptWithPublicKey(this->commanderModule->getOthers().at(payload.soldiersID).cert,
         crypto::CryptoModule::key256ToAsciiString(keyRef), payload.encryptedGMK);
-
+        Serial.println("crypto::CryptoModule::key256ToAsciiString");
         std::string buffer;
         buffer += static_cast<char>(payload.msgID);
         buffer += static_cast<char>(payload.soldiersID);
@@ -403,9 +404,11 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
 
 void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID)
 {
+    Serial.printf("missingSoldierEvent for %d\n", soldiersID);
     const std::string newEventText = "Missing Soldier Event - " + this->commanderModule->getOthers().at(soldiersID).name;
 
-
+    Serial.println("PRE PREMOVE");
     this->commanderModule->removeOther(soldiersID);
+
     this->switchGMKEvent(newEventText.c_str());
 }

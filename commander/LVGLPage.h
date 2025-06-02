@@ -25,7 +25,7 @@ class LVGLPage {
     static lv_obj_t * createInfoBox(const char* initialText = "HELLO WORLD")
     {
         lv_obj_t * infoBox = lv_obj_create(lv_scr_act());
-        lv_obj_set_size(infoBox, 150, 80);
+        lv_obj_set_size(infoBox, 180, 100);
         lv_obj_center(infoBox);
 
         lv_obj_set_style_bg_color(infoBox, lv_color_black(), 0);
