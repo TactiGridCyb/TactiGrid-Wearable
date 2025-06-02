@@ -46,7 +46,7 @@ public:
         }
     }
 
-    void removeOther(uint16_t id) {
+    void removeOther(uint8_t id) {
         others.erase(id);
 
         auto newEnd = std::remove(
@@ -61,6 +61,16 @@ public:
 
     const std::unordered_map<uint16_t, InfoType>& getOthers() const {
         return others;
+    }
+
+    void updateReceivedData(uint8_t id)
+    {
+        static_assert(
+            std::is_same<T,CommanderInfo>::value || std::is_same<T,SoldierInfo>::value,
+                "PersonBase may only be instantiated with a class that has isComp var"
+        );
+
+        this->others.at(id).lastTimeReceivedData = millis();
     }
 
     void setCompromised(uint8_t id)

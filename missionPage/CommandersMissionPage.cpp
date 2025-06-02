@@ -51,6 +51,18 @@ void CommandersMissionPage::createPage() {
 
         self->loraModule->syncFrequency(self->fhfModule.get());
     }, 100, this);
+
+    lv_timer_create([](lv_timer_t* t){
+        auto *self = static_cast<CommandersMissionPage*>(t->user_data);
+        for (const auto& soldier : self->commanderModule->getOthers()) 
+        {
+            if(millis() - soldier.second.lastTimeReceivedData >= 60000)
+            {
+                self->missingSoldierEvent(soldier.first);
+                break;
+            }
+        }
+    }, 60000, this);
 }
 
 void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
@@ -179,12 +191,16 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     }
 
     create_fading_circle(marker_lat, marker_lon, centerLat, centerLon, newG->soldiersID, 19, &ballColors[newG->soldiersID], marker, label);
-    
+
+    this->commanderModule->updateReceivedData(newG->soldiersID);
+
     if(newG->heartRate == 0 && !this->commanderModule->getOthers().at(newG->soldiersID).isComp)
     {
-        Serial.println("compromisedEvent");
+        Serial.println("switchGMKEvent");
         delay(500);
-        this->compromisedEvent(newG->soldiersID);
+        const std::string newEventText = "Compromised Soldier Event - " + 
+        this->commanderModule->getOthers().at(newG->soldiersID).name;
+        this->switchGMKEvent(newEventText.c_str(), newG->soldiersID);
     }
 
     
@@ -329,18 +345,15 @@ std::tuple<int,int> CommandersMissionPage::latlon_to_pixel(double lat, double lo
     return std::make_tuple(localX, localY);
 }
 
-void CommandersMissionPage::compromisedEvent(uint8_t soldiersID)
+void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t soldiersIDMoveToComp = -1)
 {
-    this->commanderModule->setCompromised(soldiersID);
-
-    LVGLPage::restartInfoBoxFadeout(this->infoBox, 2000, 5000, "Compromised Soldier Event");
+    this->commanderModule->setCompromised(soldiersIDMoveToComp);
 
     SwitchGMK payload;
     payload.msgID = 0x01;
-    payload.soldiersID = soldiersID;
+    payload.soldiersID = soldiersIDMoveToComp;
 
-    const std::string newEventText = "Compromised Soldier Event - " + this->commanderModule->getOthers().at(soldiersID).name;
-    LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, newEventText.c_str());
+    LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, infoBoxText);
 
     std::string info("IMPORTANT INFO");
     crypto::ByteVec salt(16);
@@ -349,8 +362,11 @@ void CommandersMissionPage::compromisedEvent(uint8_t soldiersID)
     
     for (const auto& soldier : this->commanderModule->getOthers()) 
     {
-        const crypto::Key256& keyRef = (soldier.first == soldiersID ? this->commanderModule->getCompGMK() : newGMK);
-        certModule::encryptWithPublicKey(this->commanderModule->getOthers().at(soldiersID).cert,
+        const crypto::Key256& keyRef = (soldier.first == soldiersIDMoveToComp ? this->commanderModule->getCompGMK() : newGMK);
+        
+        payload.encryptedGMK.clear();
+        payload.soldiersID = soldier.first;
+        certModule::encryptWithPublicKey(this->commanderModule->getOthers().at(soldiersIDMoveToComp).cert,
         crypto::CryptoModule::key256ToAsciiString(keyRef), payload.encryptedGMK);
 
         std::string buffer;
@@ -373,5 +389,13 @@ void CommandersMissionPage::compromisedEvent(uint8_t soldiersID)
     
     this->commanderModule->setGMK(newGMK);
     
-    
+}
+
+void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID)
+{
+    const std::string newEventText = "Missing Soldier Event - " + this->commanderModule->getOthers().at(soldiersID).name;
+
+
+    this->commanderModule->removeOther(soldiersID);
+    this->switchGMKEvent(newEventText.c_str());
 }

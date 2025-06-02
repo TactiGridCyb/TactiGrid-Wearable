@@ -57,5 +57,6 @@ private:
     void onDataReceived(const uint8_t* data, size_t len);
     void showMiddleTile();
 
-    void compromisedEvent(uint8_t soldiersID);
+    void switchGMKEvent(const char* infoBoxText, uint8_t soldiersIDMoveToComp = -1);
+    void missingSoldierEvent(uint8_t soldiersID);
 };
