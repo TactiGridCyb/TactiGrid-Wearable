@@ -30,6 +30,7 @@ class SoldiersMissionPage : public LVGLPage
     uint16_t coordCount;
 
     bool fakeGPS;
+    bool delaySendFakeGPS;
 
     static constexpr SoldiersSentData coords[5] = {
         {0.0f, 0.0f, 31.970866f, 34.785664f,  78, 2},

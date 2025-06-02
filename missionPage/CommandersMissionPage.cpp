@@ -18,6 +18,8 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
 
         FFatHelper::deleteFile(this->logFilePath.c_str());
         FFatHelper::deleteFile(this->tileFilePath);
+
+        this->infoBox = LVGLPage::createInfoBox();
     }
 
 void CommandersMissionPage::createPage() {
@@ -331,11 +333,15 @@ void CommandersMissionPage::compromisedEvent(uint8_t soldiersID)
 {
     this->commanderModule->setCompromised(soldiersID);
 
+    LVGLPage::restartInfoBoxFadeout(this->infoBox, 2000, 5000, "Compromised Soldier Event");
+
     SwitchGMK payload;
     payload.msgID = 0x01;
     payload.soldiersID = soldiersID;
 
-    
+    const std::string newEventText = "Compromised Soldier Event - " + this->commanderModule->getOthers().at(soldiersID).name;
+    LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, newEventText.c_str());
+
     std::string info("IMPORTANT INFO");
     crypto::ByteVec salt(16);
     randombytes_buf(salt.data(), salt.size());

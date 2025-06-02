@@ -20,6 +20,7 @@ struct CommanderInfo {
     uint16_t commanderNumber;
     mbedtls_x509_crt cert;
     bool isComp;
+    time_t lastTimeReceivedData;
     enum SoldiersStatus status;
 };
 
@@ -28,6 +29,7 @@ struct SoldierInfo {
     uint16_t soldierNumber;
     mbedtls_x509_crt cert;
     bool isComp;
+    time_t lastTimeReceivedData;
     enum SoldiersStatus status;
 };
 

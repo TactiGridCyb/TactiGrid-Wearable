@@ -143,6 +143,8 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
             info.name = std::move(ni.name);
             info.soldierNumber = ni.id;
             info.status = SoldiersStatus::REGULAR;
+            info.isComp = false;
+            info.lastTimeReceivedData = millis();
         }
         catch (...) {
             mbedtls_x509_crt_free(&info.cert);

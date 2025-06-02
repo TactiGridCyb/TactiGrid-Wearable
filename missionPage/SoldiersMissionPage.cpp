@@ -18,6 +18,8 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
     this->fhfModule = std::move(fhfModule);
     this->soldierModule = std::move(soldierModule);
 
+    this->delaySendFakeGPS = false;
+
     this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
         this->onDataReceived(data, len);
     });
@@ -133,9 +135,10 @@ void SoldiersMissionPage::onGMKSwitchEvent(SwitchGMK payload)
     Serial.println("ENCRYPTED GMK: ");
     Serial.printf("NEW GMK SET: %s\n", decryptedStr.c_str());
     crypto::Key256 newGMK = crypto::CryptoModule::strToKey256(decryptedStr);
-    this->soldierModule->setGMK(newGMK);
 
-    // Delay the next send in 10 seconds
+    this->soldierModule->setGMK(newGMK);
+    this->delaySendFakeGPS = true;
+
 }
 
 void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRate, uint16_t soldiersID) {
@@ -199,6 +202,11 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
     Serial.println(self->currentIndex);
 
     if(self->currentIndex < 20) {
+        if (self->delaySendFakeGPS)
+        {
+            delay(10000);
+            self->delaySendFakeGPS = false;
+        }
 
         struct tm timeInfo;
         char timeStr[9];

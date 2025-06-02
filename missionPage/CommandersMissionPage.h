@@ -45,7 +45,8 @@ private:
     std::string logFilePath;
 
     bool fakeGPS;
-
+    
+    lv_obj_t* infoBox;
 
     lv_obj_t* mainPage;
 
