@@ -369,7 +369,7 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     crypto::ByteVec salt(16);
     randombytes_buf(salt.data(), salt.size());
     const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), millis(), info, salt, this->commanderModule->getOthers().size());
-    
+
     for (const auto& soldier : this->commanderModule->getOthers()) 
     {
         const crypto::Key256& keyRef = (soldier.first == soldiersIDMoveToComp ? this->commanderModule->getCompGMK() : newGMK);
@@ -393,7 +393,7 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
         Serial.printf("PAYLOAD SENT (base64): %s %d\n", base64Payload.c_str(), base64Payload.length());
 
         Serial.println("SENDING base64Payload");
-
+        this->loraModule->cancelReceive();
         this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
     }
     

@@ -330,6 +330,14 @@ void LoraModule::handleCompletedOperation()
   {
     Serial.println("TRANSMIT FINISHED");
   }
+  else if(op == Op::FileRx)
+  {
+    Serial.println("FileRx FINISHED");
+  }
+  else if(op == Op::FileTx)
+  {
+    Serial.println("FileTx FINISHED");
+  }
 
   if (op == Op::Receive || op == Op::FileRx)
   {
@@ -347,7 +355,10 @@ void LoraModule::handleCompletedOperation()
       }
     }
 
-    loraDevice.startReceive();
+    if(op == Op::FileRx)
+    {
+      loraDevice.startReceive();
+    }
   }
 }
 
