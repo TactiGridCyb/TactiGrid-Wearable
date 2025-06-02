@@ -26,8 +26,6 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
         this->loraModule->onLoraFileDataReceived(data, len);
     });
 
-    this->loraModule->readData();
-
     this->mainPage = lv_scr_act();
 
     this->fakeGPS = fakeGPS;
@@ -69,11 +67,11 @@ void SoldiersMissionPage::createPage()
         auto *self = static_cast<SoldiersMissionPage*>(t->user_data);
         self->loraModule->handleCompletedOperation();
 
-        if (!self->loraModule->isBusy()) 
-        {
-            self->loraModule->syncFrequency(self->fhfModule.get());
+        if (!self->loraModule->isBusy()) {
+            self->loraModule->readData();
         }
 
+        self->loraModule->syncFrequency(self->fhfModule.get());
     }, 50, this);
     
 }
@@ -136,6 +134,8 @@ void SoldiersMissionPage::onGMKSwitchEvent(SwitchGMK payload)
     Serial.printf("NEW GMK SET: %s\n", decryptedStr.c_str());
     crypto::Key256 newGMK = crypto::CryptoModule::strToKey256(decryptedStr);
     this->soldierModule->setGMK(newGMK);
+
+    // Delay the next send in 10 seconds
 }
 
 void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRate, uint16_t soldiersID) {

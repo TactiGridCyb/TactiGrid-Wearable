@@ -19,6 +19,7 @@ struct CommanderInfo {
     std::string name;
     uint16_t commanderNumber;
     mbedtls_x509_crt cert;
+    bool isComp;
     enum SoldiersStatus status;
 };
 
@@ -26,6 +27,7 @@ struct SoldierInfo {
     std::string name;
     uint16_t soldierNumber;
     mbedtls_x509_crt cert;
+    bool isComp;
     enum SoldiersStatus status;
 };
 
@@ -57,6 +59,16 @@ public:
 
     const std::unordered_map<uint16_t, InfoType>& getOthers() const {
         return others;
+    }
+
+    void setCompromised(uint8_t id)
+    {
+        static_assert(
+            std::is_same<T,CommanderInfo>::value || std::is_same<T,SoldierInfo>::value,
+                "PersonBase may only be instantiated with a class that has isComp var"
+        );
+
+        this->others.at(id).isComp = true;
     }
 
     std::vector<std::pair<uint16_t, InfoType>> getOthersInInsertionOrder() const {

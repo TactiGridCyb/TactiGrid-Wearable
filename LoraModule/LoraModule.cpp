@@ -81,7 +81,7 @@ int16_t LoraModule::sendData(const char* data, bool interrupt)
   int16_t status = interrupt
       ? loraDevice.startTransmit(data)
       : loraDevice.transmit(data);
-  Serial.printf("transmission status: %d", status);
+  Serial.printf("transmission status: %d\n", status);
   if (status != RADIOLIB_ERR_NONE) {
     currentOp.store(Op::None, std::memory_order_release);
     return status;
@@ -115,10 +115,12 @@ int16_t LoraModule::sendFile(const uint8_t* data, size_t length, size_t chunkSiz
     return RADIOLIB_ERR_NONE;
   }
 
-  if (!tryStartOp(Op::FileTx)) 
+  while (!tryStartOp(Op::FileTx)) 
   {
-    return RADIOLIB_ERR_CHANNEL_BUSY;
+    delay(1);
   }
+
+  this->loraDevice.setDio1Action(nullptr);
 
   String initFrame = String(kFileInitTag) + ":" +
                      String(length)       + ":" +
@@ -128,6 +130,7 @@ int16_t LoraModule::sendFile(const uint8_t* data, size_t length, size_t chunkSiz
   if (status != RADIOLIB_ERR_NONE) 
   {
     currentOp.store(Op::None, std::memory_order_release);
+    loraDevice.setDio1Action(dio1ISR);
     return status;
   }
 
@@ -147,11 +150,14 @@ int16_t LoraModule::sendFile(const uint8_t* data, size_t length, size_t chunkSiz
 
     if (status != RADIOLIB_ERR_NONE) 
     {
+      loraDevice.setDio1Action(dio1ISR);
       break;
     }
 
     delay(50);
   }
+
+  loraDevice.setDio1Action(dio1ISR);
 
   if (status == RADIOLIB_ERR_NONE) 
   {
@@ -164,7 +170,6 @@ int16_t LoraModule::sendFile(const uint8_t* data, size_t length, size_t chunkSiz
   }
 
 
-  handleCompletedOperation();
   return status;
 }
 
