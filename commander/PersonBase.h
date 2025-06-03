@@ -60,8 +60,12 @@ public:
     }
 
 
-    const std::unordered_map<uint16_t, InfoType>& getOthers() const {
+    const std::unordered_map<uint8_t, InfoType>& getOthers() const {
         return others;
+    }
+
+    const std::unordered_map<uint8_t, InfoType>& getComp() const {
+        return comp;
     }
 
     void updateReceivedData(uint8_t id)
@@ -82,10 +86,13 @@ public:
         );
 
         this->others.at(id).isComp = true;
+
+        this->addComp(id);
+
     }
 
-    std::vector<std::pair<uint16_t, InfoType>> getOthersInInsertionOrder() const {
-        std::vector<std::pair<uint16_t, InfoType>> orderedOthers;
+    std::vector<std::pair<uint8_t, InfoType>> getOthersInInsertionOrder() const {
+        std::vector<std::pair<uint8_t, InfoType>> orderedOthers;
         orderedOthers.reserve(insertionOrder.size());
         for (auto id : insertionOrder) {
             auto it = others.find(id);
@@ -96,11 +103,23 @@ public:
         return orderedOthers;
     }
 protected:
-    std::unordered_map<uint16_t, InfoType> others;
-    std::vector<uint16_t> insertionOrder;
+    std::unordered_map<uint8_t, InfoType> others;
+    std::unordered_map<uint8_t, InfoType> comp;
+    std::vector<uint8_t> insertionOrder;
 
     static float intervalMS;
 
-    static uint16_t infoNumber(const CommanderInfo& info) { return info.commanderNumber; }
-    static uint16_t infoNumber(const SoldierInfo& info) { return info.soldierNumber; }
+    static uint8_t infoNumber(const CommanderInfo& info) { return info.commanderNumber; }
+    static uint8_t infoNumber(const SoldierInfo& info) { return info.soldierNumber; }
+
+private:
+    void addComp(const InfoType& info) {
+        uint8_t id = infoNumber(info);
+        auto [it, inserted] = comp.emplace(id, info);
+
+        if (!inserted) 
+        {
+            it->second = info;
+        }
+    }
 };

@@ -10,6 +10,7 @@
 #include <FFatHelper.h>
 #include <Commander.h>
 #include <SoldiersSentData.h>
+#include "../commander/Soldier.h"
 #include <FHFModule.h>
 
 class CommandersMissionPage : public LVGLPage {
@@ -35,11 +36,14 @@ public:
     
     static std::tuple<int,int> latlon_to_pixel(double lat, double lon, double centerLat, double centerLon, int zoom);
 
+    void setTransferFunction(std::function<void(std::shared_ptr<LoraModule>, std::unique_ptr<WifiModule>,
+         std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Soldier>)> cb);
+
 private:
     std::shared_ptr<LoraModule> loraModule;
     std::unique_ptr<WifiModule> wifiModule;
     std::shared_ptr<GPSModule> gpsModule;
-    std::shared_ptr<FHFModule> fhfModule;
+    std::unique_ptr<FHFModule> fhfModule;
     std::unique_ptr<Commander> commanderModule;
 
     std::string logFilePath;
@@ -54,10 +58,15 @@ private:
     std::unordered_map<uint16_t, lv_obj_t*> labels;
     std::unordered_map<uint16_t, lv_obj_t*> markers;
 
+    std::function<void(std::shared_ptr<LoraModule>, std::unique_ptr<WifiModule>,
+         std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Soldier>)> transferFunction;
+
     void onDataReceived(const uint8_t* data, size_t len);
     void showMiddleTile();
 
     void switchGMKEvent(const char* infoBoxText, uint8_t soldiersIDMoveToComp = -1);
     void missingSoldierEvent(uint8_t soldiersID);
     void switchCommanderEvent(const char* infoBoxText);
+    
+
 };

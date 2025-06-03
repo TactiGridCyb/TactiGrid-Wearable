@@ -48,6 +48,8 @@ class SoldiersMissionPage : public LVGLPage
 
     void onDataReceived(const uint8_t*, size_t);
 
+    void onCommanderSwitchEvent(SwitchCommander);
+
     public:
     SoldiersMissionPage(std::shared_ptr<LoraModule>, std::unique_ptr<WifiModule>,
          std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Soldier>, bool = true);

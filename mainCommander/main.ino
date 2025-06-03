@@ -6,6 +6,7 @@
 #include <Commander.h>
 #include <FHFModule.h>
 #include <CommandersUploadLogPage.h>
+#include <SoldiersMissionPage.h>
 #include "../env.h"
 
 const char* ssid = WIFI_SSID;
@@ -15,6 +16,7 @@ std::unique_ptr<CommandersReceiveParametersPage> commandersReceiveParametersPage
 std::unique_ptr<CommandersMainPage> commandersMainPage;
 std::unique_ptr<CommandersMissionPage> commandersMissionPage;
 std::unique_ptr<CommandersUploadLogPage> commandersUploadLogPage;
+std::unique_ptr<SoldiersMissionPage> soldiersMissionPage;
 
 std::unique_ptr<WifiModule> wifiModule;
 std::shared_ptr<LoraModule> loraModule;
@@ -24,6 +26,21 @@ std::unique_ptr<FHFModule> fhfModule;
 std::unique_ptr<Commander> commandersModule;
 
 const std::string logFilePath = "/log.txt";
+
+void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> newLoraModule,
+     std::unique_ptr<WifiModule> newWifiModule,
+     std::shared_ptr<GPSModule> newGPSModule, std::unique_ptr<FHFModule> newFhfModule,
+     std::unique_ptr<Soldier> soldiersModule)
+{
+
+    loraModule = newLoraModule;
+    gpsModule = newGPSModule;
+
+    soldiersMissionPage = std::make_unique<SoldiersMissionPage>(newLoraModule, std::move(wifiModule),
+     newGPSModule, std::move(newFhfModule), std::move(soldiersModule));
+
+    soldiersMissionPage->createPage();
+}
 
 void transferFromMainToReceiveCoordsPage(std::unique_ptr<WifiModule> currentWifiModule)
 {
@@ -37,6 +54,7 @@ void transferFromMainToReceiveCoordsPage(std::unique_ptr<WifiModule> currentWifi
     commandersMissionPage = std::make_unique<CommandersMissionPage>(loraModule,
          std::move(currentWifiModule), gpsModule, std::move(fhfModule), std::move(commandersModule), logFilePath);
     commandersMissionPage->createPage();
+    commandersMissionPage->setTransferFunction(transferFromMissionCommanderToMissionSoldier);
 }
 
 void transferFromMainToUploadLogsPage(std::unique_ptr<WifiModule> currentWifiModule)

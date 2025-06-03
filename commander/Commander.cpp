@@ -99,10 +99,27 @@ void Commander::setCurrentHeartRate(uint16_t heartRate) {
     this->currentHeartRate = heartRate;
 }
 
+const mbedtls_pk_context& Commander::getPrivateKey() const
+{
+    return privateKey;
+}
+
 const std::vector<float>& Commander::getFrequencies() const {
     return frequencies;
 }
 
 void Commander::appendFrequencies(const std::vector<float>& freqs) {
     frequencies.insert(frequencies.end(), freqs.begin(), freqs.end());
+}
+
+void Commander::clear()
+{
+    this->others.clear();
+    this->insertionOrder.clear();
+    this->comp.clear();
+
+    mbedtls_pk_free(&this->privateKey);
+    mbedtls_x509_crt_free(&this->ownCertificate);
+    mbedtls_x509_crt_free(&this->caCertificate);
+    
 }

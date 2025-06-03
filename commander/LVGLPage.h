@@ -42,7 +42,7 @@ class LVGLPage {
         return infoBox;
     }
 
-    static void restartInfoBoxFadeout(lv_obj_t * infoBox, uint32_t delay_ms, uint32_t fade_time_ms, const char* text)
+    static void restartInfoBoxFadeout(lv_obj_t * infoBox, uint32_t delay_ms, uint32_t fade_time_ms, const char* text, bool free = false)
     {
         lv_obj_t * label = lv_obj_get_child(infoBox, 0);
         if(label) 
@@ -57,6 +57,22 @@ class LVGLPage {
         lv_obj_set_style_opa(infoBox, LV_OPA_COVER, 0);
 
         lv_obj_fade_out(infoBox, fade_time_ms, delay_ms);
+
+        if(free)
+        {
+            lv_obj_add_event_cb(infoBox, freeInfoBoxCB, LV_EVENT_READY, NULL);
+        }
+    }
+
+    static void freeInfoBoxCB(lv_event_t * e)
+    {
+        lv_obj_t * infoBox = lv_event_get_target(e);
+        if(infoBox == NULL)
+        {
+            return;
+        }
+
+        lv_obj_del(infoBox);
     }
 
 };

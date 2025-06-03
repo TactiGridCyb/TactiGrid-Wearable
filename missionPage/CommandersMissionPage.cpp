@@ -335,6 +335,12 @@ void CommandersMissionPage::create_fading_circle(double markerLat, double marker
     labels[soldiersID] = label;
 }
 
+void CommandersMissionPage::setTransferFunction(std::function<void(std::shared_ptr<LoraModule>, std::unique_ptr<WifiModule>,
+         std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Soldier>)> cb)
+{
+    this->transferFunction = cb;
+}
+
 std::tuple<int,int> CommandersMissionPage::latlon_to_pixel(double lat, double lon, double centerLat, double centerLon, int zoom)
 {
     static constexpr double TILE_SIZE = 256.0;
@@ -415,5 +421,39 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID)
 
 void CommandersMissionPage::switchCommanderEvent(const char* infoBoxText)
 {
+    Serial.println("switchCommanderEvent");
+    SwitchCommander payload;
+    payload.msgID = 0x02;
+
+    for (const auto& soldier : this->commanderModule->getOthers()) 
+    {
+        Serial.println("soldiersID");
+        std::string buffer;
+        buffer += static_cast<char>(payload.msgID);
+        buffer += static_cast<char>(payload.soldiersID);
+        buffer.append(reinterpret_cast<const char*>(payload.shamirPart.data()), payload.shamirPart.size());
+
+        std::string base64Payload = crypto::CryptoModule::base64Encode(
+            reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
+
+        Serial.printf("PAYLOAD SENT (base64): %s %d\n", base64Payload.c_str(), base64Payload.length());
+
+        Serial.println("SENDING base64Payload");
+        this->loraModule->cancelReceive();
+        this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+    }
     
+
+    std::unique_ptr<Soldier> sold = std::make_unique<Soldier>(this->commanderModule->getName(),
+     this->commanderModule->getPrivateKey(), this->commanderModule->getCAPublicCert(),
+     this->commanderModule->getCommanderNumber(), this->commanderModule->getIntervalMS());
+
+    this->destroyPage();
+    delay(10);
+
+    this->commanderModule->clear();
+    LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, infoBoxText, true);
+    this->transferFunction(std::move(this->loraModule), std::move(this->wifiModule),
+     std::move(this->gpsModule), std::move(this->fhfModule), std::move(sold));
+
 }

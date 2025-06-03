@@ -81,7 +81,7 @@ void SoldiersMissionPage::createPage()
 void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 {
     if (len < 4) {
-        Serial.println("Received data too short for SwitchGMK with length prefix");
+        Serial.println("Received data too short for any struct with length prefix");
         return;
     }
 
@@ -100,27 +100,38 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     }
 
     if (decodedData.size() < 2) {
-        Serial.println("Decoded data too short for SwitchGMK with length prefix");
+        Serial.println("Decoded data too short for any struct with length prefix");
         return;
     }
 
     Serial.printf("PAYLOAD LEN: %d\n", base64Str.length());
 
-    SwitchGMK payload;
-    payload.msgID = static_cast<uint8_t>(decodedData[0]);
-    payload.soldiersID = static_cast<uint8_t>(decodedData[1]);
+    SwitchGMK sgPayload;
+    sgPayload.msgID = static_cast<uint8_t>(decodedData[0]);
+    sgPayload.soldiersID = static_cast<uint8_t>(decodedData[1]);
 
-    if(payload.soldiersID != this->soldierModule->getSoldierNumber())
+    if(sgPayload.soldiersID != this->soldierModule->getSoldierNumber())
     {
         return;
     }
+    else if(sgPayload.msgID == 0x01)
+    {
+        sgPayload.encryptedGMK.assign(decodedData.begin() + 2, decodedData.end());
+        this->onGMKSwitchEvent(sgPayload);
 
-    payload.encryptedGMK.assign(decodedData.begin() + 2, decodedData.end());
+        Serial.printf("Deserialized SwitchGMK: msgID=%d, soldiersID=%d, encryptedGMK size=%zu\n",
+                  sgPayload.msgID, sgPayload.soldiersID, sgPayload.encryptedGMK.size());
+    }
+    else if(sgPayload.msgID == 0x02)
+    {
+        SwitchCommander scPayload;
+        scPayload.msgID = sgPayload.msgID;
+        scPayload.soldiersID = sgPayload.soldiersID;
+        scPayload.shamirPart = sgPayload.encryptedGMK;
+    }
     
-    this->onGMKSwitchEvent(payload);
 
-    Serial.printf("Deserialized SwitchGMK: msgID=%d, soldiersID=%d, encryptedGMK size=%zu\n",
-                  payload.msgID, payload.soldiersID, payload.encryptedGMK.size());
+    
 
 }
 
@@ -290,4 +301,9 @@ void SoldiersMissionPage::parseGPSData()
         lv_label_set_text_fmt(this->sendLabel, "Sats:%u\nHDOP:%.1f\nLat:%.5f\nLon:%.5f\nDate:%d/%d/%d \nTime:%d/%d/%d\nAlt:%.2f m \nSpeed:%.2f",
                             satellites, hdop, lat, lon, year, month, day, hour, minute, second, meters, kmph);
     }
+}
+
+void SoldiersMissionPage::onCommanderSwitchEvent(SwitchCommander payload)
+{
+    
 }

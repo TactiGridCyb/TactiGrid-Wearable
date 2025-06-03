@@ -16,6 +16,9 @@ struct SwitchGMK{
 
 struct SwitchCommander{
     uint8_t msgID;
+    uint8_t soldiersID;
+    std::vector<uint8_t> shamirPart;
+    std::vector<uint8_t> compromisedSoldiers;
 };
 
 class Commander : public PersonBase<SoldierInfo>
@@ -38,6 +41,10 @@ public:
     const crypto::Key256& getCompGMK() const {
         return CompGMK;
     }
+    const uint16_t getIntervalMS() const
+    {
+        return intervalMS;
+    }
 
     void setName(const std::string& name);
     void setPublicCert(const std::string& publicCert);
@@ -47,9 +54,12 @@ public:
     void setCurrentHeartRate(uint16_t heartRate);
     void setGMK(const crypto::Key256& gmk);
     void setCompGMK(const crypto::Key256& gmk);
+    const mbedtls_pk_context& getPrivateKey() const;
 
     const std::vector<float>& getFrequencies() const;
     void appendFrequencies(const std::vector<float>& freqs);
+
+    void clear();
 
 private:
     std::string name;
