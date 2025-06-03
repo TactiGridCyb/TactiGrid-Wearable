@@ -32,10 +32,10 @@ private:
     std::vector<int> _soldiers; // id's of all the soldiers
     String _privateKeyPEM; // private key in pem
     //for testing only
+    // --> change - each soldier public key
     String _publicKeyPEMSoldier; // public key from soldier 1 in pem
     String _certificatePEM; // commanders certificate in pem
     String _caCertificatePEM; // ca's certificate as pem
     String _fhf;  // FHF as string
     String _gkf;  // GK function as string
-    //each soldier public key
 };

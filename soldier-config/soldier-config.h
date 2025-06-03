@@ -19,6 +19,7 @@ public:
     String getCaCertificatePEM() const;
     String getFHF() const;
     String getGKF() const;
+    int getCommanderId() const;
     String getCommanderPubKey();
 
 private:

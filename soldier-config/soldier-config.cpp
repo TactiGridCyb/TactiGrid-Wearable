@@ -64,3 +64,7 @@ String SoldierConfigModule::getGKF() const {
 String SoldierConfigModule::getCommanderPubKey() {
     return _commanderPublicKeyPEM;
 }
+
+int SoldierConfigModule::getCommanderId() const {
+    return _hierarchy[0];
+}
