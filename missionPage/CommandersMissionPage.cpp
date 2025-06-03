@@ -412,3 +412,8 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID)
 
     this->switchGMKEvent(newEventText.c_str());
 }
+
+void CommandersMissionPage::switchCommanderEvent(const char* infoBoxText)
+{
+    
+}

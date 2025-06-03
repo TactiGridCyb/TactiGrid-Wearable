@@ -59,4 +59,5 @@ private:
 
     void switchGMKEvent(const char* infoBoxText, uint8_t soldiersIDMoveToComp = -1);
     void missingSoldierEvent(uint8_t soldiersID);
+    void switchCommanderEvent(const char* infoBoxText);
 };

@@ -14,6 +14,10 @@ struct SwitchGMK{
     std::vector<uint8_t> encryptedGMK;
 };
 
+struct SwitchCommander{
+    uint8_t msgID;
+};
+
 class Commander : public PersonBase<SoldierInfo>
 {
 public:
