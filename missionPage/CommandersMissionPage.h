@@ -56,6 +56,9 @@ private:
 
     lv_obj_t* mainPage;
 
+    lv_timer_t* missingSoldierTimer;
+    lv_timer_t* regularLoopTimer;
+
     std::unordered_map<uint16_t, lv_color_t> ballColors;
     std::unordered_map<uint16_t, lv_obj_t*> labels;
     std::unordered_map<uint16_t, lv_obj_t*> markers;
@@ -68,7 +71,7 @@ private:
 
     void switchGMKEvent(const char* infoBoxText, uint8_t soldiersIDMoveToComp = -1);
     void missingSoldierEvent(uint8_t soldiersID);
-    void switchCommanderEvent(const char* infoBoxText);
+    void switchCommanderEvent();
     
 
 };

@@ -29,6 +29,9 @@ class SoldiersMissionPage : public LVGLPage
     uint16_t currentIndex;
     uint16_t coordCount;
 
+    lv_timer_t* sendTimer;
+    lv_timer_t* mainLoopTimer;
+
     bool fakeGPS;
     bool delaySendFakeGPS;
 

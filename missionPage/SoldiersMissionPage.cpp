@@ -58,14 +58,14 @@ void SoldiersMissionPage::createPage()
 
     if(this->fakeGPS)
     {
-        lv_timer_t * sendTimer = lv_timer_create(SoldiersMissionPage::sendTimerCallback, 7000, this);
+        this->sendTimer = lv_timer_create(SoldiersMissionPage::sendTimerCallback, 7000, this);
     }
     else
     {
 
     }
 
-    lv_timer_create([](lv_timer_t* t){
+    this->mainLoopTimer = lv_timer_create([](lv_timer_t* t){
         auto *self = static_cast<SoldiersMissionPage*>(t->user_data);
         self->loraModule->handleCompletedOperation();
 
@@ -104,7 +104,8 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         return;
     }
 
-    Serial.printf("PAYLOAD LEN: %d\n", base64Str.length());
+    Serial.printf("PAYLOAD LEN: %d %u %u\n", base64Str.length(), 
+     static_cast<uint8_t>(decodedData[0]), static_cast<uint8_t>(decodedData[1]));
 
     SwitchGMK sgPayload;
     sgPayload.msgID = static_cast<uint8_t>(decodedData[0]);
@@ -124,10 +125,22 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     }
     else if(sgPayload.msgID == 0x02)
     {
+        this->loraModule->setOnReadData(nullptr);
+        this->loraModule->setOnFileReceived(nullptr);
+
+        if(this->sendTimer)
+        {
+            lv_timer_del(this->sendTimer);
+        }
+
         SwitchCommander scPayload;
         scPayload.msgID = sgPayload.msgID;
         scPayload.soldiersID = sgPayload.soldiersID;
-        scPayload.shamirPart = sgPayload.encryptedGMK;
+        scPayload.shamirPart = std::move(sgPayload.encryptedGMK);
+
+        this->onCommanderSwitchEvent(scPayload);
+
+        lv_timer_del(this->mainLoopTimer);
     }
     
 
@@ -188,7 +201,11 @@ void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRat
   msg += "|";
   for (auto b : ct.tag)   appendHex(msg, b);
 
-  this->loraModule->cancelReceive();
+  while(!this->loraModule->cancelReceive())
+  {
+    delay(5);
+  }
+  
   
   int16_t transmissionState = loraModule->sendData(msg.c_str());
 
@@ -212,7 +229,7 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
     Serial.println("sendTimerCallback");
     Serial.println(self->currentIndex);
 
-    if(self->currentIndex < 2) {
+    if(self->currentIndex < 20) {
         if (self->delaySendFakeGPS)
         {
             delay(10000);
@@ -310,7 +327,7 @@ void SoldiersMissionPage::onCommanderSwitchEvent(SwitchCommander& payload)
     snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", payload.soldiersID);
 
     File currentShare = FFat.open(sharePath, FILE_WRITE);
-    if (!currentShare) 
+    if (!currentShare)
     {
         Serial.print("Failed to open file to save share: ");
         Serial.println(sharePath);

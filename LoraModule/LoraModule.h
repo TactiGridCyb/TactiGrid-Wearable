@@ -33,7 +33,7 @@ public:
         onFileReceived = std::move(cb);
     }
 
-    void cancelReceive();
+    bool cancelReceive();
 
     explicit LoraModule(float frequency);
     ~LoraModule();

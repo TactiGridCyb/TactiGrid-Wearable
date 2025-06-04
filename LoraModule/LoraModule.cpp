@@ -287,9 +287,40 @@ bool LoraModule::isChannelFree()
   return (result == RADIOLIB_CHANNEL_FREE);
 }
 
-void LoraModule::cancelReceive() {
+bool LoraModule::cancelReceive() 
+{
+  Serial.println("CURRENT OP:");
+  Op currentOP = currentOp.load(std::memory_order_acquire);
+  if(currentOP == Op::None)
+  {
+    Serial.println("None");
+  }
+  else if(currentOP == Op::FileRx)
+  {
+    Serial.println("FileRx");
+  }
+  else if(currentOP == Op::FileTx)
+  {
+    Serial.println("FileTx");
+  }
+  else if(currentOP == Op::Receive)
+  {
+    Serial.println("Receive");
+  }
+  else if(currentOP == Op::Transmit)
+  {
+    Serial.println("Transmit");
+  }
+  
+  if(currentOP == Op::FileRx || currentOP == Op::FileTx)
+  {
+    return false;
+  }
+
   currentOp.store(Op::None, std::memory_order_release);
   opFinished.store(false, std::memory_order_release);
+
+  return true;
 }
 
 bool LoraModule::canTransmit()

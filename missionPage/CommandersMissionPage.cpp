@@ -41,7 +41,7 @@ void CommandersMissionPage::createPage() {
     lv_obj_set_style_text_color(waitingLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
 
 
-    lv_timer_create([](lv_timer_t* t){
+    this->regularLoopTimer = lv_timer_create([](lv_timer_t* t){
         auto *self = static_cast<CommandersMissionPage*>(t->user_data);
         self->loraModule->handleCompletedOperation();
 
@@ -52,7 +52,7 @@ void CommandersMissionPage::createPage() {
         self->loraModule->syncFrequency(self->fhfModule.get());
     }, 100, this);
 
-    lv_timer_create([](lv_timer_t* t){
+    this->missingSoldierTimer = lv_timer_create([](lv_timer_t* t){
         auto *self = static_cast<CommandersMissionPage*>(t->user_data);
         for (const auto& soldier : self->commanderModule->getOthers()) 
         {
@@ -207,11 +207,13 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     if(newG->heartRate == 0 && !this->commanderModule->getOthers().at(newG->soldiersID).isComp)
     {
         Serial.println("CompromisedEvent");
-        this->commanderModule->setCompromised(newG->soldiersID);
-        delay(500);
-        const std::string newEventText = "Compromised Soldier Event - " + 
-        this->commanderModule->getOthers().at(newG->soldiersID).name;
-        this->switchGMKEvent(newEventText.c_str(), newG->soldiersID);
+        // this->commanderModule->setCompromised(newG->soldiersID);
+        // delay(500);
+        // const std::string newEventText = "Compromised Soldier Event - " + 
+        // this->commanderModule->getOthers().at(newG->soldiersID).name;
+        // this->switchGMKEvent(newEventText.c_str(), newG->soldiersID);
+
+        this->switchCommanderEvent();
     }
 
     
@@ -419,7 +421,7 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID)
     this->switchGMKEvent(newEventText.c_str());
 }
 
-void CommandersMissionPage::switchCommanderEvent(const char* infoBoxText)
+void CommandersMissionPage::switchCommanderEvent()
 {
     Serial.println("switchCommanderEvent");
     SwitchCommander payload;
@@ -430,13 +432,15 @@ void CommandersMissionPage::switchCommanderEvent(const char* infoBoxText)
     const int threshold = 2;
     const int prime = 251;
 
+    lv_timer_del(this->missingSoldierTimer);
+
     if (!ShamirHelper::splitFile(this->logFilePath.c_str(), this->commanderModule->getOthers().size(),
       threshold, prime, sharePaths)) 
     {
         Serial.println("❌ Failed to split log file with Shamir.");
         return;
     }
-
+    this->loraModule->setOnReadData(nullptr);
     uint8_t index = 0;
 
     for (const auto& soldier : this->commanderModule->getOthers()) 
@@ -480,18 +484,24 @@ void CommandersMissionPage::switchCommanderEvent(const char* infoBoxText)
     
         ++index;
     }
-    
+
+    Serial.println("finished loop");
+
+    lv_timer_del(this->regularLoopTimer);
+
+    Serial.println("deleted timer");
 
     std::unique_ptr<Soldier> sold = std::make_unique<Soldier>(this->commanderModule->getName(),
-     this->commanderModule->getPrivateKey(), this->commanderModule->getCAPublicCert(),
-     this->commanderModule->getCommanderNumber(), this->commanderModule->getIntervalMS());
+     this->commanderModule->getPublicCert(), this->commanderModule->getPrivateKey(),
+     this->commanderModule->getCAPublicCert(), this->commanderModule->getCommanderNumber(),
+     this->commanderModule->getIntervalMS());
+    this->commanderModule->clear();
 
+    Serial.println("created sold");
     this->destroyPage();
     delay(10);
 
-    this->commanderModule->clear();
-    LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, infoBoxText, true);
+    Serial.println("destroyPage");
     this->transferFunction(std::move(this->loraModule), std::move(this->wifiModule),
      std::move(this->gpsModule), std::move(this->fhfModule), std::move(sold));
-
 }
