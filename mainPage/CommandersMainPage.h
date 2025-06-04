@@ -12,14 +12,13 @@
 class CommandersMainPage : public LVGLPage {
     private:
     lv_obj_t* mainPage;
-    std::function<void(std::unique_ptr<WifiModule>)> onTransferReceiveCoordsPage;
-    std::function<void(std::unique_ptr<WifiModule>)> onTransferUploadLogsPage;
-    std::unique_ptr<WifiModule> wifiModule;
+    std::function<void()> onTransferReceiveCoordsPage;
+    std::function<void()> onTransferUploadLogsPage;
 
     public:
-    CommandersMainPage(std::unique_ptr<WifiModule>);
+    CommandersMainPage();
     void createPage();
 
-    void setOnTransferReceiveCoordsPage(std::function<void(std::unique_ptr<WifiModule>)> cb);
-    void setOnTransferUploadLogsPage(std::function<void(std::unique_ptr<WifiModule>)> cb);
+    void setOnTransferReceiveCoordsPage(std::function<void()> cb);
+    void setOnTransferUploadLogsPage(std::function<void()> cb);
 };

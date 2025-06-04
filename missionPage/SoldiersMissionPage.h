@@ -18,7 +18,6 @@ class SoldiersMissionPage : public LVGLPage
 {
     private:
     std::shared_ptr<LoraModule> loraModule;
-    std::unique_ptr<WifiModule> wifiModule;
     std::shared_ptr<GPSModule> gpsModule;
     std::unique_ptr<FHFModule> fhfModule;
     std::unique_ptr<Soldier> soldierModule;
@@ -54,7 +53,7 @@ class SoldiersMissionPage : public LVGLPage
     void onCommanderSwitchEvent(SwitchCommander&);
 
     public:
-    SoldiersMissionPage(std::shared_ptr<LoraModule>, std::unique_ptr<WifiModule>,
+    SoldiersMissionPage(std::shared_ptr<LoraModule>,
          std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Soldier>, bool = true);
     void createPage();
 

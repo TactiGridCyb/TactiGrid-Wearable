@@ -9,16 +9,24 @@ inline bool SoldiersMissionPage::isZero(float x)
 }
 
 SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
-     std::unique_ptr<WifiModule> wifiModule, std::shared_ptr<GPSModule> gpsModule, std::unique_ptr<FHFModule> fhfModule, 
+     std::shared_ptr<GPSModule> gpsModule, std::unique_ptr<FHFModule> fhfModule, 
      std::unique_ptr<Soldier> soldierModule, bool fakeGPS)
 {
+    Serial.println("SoldiersMissionPage::SoldiersMissionPage");
+
     this->loraModule = std::move(loraModule);
-    this->wifiModule = std::move(wifiModule);
     this->gpsModule = std::move(gpsModule);
     this->fhfModule = std::move(fhfModule);
     this->soldierModule = std::move(soldierModule);
 
+    Serial.println("🔍 Checking modules:");
+    Serial.printf("📡 loraModule: %s\n", this->loraModule ? "✅ OK" : "❌ NULL");
+    Serial.printf("📍 gpsModule: %s\n", this->gpsModule ? "✅ OK" : "❌ NULL");
+    Serial.printf("📻 fhfModule: %s\n", this->fhfModule ? "✅ OK" : "❌ NULL");
+    Serial.printf("📻 soldierModule: %s\n", this->soldierModule ? "✅ OK" : "❌ NULL");
+
     this->delaySendFakeGPS = false;
+    Serial.println("this->delaySendFakeGPS");
 
     this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
         this->onDataReceived(data, len);
@@ -28,17 +36,22 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
         this->loraModule->onLoraFileDataReceived(data, len);
     });
 
+    Serial.println("this->loraModule->setOnReadData");
     this->mainPage = lv_scr_act();
+
+    Serial.printf("lv_scr_act: %p\n", (void*)this->mainPage);
 
     this->fakeGPS = fakeGPS;
     this->currentIndex = 0;
-    Serial.println(true ? this->wifiModule->isConnected() : false);
 
     this->coordCount = 5;
+
+     // Serial.println("this->wifiModule->isConnected()"); // Removed because wifiModule is not a member of SoldiersMissionPage
 }
 
 void SoldiersMissionPage::createPage()
 {
+    Serial.println("SoldiersMissionPage::createPage");
     lv_obj_set_style_bg_color(mainPage, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(mainPage, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
 
@@ -74,7 +87,7 @@ void SoldiersMissionPage::createPage()
         }
 
         self->loraModule->syncFrequency(self->fhfModule.get());
-    }, 50, this);
+    }, 100, this);
     
 }
 
@@ -136,7 +149,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         SwitchCommander scPayload;
         scPayload.msgID = sgPayload.msgID;
         scPayload.soldiersID = sgPayload.soldiersID;
-        scPayload.shamirPart = std::move(sgPayload.encryptedGMK);
+        scPayload.shamirPart.assign(decodedData.begin() + 2, decodedData.end());
 
         this->onCommanderSwitchEvent(scPayload);
 
@@ -201,12 +214,6 @@ void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRat
   msg += "|";
   for (auto b : ct.tag)   appendHex(msg, b);
 
-  while(!this->loraModule->cancelReceive())
-  {
-    delay(5);
-  }
-  
-  
   int16_t transmissionState = loraModule->sendData(msg.c_str());
 
   struct tm timeInfo;
@@ -230,6 +237,21 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
     Serial.println(self->currentIndex);
 
     if(self->currentIndex < 20) {
+
+        for(int i = 0; i < 5; ++i)
+        {
+            if(self->loraModule->cancelReceive())
+            {
+                break;
+            }
+            delay(1);
+        }
+
+        if(!self->loraModule->cancelReceive())
+        {
+            return;
+        }
+
         if (self->delaySendFakeGPS)
         {
             delay(10000);

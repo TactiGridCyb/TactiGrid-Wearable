@@ -14,6 +14,7 @@ Soldier::Soldier(const std::string& name,
       currentHeartRate(0),
       intervalMS(intervalMS)
 {
+    Serial.println("Soldier::Soldier");
     mbedtls_pk_init(&this->privateKey);
     mbedtls_x509_crt_init(&this->caCertificate);
     mbedtls_x509_crt_init(&this->ownCertificate);
@@ -22,6 +23,7 @@ Soldier::Soldier(const std::string& name,
         throw std::runtime_error("Failed to copy public certificate");
     }
 
+    Serial.println("mbedtls_x509_crt_parse_der");
     if (mbedtls_x509_crt_parse_der(&this->caCertificate, caPublicCert.raw.p, caPublicCert.raw.len) != 0) {
         throw std::runtime_error("Failed to copy CA certificate");
     }
@@ -35,6 +37,9 @@ Soldier::Soldier(const std::string& name,
     } else {
         throw std::runtime_error("Failed to export private key");
     }
+
+    Serial.println("mbedtls_pk_write_key_der");
+
 }
 
 const std::string& Soldier::getName() const {

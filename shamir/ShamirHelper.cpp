@@ -23,6 +23,16 @@ bool ShamirHelper::splitFile(const char* inputPath, int nShares, int threshold, 
     return false;
   }
 
+  Serial.println("📄 Content of the input file:");
+  while (inFile.available()) {
+      char ch = inFile.read();
+      Serial.print(ch);
+  }
+  
+  Serial.println();
+  inFile.seek(0);
+
+
   std::vector<File> shareFiles;
   shareFiles.reserve(nShares);
   for (int i = 1; i <= nShares; i++) {
@@ -43,9 +53,18 @@ bool ShamirHelper::splitFile(const char* inputPath, int nShares, int threshold, 
     uint8_t secretByte = inFile.read();
     uint8_t randomCoeff = random(1, prime);
     for (int i = 1; i <= nShares; i++) {
-      uint8_t y = evalPolynomial(i, secretByte, randomCoeff, prime);
-      shareFiles[i - 1].print(String(i) + "," + String(y) + "\n");
+        uint8_t y = evalPolynomial(i, secretByte, randomCoeff, prime);
+        String shareLine = String(i) + "," + String(y) + "\n";
+        shareFiles[i - 1].print(shareLine);
+
+        Serial.print("(");
+        Serial.print(i);
+        Serial.print(",");
+        Serial.print(y);
+        Serial.print(") ");
     }
+
+    Serial.println();
   }
 
   for (File& sf : shareFiles) sf.close();

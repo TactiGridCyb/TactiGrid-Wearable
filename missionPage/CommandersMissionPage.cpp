@@ -10,6 +10,13 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         this->fhfModule = std::move(fhfModule);
         this->commanderModule = std::move(commanderModule);
 
+        Serial.println("🔍 Checking modules:");
+        Serial.printf("📡 loraModule: %s\n", this->loraModule ? "✅ OK" : "❌ NULL");
+        Serial.printf("🌐 wifiModule: %s\n", this->wifiModule ? "✅ OK" : "❌ NULL");
+        Serial.printf("📍 gpsModule: %s\n", this->gpsModule ? "✅ OK" : "❌ NULL");
+        Serial.printf("📻 fhfModule: %s\n", this->fhfModule ? "✅ OK" : "❌ NULL");
+        Serial.printf("📻 commanderModule: %s\n", this->commanderModule? "✅ OK" : "❌ NULL");
+
         this->mainPage = lv_scr_act();
 
         this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
@@ -56,13 +63,13 @@ void CommandersMissionPage::createPage() {
         auto *self = static_cast<CommandersMissionPage*>(t->user_data);
         for (const auto& soldier : self->commanderModule->getOthers()) 
         {
-            if(millis() - soldier.second.lastTimeReceivedData >= 10000)
+            if(millis() - soldier.second.lastTimeReceivedData >= 60000)
             {
                 self->missingSoldierEvent(soldier.first);
                 break;
             }
         }
-    }, 30000, this);
+    }, 60000, this);
 }
 
 void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
@@ -476,7 +483,7 @@ void CommandersMissionPage::switchCommanderEvent()
         std::string base64Payload = crypto::CryptoModule::base64Encode(
             reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
 
-        Serial.printf("PAYLOAD SENT (base64): %s %d\n", base64Payload.c_str(), base64Payload.length());
+        Serial.printf("PAYLOAD SENT (base64): %s %d %d\n", base64Payload.c_str(), base64Payload.length(), payload.shamirPart.size());
 
         Serial.println("SENDING base64Payload");
         this->loraModule->cancelReceive();
@@ -490,18 +497,34 @@ void CommandersMissionPage::switchCommanderEvent()
     lv_timer_del(this->regularLoopTimer);
 
     Serial.println("deleted timer");
-
+    
     std::unique_ptr<Soldier> sold = std::make_unique<Soldier>(this->commanderModule->getName(),
      this->commanderModule->getPublicCert(), this->commanderModule->getPrivateKey(),
      this->commanderModule->getCAPublicCert(), this->commanderModule->getCommanderNumber(),
      this->commanderModule->getIntervalMS());
-    this->commanderModule->clear();
+    
 
     Serial.println("created sold");
     this->destroyPage();
     delay(10);
 
     Serial.println("destroyPage");
-    this->transferFunction(std::move(this->loraModule), std::move(this->wifiModule),
-     std::move(this->gpsModule), std::move(this->fhfModule), std::move(sold));
+
+    this->transferFunction(this->loraModule, std::move(this->wifiModule),
+     this->gpsModule, std::move(this->fhfModule), std::move(sold));
+
+    Serial.println("this->transferFunction");
+}
+
+CommandersMissionPage::~CommandersMissionPage()
+{
+    Serial.println("DEST");
+
+    this->commanderModule->clear();
+    this->ballColors.clear();
+    this->markers.clear();
+    this->labels.clear();
+
+    Serial.println("END DEST");
+
 }

@@ -8,6 +8,8 @@
 #include <CommandersUploadLogPage.h>
 #include <SoldiersMissionPage.h>
 #include "../env.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASS;
@@ -37,16 +39,22 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
     loraModule = newLoraModule;
     gpsModule = newGPSModule;
 
-    soldiersMissionPage = std::make_unique<SoldiersMissionPage>(newLoraModule, std::move(wifiModule),
+    wifiModule = std::move(newWifiModule);
+
+    soldiersMissionPage = std::make_unique<SoldiersMissionPage>(newLoraModule,
      newGPSModule, std::move(newFhfModule), std::move(soldiersModule));
 
     Serial.println("std::make_unique<SoldiersMissionPage>");
 
     soldiersMissionPage->createPage();
     Serial.println("soldiersMissionPage->createPage()");
+
+    UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark(NULL);
+    Serial.printf("[🧠 STACK] - Stack high water mark: %u words (~%u bytes)\n", 
+                  highWaterMark, highWaterMark * sizeof(uint32_t));
 }
 
-void transferFromMainToReceiveCoordsPage(std::unique_ptr<WifiModule> currentWifiModule)
+void transferFromMainToReceiveCoordsPage()
 {
     Serial.println("transferFromMainToSendCoordsPage");
     loraModule = std::make_shared<LoraModule>(433.5);
@@ -56,21 +64,24 @@ void transferFromMainToReceiveCoordsPage(std::unique_ptr<WifiModule> currentWifi
     loraModule->setup(true);
 
     commandersMissionPage = std::make_unique<CommandersMissionPage>(loraModule,
-         std::move(currentWifiModule), gpsModule, std::move(fhfModule), std::move(commandersModule), logFilePath);
+         std::move(wifiModule), gpsModule, std::move(fhfModule), std::move(commandersModule), logFilePath);
     commandersMissionPage->createPage();
     commandersMissionPage->setTransferFunction(transferFromMissionCommanderToMissionSoldier);
 }
 
-void transferFromMainToUploadLogsPage(std::unique_ptr<WifiModule> currentWifiModule)
+void transferFromMainToUploadLogsPage()
 {
-    commandersUploadLogPage = std::make_unique<CommandersUploadLogPage>(std::move(currentWifiModule), logFilePath);
+    commandersUploadLogPage = std::make_unique<CommandersUploadLogPage>(std::move(wifiModule), logFilePath);
     commandersUploadLogPage->createPage();
 }
 
 void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Commander> commanderModule)
 {
     Serial.println("transferFromReceiveParametersToMainPage");
-    commandersMainPage = std::make_unique<CommandersMainPage>(std::move(currentWifiModule));
+
+    wifiModule = std::move(currentWifiModule);
+
+    commandersMainPage = std::make_unique<CommandersMainPage>();
     commandersMainPage->createPage();
 
     commandersMainPage->setOnTransferReceiveCoordsPage(transferFromMainToReceiveCoordsPage);
@@ -135,5 +146,6 @@ void loop()
 {
     lv_task_handler();
     delay(5);
+
 
 }

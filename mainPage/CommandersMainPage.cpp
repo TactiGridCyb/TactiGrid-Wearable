@@ -1,12 +1,11 @@
 #include "CommandersMainPage.h"
 
-CommandersMainPage::CommandersMainPage(std::unique_ptr<WifiModule> wifiModule)
+CommandersMainPage::CommandersMainPage()
 {
 
     std::string logFilePath = "/spiffs/log.txt";
 
     this->mainPage = lv_scr_act();
-
 
 }
 
@@ -41,7 +40,7 @@ void CommandersMainPage::createPage()
         {
             self->destroyPage();
             delay(10);
-            self->onTransferReceiveCoordsPage(std::move(self->wifiModule));
+            self->onTransferReceiveCoordsPage();
         }
     }, LV_EVENT_CLICKED, this);
 
@@ -59,7 +58,7 @@ void CommandersMainPage::createPage()
         {
             self->destroyPage();
             delay(10);
-            self->onTransferUploadLogsPage(std::move(self->wifiModule));
+            self->onTransferUploadLogsPage();
         }
     }, LV_EVENT_CLICKED, this);
 
@@ -68,12 +67,12 @@ void CommandersMainPage::createPage()
     lv_obj_center(uploadLogsLabel);
 }
 
-void CommandersMainPage::setOnTransferReceiveCoordsPage(std::function<void(std::unique_ptr<WifiModule>)> cb)
+void CommandersMainPage::setOnTransferReceiveCoordsPage(std::function<void()> cb)
 {
     this->onTransferReceiveCoordsPage = std::move(cb);
 }
 
-void CommandersMainPage::setOnTransferUploadLogsPage(std::function<void(std::unique_ptr<WifiModule>)> cb)
+void CommandersMainPage::setOnTransferUploadLogsPage(std::function<void()> cb)
 {
     this->onTransferUploadLogsPage = std::move(cb);
 }
