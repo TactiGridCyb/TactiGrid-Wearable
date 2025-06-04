@@ -424,6 +424,10 @@ void CommandersMissionPage::switchCommanderEvent(const char* infoBoxText)
     Serial.println("switchCommanderEvent");
     SwitchCommander payload;
     payload.msgID = 0x02;
+    //Split here the log file, its path is this->logFilePath
+    
+    const int threshold = 2;
+    const int prime = 251;
 
     for (const auto& soldier : this->commanderModule->getOthers()) 
     {
@@ -437,7 +441,7 @@ void CommandersMissionPage::switchCommanderEvent(const char* infoBoxText)
             reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
 
         Serial.printf("PAYLOAD SENT (base64): %s %d\n", base64Payload.c_str(), base64Payload.length());
-
+        //Add the splitted part to each soldier
         Serial.println("SENDING base64Payload");
         this->loraModule->cancelReceive();
         this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());

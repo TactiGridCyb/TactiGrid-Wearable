@@ -11,7 +11,9 @@
 #include <Commander.h>
 #include <SoldiersSentData.h>
 #include "../commander/Soldier.h"
+#include <ShamirHelper.h>
 #include <FHFModule.h>
+
 
 class CommandersMissionPage : public LVGLPage {
 public:

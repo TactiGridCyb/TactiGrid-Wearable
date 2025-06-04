@@ -1,57 +1,79 @@
 #include <LilyGoLib.h>
 #include <sodium.h>
 #include <LV_Helper.h>
+#include "../shamir/ShamirHelper.h"
 
-static lv_obj_t * info_box;
+void createTestFile(const char* path, const char* content) {
+  File f = FFat.open(path, FILE_WRITE);
+  if (!f) {
+    Serial.println("❌ Failed to create test file.");
+    return;
+  }
+  f.print(content);
+  f.close();
+}
 
-void restart_fadeout(lv_obj_t * info_box, uint32_t delay_ms, uint32_t fade_time_ms)
-{
-    lv_obj_clear_flag(info_box, LV_OBJ_FLAG_HIDDEN);
+void printFile(const char* path) {
+  File f = FFat.open(path, FILE_READ);
+  if (!f) {
+    Serial.print("❌ Could not open file: ");
+    Serial.println(path);
+    return;
+  }
+  Serial.print("📄 Contents of ");
+  Serial.print(path);
+  Serial.println(":");
+  while (f.available()) {
+    Serial.write(f.read());
+  }
+  f.close();
+  Serial.println("\n---");
+}
 
-    lv_obj_set_style_opa(info_box, LV_OPA_COVER, 0);
+void testShamirSplitAndReconstruct() {
+  const char* originalPath = "/test.txt";
+  const char* recoveredPath = "/test.recovered.txt";
+  const char* testContent = "This is a test message using Shamir Secret Sharing!";
+  const int prime = 251;
+  const int nShares = 5;
+  const int threshold = 3;
 
-    lv_obj_fade_out(info_box, fade_time_ms, delay_ms);
+  createTestFile(originalPath, testContent);
+
+  std::vector<String> sharePaths;
+  bool splitOk = ShamirHelper::splitFile(originalPath, nShares, threshold, prime, sharePaths);
+  if (!splitOk) {
+    Serial.println("❌ Split failed.");
+    return;
+  }
+
+  std::vector<String> partialShares(sharePaths.begin(), sharePaths.begin() + threshold);
+  bool recOk = ShamirHelper::reconstructFile(partialShares, threshold, recoveredPath, prime);
+  if (!recOk) {
+    Serial.println("❌ Reconstruction failed.");
+    return;
+  }
+
+  printFile(originalPath);
+  printFile(recoveredPath);
 }
 
 void setup() {
   Serial.begin(115200);
   watch.begin(&Serial);
   delay(500); 
-  Serial.println("PRE");
+  Serial.println("📟 Starting...");
   beginLvglHelper();
 
-  Serial.println("START");
-  info_box = lv_obj_create(lv_scr_act());
-  lv_obj_set_size(info_box, 150, 80);
-  lv_obj_center(info_box);
-  Serial.println("START1");
-  lv_obj_set_style_bg_color(info_box, lv_color_black(), 0);
-  lv_obj_set_style_bg_opa(info_box, LV_OPA_80, 0);
-  lv_obj_set_style_radius(info_box, 6, 0);
-  Serial.println("START2");
-  lv_obj_t * label = lv_label_create(info_box);
-  lv_obj_set_style_text_color(label, lv_color_white(), 0);
-  lv_label_set_text(label, "Hello, Watch!");
-  lv_obj_center(label);
-  Serial.println("START3");
+  if (!FFat.begin(true)) {
+    Serial.println("❌ FFat mount failed.");
+    return;
+  }
 
-  lv_obj_fade_out(info_box,
-                  500,
-                  2000);
-  Serial.println("START4");
-
+  testShamirSplitAndReconstruct();
 }
 
-time_t cur = millis();
 void loop() {
-  // nothing else
   delay(5);
-
   lv_task_handler();
-
-  if(millis() - cur > 10000)
-  {
-    restart_fadeout(info_box, 2000, 500);
-    cur = millis();
-  }
 }
