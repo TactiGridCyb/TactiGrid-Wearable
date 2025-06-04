@@ -11,7 +11,7 @@
 #include <Soldier.h>
 #include <FHFModule.h>
 #include <Commander.h>
-
+#include <ShamirHelper.h>
 #include <LVGLPage.h>
 
 class SoldiersMissionPage : public LVGLPage
@@ -48,7 +48,7 @@ class SoldiersMissionPage : public LVGLPage
 
     void onDataReceived(const uint8_t*, size_t);
 
-    void onCommanderSwitchEvent(SwitchCommander);
+    void onCommanderSwitchEvent(SwitchCommander&);
 
     public:
     SoldiersMissionPage(std::shared_ptr<LoraModule>, std::unique_ptr<WifiModule>,

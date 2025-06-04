@@ -425,13 +425,45 @@ void CommandersMissionPage::switchCommanderEvent(const char* infoBoxText)
     SwitchCommander payload;
     payload.msgID = 0x02;
     //Split here the log file, its path is this->logFilePath
-    
+    std::vector<String> sharePaths;
+
     const int threshold = 2;
     const int prime = 251;
 
+    if (!ShamirHelper::splitFile(this->logFilePath.c_str(), this->commanderModule->getOthers().size(),
+      threshold, prime, sharePaths)) 
+    {
+        Serial.println("❌ Failed to split log file with Shamir.");
+        return;
+    }
+
+    uint8_t index = 0;
+
     for (const auto& soldier : this->commanderModule->getOthers()) 
     {
-        Serial.println("soldiersID");
+        Serial.println("Sending to soldier");
+        payload.soldiersID = soldier.first;
+        payload.shamirPart.clear();
+
+        File currentShamir = FFat.open(sharePaths[index].c_str(), FILE_READ);
+        if (!currentShamir) 
+        {
+            Serial.print("❌ Failed to open share file: ");
+            Serial.println(sharePaths[index]);
+            continue;
+        }
+
+        while (currentShamir.available()) 
+        {
+            String line = currentShamir.readStringUntil('\n');
+            int comma = line.indexOf(',');
+            if (comma < 0) continue;
+            int y = line.substring(comma + 1).toInt();
+            payload.shamirPart.push_back((uint8_t)y);
+        }
+        currentShamir.close();
+
+
         std::string buffer;
         buffer += static_cast<char>(payload.msgID);
         buffer += static_cast<char>(payload.soldiersID);
@@ -441,10 +473,12 @@ void CommandersMissionPage::switchCommanderEvent(const char* infoBoxText)
             reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
 
         Serial.printf("PAYLOAD SENT (base64): %s %d\n", base64Payload.c_str(), base64Payload.length());
-        //Add the splitted part to each soldier
+
         Serial.println("SENDING base64Payload");
         this->loraModule->cancelReceive();
         this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+    
+        ++index;
     }
     
 

@@ -303,7 +303,27 @@ void SoldiersMissionPage::parseGPSData()
     }
 }
 
-void SoldiersMissionPage::onCommanderSwitchEvent(SwitchCommander payload)
+void SoldiersMissionPage::onCommanderSwitchEvent(SwitchCommander& payload)
 {
-    
+    Serial.println("Received share");
+    char sharePath[25];
+    snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", payload.soldiersID);
+
+    File currentShare = FFat.open(sharePath, FILE_WRITE);
+    if (!currentShare) 
+    {
+        Serial.print("Failed to open file to save share: ");
+        Serial.println(sharePath);
+        return;
+    }
+
+    for (size_t i = 0; i < payload.shamirPart.size(); ++i) 
+    {
+        currentShare.printf("%u,%u\n", payload.soldiersID, payload.shamirPart[i]);
+    }
+
+    currentShare.close();
+    Serial.printf("✅ Saved share to %s (%d bytes)\n", sharePath, payload.shamirPart.size());
+
+    payload.shamirPart.clear();
 }
