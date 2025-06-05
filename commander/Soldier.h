@@ -7,7 +7,7 @@
 #include "mbedtls/pk.h"
 #include "PersonBase.h"
 
-class Soldier : public PersonBase<SoldierInfo> {
+class Soldier : public PersonBase {
 public:
     Soldier(const std::string& name,
             const mbedtls_x509_crt& publicCert,

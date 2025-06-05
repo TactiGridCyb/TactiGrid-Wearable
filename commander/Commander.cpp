@@ -51,13 +51,9 @@ void Commander::setGMK(const crypto::Key256& gmk) {
     this->GMK = gmk;
 }
 
-void Commander::setCompromised(uint8_t id)
+void Commander::setCompromised(const uint8_t id)
 {
-
-    this->commanders.at(id).isComp = true;
-
-    this->addComp(this->);
-
+    this->addComp(id);
 }
 
 void Commander::setCompGMK(const crypto::Key256& gmk) {
@@ -72,7 +68,7 @@ uint16_t Commander::getCurrentHeartRate() const {
     return currentHeartRate;
 }
 
-const std::unordered_map<uint8_t, SoldierInfo>& Commander::getComp()
+const std::vector<uint8_t>& Commander::getComp()
 {
     return this->comp;
 }
@@ -139,13 +135,7 @@ void Commander::clear()
     
 }
 
-void Commander::addComp(const SoldierInfo& info)
+void Commander::addComp(const uint8_t id)
 {
-    uint8_t id = info.soldierNumber;
-    auto [it, inserted] = comp.emplace(id, info);
-
-    if (!inserted) 
-    {
-        it->second = info;
-    }
+    this->comp.push_back(id);
 }

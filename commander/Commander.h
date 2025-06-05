@@ -57,7 +57,7 @@ public:
         return intervalMS;
     }
 
-    const std::unordered_map<uint8_t, SoldierInfo>& getComp();
+    const std::vector<uint8_t>& getComp();
     
 
     void setName(const std::string& name);
@@ -68,8 +68,8 @@ public:
     void setCurrentHeartRate(uint16_t heartRate);
     void setGMK(const crypto::Key256& gmk);
     void setCompGMK(const crypto::Key256& gmk);
-    void setCompromised(uint8_t id);
-    void setComp(const std::unordered_map<uint8_t, SoldierInfo>& comp);
+    void setCompromised(const uint8_t id);
+    void setComp(const std::vector<uint8_t>& comp);
 
     const mbedtls_pk_context& getPrivateKey() const;
 
@@ -86,7 +86,7 @@ private:
     uint16_t intervalMS;
 
     std::vector<float> frequencies;
-    std::unordered_map<uint8_t, SoldierInfo> comp;
+    std::vector<uint8_t> comp;
 
     crypto::Key256 GK;
     crypto::Key256 GMK = []() {
@@ -103,7 +103,7 @@ private:
         return key;
     }();
 
-    void addComp(const SoldierInfo& info);
+    void addComp(const uint8_t id);
 
     mbedtls_pk_context privateKey;
     mbedtls_x509_crt caCertificate;
