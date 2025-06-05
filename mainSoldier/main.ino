@@ -22,6 +22,8 @@ std::unique_ptr<FHFModule> fhfModule;
 
 std::unique_ptr<Soldier> soldiersModule;
 
+const std::string logFilePath = "/log.txt";
+
 void transferFromSendCoordsToReceiveCoordsPage(std::shared_ptr<LoraModule> newLoraModule, 
     std::shared_ptr<GPSModule> newGPSModule, std::unique_ptr<FHFModule> newFHFModule,
     std::unique_ptr<Commander> commandersModule)
@@ -29,7 +31,7 @@ void transferFromSendCoordsToReceiveCoordsPage(std::shared_ptr<LoraModule> newLo
     soldiersMissionPage.reset();
     
     commandersMissionPage = std::make_unique<CommandersMissionPage>(newLoraModule, 
-    std::move(wifiModule), newGPSModule, std::move(fhfModule), std::move(commandersModule));
+    std::move(wifiModule), newGPSModule, std::move(fhfModule), std::move(commandersModule), logFilePath);
 
     commandersMissionPage->createPage();
 }

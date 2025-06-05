@@ -56,6 +56,11 @@ void Commander::setCompromised(const uint8_t id)
     this->addComp(id);
 }
 
+void Commander::setComp(const std::vector<uint8_t>& comp)
+{
+    this->comp = comp;
+}
+
 void Commander::setCompGMK(const crypto::Key256& gmk) {
     this->CompGMK = gmk;
 }

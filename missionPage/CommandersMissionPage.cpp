@@ -158,7 +158,16 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     soldInfo["lat"] = marker_lat;
     soldInfo["lon"] = marker_lon;
     soldInfo["heartRate"] = newG->heartRate;
-    soldInfo["name"] = this->commanderModule->getCommanders().at(newG->soldiersID).name;
+
+    if(this->commanderModule->getCommanders().find(newG->soldiersID) != this->commanderModule->getCommanders().end())
+    {
+        soldInfo["name"] = this->commanderModule->getCommanders().at(newG->soldiersID).name;
+    }
+    else
+    {
+        soldInfo["name"] = this->commanderModule->getSoldiers().at(newG->soldiersID).name;
+    }
+    
 
     String jsonStr;
     serializeJson(currentEvent, jsonStr);
@@ -221,7 +230,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     this->commanderModule->updateReceivedData(newG->soldiersID);
     const std::vector<uint8_t>& comp = this->commanderModule->getComp();
 
-    if(newG->heartRate == 0 && std::find(comp.begin(), comp.end(), newG->soldiersID) != comp.end())
+    if(newG->heartRate == 0 && std::find(comp.begin(), comp.end(), newG->soldiersID) == comp.end())
     {
         Serial.println("CompromisedEvent");
         // this->commanderModule->setCompromised(newG->soldiersID);
@@ -331,20 +340,36 @@ void CommandersMissionPage::create_fading_circle(double markerLat, double marker
         
         label = lv_label_create(lv_scr_act());
 
-        const auto& commanders = this->commanderModule->getCommanders();
-        for (const auto& kv : commanders) {
-            Serial.printf("Other ID: %u\n", kv.first);
-        }
-        auto it = commanders.find(soldiersID);
+        const std::unordered_map<uint8_t, CommanderInfo>& commanders = this->commanderModule->getCommanders();
+        const std::unordered_map<uint8_t, SoldierInfo>& soldiers = this->commanderModule->getSoldiers();
 
-        if (it != commanders.end()) {
-            Serial.printf("Soldier %u found in map!!\n", soldiersID);
-            std::string s = it->second.name;
+        for (const auto& kv : commanders) {
+            Serial.printf("Other Commander ID: %u\n", kv.first);
+        }
+
+        for (const auto& kv : soldiers) {
+            Serial.printf("Other Soldier ID: %u\n", kv.first);
+        }
+
+        auto commandIt = commanders.find(soldiersID);
+        auto soldIt = soldiers.find(soldiersID);
+
+        if (commandIt != commanders.end()) 
+        {
+            Serial.printf("Commander %u found in map!!\n", soldiersID);
+            std::string s = commandIt->second.name;
             lv_label_set_text(label, s.c_str());
-        } else {
+        } 
+        else if(soldIt != soldiers.end())
+        {
+            Serial.printf("Soldier %u found in map!!\n", soldiersID);
+            std::string s = soldIt->second.name;
+            lv_label_set_text(label, s.c_str());
+        }
+        else
+        {
             Serial.printf("Soldier %u not found in map\n", soldiersID);
         }
-        
 
     }
     
@@ -507,7 +532,7 @@ void CommandersMissionPage::switchCommanderEvent()
     
         ++index;
 
-        delay(500);
+        delay(1000);
     }
 
     Serial.println("finished loop");

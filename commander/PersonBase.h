@@ -42,11 +42,14 @@ public:
         } else {
             it->second = info;
         }
+        Serial.printf("addCommander for %d\n", id);
     }
 
     void addSoldier(const SoldierInfo& info) {
         uint16_t id = infoNumber(info);
         auto [it, inserted] = soldiers.emplace(id, info);
+
+        Serial.printf("addSoldier for %d\n", id);
     }
 
     void removeOther(uint8_t id) {
