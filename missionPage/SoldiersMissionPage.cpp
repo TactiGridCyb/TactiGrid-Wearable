@@ -395,4 +395,17 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
     this->soldierModule->getPublicCert(), this->soldierModule->getPrivateKey(),
     this->soldierModule->getCAPublicCert(),
     this->soldierModule->getSoldierNumber(), this->soldierModule->getIntervalMS());
+
+    command->setComp(payload.compromisedSoldiers);
+    command->setSoldiers(this->soldierModule->getSoldiers());
+    command->setCommanders(this->soldierModule->getCommanders());
+    command->setInsertionOrders(this->soldierModule->getCommandersInsertionOrder());
+
+    payload.compromisedSoldiers.clear();
+    this->soldierModule->clear();
+
+    this->destroyPage();
+    delay(10);
+
+    this->transferFunction(this->loraModule, this->gpsModule, std::move(this->fhfModule), std::move(command));
 }

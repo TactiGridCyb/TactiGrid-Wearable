@@ -1,6 +1,7 @@
 #include "../mainPage/SoldiersMainPage.h"
 #include "../receiveParametersPage/SoldiersReceiveParametersPage.h"
 #include "../missionPage/SoldiersMissionPage.h"
+#include <CommandersMissionPage.h>
 #include <LoraModule.h>
 #include <GPSModule.h>
 #include <FHFModule.h>
@@ -12,6 +13,7 @@ const char* password = WIFI_PASS;
 std::unique_ptr<SoldiersReceiveParametersPage> receiveParametersPage;
 std::unique_ptr<SoldiersMainPage> soldiersMainPage;
 std::unique_ptr<SoldiersMissionPage> soldiersMissionPage;
+std::unique_ptr<CommandersMissionPage> commandersMissionPage;
 
 std::unique_ptr<WifiModule> wifiModule;
 std::shared_ptr<LoraModule> loraModule;
@@ -20,6 +22,17 @@ std::unique_ptr<FHFModule> fhfModule;
 
 std::unique_ptr<Soldier> soldiersModule;
 
+void transferFromSendCoordsToReceiveCoordsPage(std::shared_ptr<LoraModule> newLoraModule, 
+    std::shared_ptr<GPSModule> newGPSModule, std::unique_ptr<FHFModule> newFHFModule,
+    std::unique_ptr<Commander> commandersModule)
+{
+    soldiersMissionPage.reset();
+    
+    commandersMissionPage = std::make_unique<CommandersMissionPage>(newLoraModule, 
+    std::move(wifiModule), newGPSModule, std::move(fhfModule), std::move(commandersModule));
+
+    commandersMissionPage->createPage();
+}
 
 void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiModule)
 {

@@ -89,7 +89,7 @@ public:
         return this->soldiers;
     }
 
-protected:
+public:
     std::unordered_map<uint8_t, CommanderInfo> commanders;
     std::unordered_map<uint8_t, SoldierInfo> soldiers;
     std::vector<uint8_t> commandersInsertionOrder;

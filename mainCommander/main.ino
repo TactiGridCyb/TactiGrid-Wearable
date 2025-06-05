@@ -37,8 +37,6 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
     commandersMissionPage.reset();
     
     Serial.println("transferFromMissionCommanderToMissionSoldier");
-    loraModule = newLoraModule;
-    gpsModule = newGPSModule;
 
     wifiModule = std::move(newWifiModule);
 
