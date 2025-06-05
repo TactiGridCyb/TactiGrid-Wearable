@@ -64,6 +64,8 @@ private:
 
     void notifyOpFinished();
 
+    void printCurrentOP();
+
     SX1262 loraDevice = newModule();
 
     float freq;

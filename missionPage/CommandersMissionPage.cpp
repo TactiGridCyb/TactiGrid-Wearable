@@ -558,13 +558,18 @@ void CommandersMissionPage::switchCommanderEvent()
 
     Serial.println("destroyPage");
 
-    this->transferFunction(this->loraModule, std::move(this->wifiModule),
-     this->gpsModule, std::move(this->fhfModule), std::move(sold));
 
-    Serial.println("this->transferFunction");
+    
 
     this->commanderModule->clear();
     this->ballColors.clear();
     this->markers.clear();
     this->labels.clear();
+
+    Serial.println("this->transferFunction");
+
+    this->transferFunction(this->loraModule, std::move(this->wifiModule),
+     this->gpsModule, std::move(this->fhfModule), std::move(sold));
+
+    
 }

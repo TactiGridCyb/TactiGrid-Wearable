@@ -29,6 +29,21 @@ std::unique_ptr<Commander> commandersModule;
 
 const std::string logFilePath = "/log.txt";
 
+void transferFromSendCoordsToReceiveCoordsPage(std::shared_ptr<LoraModule> newLoraModule, 
+    std::shared_ptr<GPSModule> newGPSModule, std::unique_ptr<FHFModule> newFHFModule,
+    std::unique_ptr<Commander> commandersModule)
+{
+    soldiersMissionPage.reset();
+    
+    commandersMissionPage = std::make_unique<CommandersMissionPage>(newLoraModule, 
+    std::move(wifiModule), newGPSModule, std::move(newFHFModule), std::move(commandersModule), logFilePath);
+
+    Serial.println("commandersMissionPage->createPage()");
+    commandersMissionPage->createPage();
+
+    Serial.println("commandersMissionPage->createPage() finished");
+}
+
 void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> newLoraModule,
      std::unique_ptr<WifiModule> newWifiModule,
      std::shared_ptr<GPSModule> newGPSModule, std::unique_ptr<FHFModule> newFhfModule,
@@ -51,6 +66,8 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
     UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark(NULL);
     Serial.printf("[🧠 STACK] - Stack high water mark: %u words (~%u bytes)\n", 
                   highWaterMark, highWaterMark * sizeof(uint32_t));
+
+    soldiersMissionPage->setTransferFunction(transferFromSendCoordsToReceiveCoordsPage);
 }
 
 void transferFromMainToReceiveCoordsPage()

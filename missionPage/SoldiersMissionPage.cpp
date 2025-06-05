@@ -169,13 +169,23 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         this->onCommanderSwitchEvent(scPayload);
 
         Serial.println("scPayload.compromisedSoldiers");
-        for(const auto& commanderOrdered: scPayload.compromisedSoldiers)
+        for(const auto& commanderComp: scPayload.compromisedSoldiers)
+        {
+            Serial.println(commanderComp);
+        }
+
+        Serial.println("getCommandersInsertionOrder");
+        for(const auto& commanderOrdered: this->soldierModule->getCommandersInsertionOrder())
         {
             Serial.println(commanderOrdered);
         }
 
         this->soldierModule->removeCommander();
+
+        Serial.println("this->soldierModule->removeCommander()");
+
         std::vector<uint8_t> commandersInsertionOrder = this->soldierModule->getCommandersInsertionOrder();
+
         if(commandersInsertionOrder.at(0) == this->soldierModule->getSoldierNumber())
         {
             this->onSoldierTurnToCommanderEvent(scPayload);
@@ -250,7 +260,7 @@ void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRat
   } else {
       strcpy(timeStr, "00:00:00");
   }
-        
+
   lv_label_set_text_fmt(sendLabel, "%s - sent coords {%.5f, %.5f}\n", 
                         timeStr,
                         lat, 
@@ -304,7 +314,8 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
                             current_text, timeStr, 
                             self->coords[self->currentIndex % self->coordCount].posLat, 
                             self->coords[self->currentIndex % self->coordCount].posLon);
-                            
+        
+        Serial.println("Finished sendTimerCallback");                    
         self->currentIndex++;
     } else {
         lv_timer_del(timer);

@@ -1,3 +1,6 @@
+# 1 "C:\\Users\\danny\\AppData\\Local\\Temp\\tmpvt2ytuht"
+#include <Arduino.h>
+# 1 "C:/Users/danny/Desktop/TactiGrid/TactiGrid-Wearable/mainSoldier/main.ino"
 #include "../mainPage/SoldiersMainPage.h"
 #include "../receiveParametersPage/SoldiersReceiveParametersPage.h"
 #include "../missionPage/SoldiersMissionPage.h"
@@ -10,7 +13,7 @@
 const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASS;
 
-void transferFromSendCoordsToReceiveCoordsPage(std::shared_ptr<LoraModule> newLoraModule, 
+void transferFromSendCoordsToReceiveCoordsPage(std::shared_ptr<LoraModule> newLoraModule,
     std::shared_ptr<GPSModule> newGPSModule, std::unique_ptr<FHFModule> newFHFModule,
     std::unique_ptr<Commander> commandersModule);
 
@@ -34,7 +37,7 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
      std::unique_ptr<Soldier> soldiersModule)
 {
     commandersMissionPage.reset();
-    
+
     Serial.println("transferFromMissionCommanderToMissionSoldier");
 
     wifiModule = std::move(newWifiModule);
@@ -49,13 +52,13 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
 
 }
 
-void transferFromSendCoordsToReceiveCoordsPage(std::shared_ptr<LoraModule> newLoraModule, 
+void transferFromSendCoordsToReceiveCoordsPage(std::shared_ptr<LoraModule> newLoraModule,
     std::shared_ptr<GPSModule> newGPSModule, std::unique_ptr<FHFModule> newFHFModule,
     std::unique_ptr<Commander> commandersModule)
 {
     soldiersMissionPage.reset();
-    
-    commandersMissionPage = std::make_unique<CommandersMissionPage>(newLoraModule, 
+
+    commandersMissionPage = std::make_unique<CommandersMissionPage>(newLoraModule,
     std::move(wifiModule), newGPSModule, std::move(newFHFModule), std::move(commandersModule), logFilePath);
 
     Serial.println("commandersMissionPage->createPage()");
@@ -78,7 +81,7 @@ void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiMod
     wifiModule = std::move(currentWifiModule);
 
     soldiersMissionPage = std::make_unique<SoldiersMissionPage>(loraModule, gpsModule, std::move(fhfModule), std::move(soldiersModule));
-    
+
     soldiersMissionPage->createPage();
 
     soldiersMissionPage->setTransferFunction(transferFromSendCoordsToReceiveCoordsPage);
@@ -94,9 +97,9 @@ void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> current
 
     soldiersModule = std::move(soldierModule);
 }
-
-
-
+void setup();
+void loop();
+#line 100 "C:/Users/danny/Desktop/TactiGrid/TactiGrid-Wearable/mainSoldier/main.ino"
 void setup()
 {
     Serial.begin(115200);
@@ -104,15 +107,15 @@ void setup()
 
     beginLvglHelper();
     lv_png_init();
-    
+
     crypto::CryptoModule::init();
 
-    if (!FFat.begin(true)) 
+    if (!FFat.begin(true))
     {
         Serial.println("Failed to mount FFat!");
         return;
     }
-    
+
     String ssidString(ssid);
     String passwordString(password);
 
@@ -130,14 +133,14 @@ void setup()
     struct tm timeInfo;
     setenv("TZ", "GMT-3", 1);
     tzset();
-    
+
 
     configTime(0, 0, "pool.ntp.org");
     while (!getLocalTime(&timeInfo)) {
         Serial.println("Waiting for time sync...");
         delay(500);
     }
-    
+
 
     receiveParametersPage = std::make_unique<SoldiersReceiveParametersPage>(std::move(wifiModule));
     receiveParametersPage->createPage();
