@@ -168,10 +168,21 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
         this->onCommanderSwitchEvent(scPayload);
 
+        Serial.println("scPayload.compromisedSoldiers");
+        for(const auto& commanderOrdered: scPayload.compromisedSoldiers)
+        {
+            Serial.println(commanderOrdered);
+        }
+
+        this->soldierModule->removeCommander();
         std::vector<uint8_t> commandersInsertionOrder = this->soldierModule->getCommandersInsertionOrder();
-        if(commandersInsertionOrder.at(1) == this->soldierModule->getSoldierNumber())
+        if(commandersInsertionOrder.at(0) == this->soldierModule->getSoldierNumber())
         {
             this->onSoldierTurnToCommanderEvent(scPayload);
+        }
+        else
+        {
+            
         }
     }
 }
@@ -397,16 +408,21 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
     this->soldierModule->getCAPublicCert(),
     this->soldierModule->getSoldierNumber(), this->soldierModule->getIntervalMS());
 
+    Serial.println("command");
     command->setComp(payload.compromisedSoldiers);
     command->setSoldiers(this->soldierModule->getSoldiers());
     command->setCommanders(this->soldierModule->getCommanders());
     command->setInsertionOrders(this->soldierModule->getCommandersInsertionOrder());
 
+    Serial.println("command->setInsertionOrders");
     payload.compromisedSoldiers.clear();
     this->soldierModule->clear();
 
+    Serial.println("soldierModule->clear()");
     this->destroyPage();
     delay(10);
 
+
+    Serial.println("this->destroyPage()");
     this->transferFunction(this->loraModule, this->gpsModule, std::move(this->fhfModule), std::move(command));
 }

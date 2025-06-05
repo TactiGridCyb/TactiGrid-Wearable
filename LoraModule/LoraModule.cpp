@@ -225,7 +225,13 @@ void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
           this->currentOp.store(Op::None, std::memory_order_release);
           this->receivedChunks = 0;
           this->expectedChunks = 0;
-          this->onFileReceived(this->fileBuffer.data(), this->fileBuffer.size());
+
+          if(this->onFileReceived)
+          {
+            Serial.println("onFileReceived exists");
+            this->onFileReceived(this->fileBuffer.data(), this->fileBuffer.size());
+          }
+          
           
           Serial.println("returning from function");
           return;

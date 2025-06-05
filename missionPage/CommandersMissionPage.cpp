@@ -23,6 +23,8 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
             this->onDataReceived(data, len);
         });
 
+        this->loraModule->setOnFileReceived(nullptr);
+
         FFatHelper::deleteFile(this->logFilePath.c_str());
         FFatHelper::deleteFile(this->tileFilePath);
 
@@ -47,7 +49,7 @@ void CommandersMissionPage::createPage() {
     lv_label_set_text(waitingLabel, "Waiting For Initial Coords");
     lv_obj_set_style_text_color(waitingLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
 
-
+    Serial.println("this->regularLoopTimer");
     this->regularLoopTimer = lv_timer_create([](lv_timer_t* t){
         auto *self = static_cast<CommandersMissionPage*>(t->user_data);
         self->loraModule->handleCompletedOperation();
@@ -59,6 +61,7 @@ void CommandersMissionPage::createPage() {
         self->loraModule->syncFrequency(self->fhfModule.get());
     }, 100, this);
 
+    Serial.println("this->missingSoldierTimer");
     this->missingSoldierTimer = lv_timer_create([](lv_timer_t* t){
         auto *self = static_cast<CommandersMissionPage*>(t->user_data);
         for (const auto& commander : self->commanderModule->getCommanders()) 
@@ -458,7 +461,7 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID)
     const std::string newEventText = "Missing Soldier Event - " + this->commanderModule->getCommanders().at(soldiersID).name;
 
     Serial.println("PRE PREMOVE");
-    this->commanderModule->removeOther(soldiersID);
+    // this->commanderModule->removeCommander(soldiersID);
 
     this->switchGMKEvent(newEventText.c_str());
 }
@@ -540,13 +543,15 @@ void CommandersMissionPage::switchCommanderEvent()
     lv_timer_del(this->regularLoopTimer);
 
     Serial.println("deleted timer");
+
+    this->commanderModule->removeCommander();
     
     std::unique_ptr<Soldier> sold = std::make_unique<Soldier>(this->commanderModule->getName(),
      this->commanderModule->getPublicCert(), this->commanderModule->getPrivateKey(),
      this->commanderModule->getCAPublicCert(), this->commanderModule->getCommanderNumber(),
      this->commanderModule->getIntervalMS());
     
-
+    sold->setCommanders(this->commanderModule->getCommanders());
     Serial.println("created sold");
     this->destroyPage();
     delay(10);

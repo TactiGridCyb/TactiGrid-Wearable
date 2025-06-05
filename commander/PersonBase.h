@@ -52,16 +52,11 @@ public:
         Serial.printf("addSoldier for %d\n", id);
     }
 
-    void removeOther(uint8_t id) {
-        commanders.erase(id);
-
-        auto newEnd = std::remove(
-            commandersInsertionOrder.begin(),
-            commandersInsertionOrder.end(),
-            id
-        );
-
-        commandersInsertionOrder.erase(newEnd, commandersInsertionOrder.end());
+    void removeCommander() {
+        if (!this->commandersInsertionOrder.empty()) 
+        {
+            commandersInsertionOrder.erase(commandersInsertionOrder.begin());
+        }
     }
 
 

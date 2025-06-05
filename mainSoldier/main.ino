@@ -31,9 +31,12 @@ void transferFromSendCoordsToReceiveCoordsPage(std::shared_ptr<LoraModule> newLo
     soldiersMissionPage.reset();
     
     commandersMissionPage = std::make_unique<CommandersMissionPage>(newLoraModule, 
-    std::move(wifiModule), newGPSModule, std::move(fhfModule), std::move(commandersModule), logFilePath);
+    std::move(wifiModule), newGPSModule, std::move(newFHFModule), std::move(commandersModule), logFilePath);
 
+    Serial.println("commandersMissionPage->createPage()");
     commandersMissionPage->createPage();
+
+    Serial.println("commandersMissionPage->createPage() finished");
 }
 
 void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiModule)
@@ -51,6 +54,8 @@ void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiMod
     soldiersMissionPage = std::make_unique<SoldiersMissionPage>(loraModule, gpsModule, std::move(fhfModule), std::move(soldiersModule));
     
     soldiersMissionPage->createPage();
+
+    soldiersMissionPage->setTransferFunction(transferFromSendCoordsToReceiveCoordsPage);
 }
 
 void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Soldier> soldierModule)
@@ -72,6 +77,7 @@ void setup()
     watch.begin(&Serial);
 
     beginLvglHelper();
+    lv_png_init();
     
     crypto::CryptoModule::init();
 
