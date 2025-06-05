@@ -1,5 +1,3 @@
-// Soldier.cpp
-
 #include "Soldier.h"
 #include <cstring>
 #include <stdexcept>
@@ -112,4 +110,17 @@ const std::vector<float>& Soldier::getFrequencies() const {
 
 void Soldier::appendFrequencies(const std::vector<float>& freqs) {
     frequencies.insert(frequencies.end(), freqs.begin(), freqs.end());
+}
+
+
+void Soldier::clear()
+{
+    this->others.clear();
+    this->insertionOrder.clear();
+    this->comp.clear();
+
+    mbedtls_pk_free(&this->privateKey);
+    mbedtls_x509_crt_free(&this->ownCertificate);
+    mbedtls_x509_crt_free(&this->caCertificate);
+    
 }

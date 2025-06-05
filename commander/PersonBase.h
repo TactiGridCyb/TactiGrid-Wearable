@@ -91,23 +91,30 @@ public:
 
     }
 
-    std::vector<std::pair<uint8_t, InfoType>> getOthersInInsertionOrder() const {
-        std::vector<std::pair<uint8_t, InfoType>> orderedOthers;
-        orderedOthers.reserve(insertionOrder.size());
-        for (auto id : insertionOrder) {
-            auto it = others.find(id);
-            if (it != others.end()) {
-                orderedOthers.emplace_back(*it);
-            }
-        }
-        return orderedOthers;
+    const std::vector<uint8_t>& getOthersInsertionOrder() const 
+    {
+        return this->insertionOrder;
     }
 protected:
     std::unordered_map<uint8_t, InfoType> others;
     std::unordered_map<uint8_t, InfoType> comp;
     std::vector<uint8_t> insertionOrder;
 
-    static float intervalMS;
+
+    void setOthers(const std::unordered_map<uint8_t, InfoType>& others)
+    {
+        this->others = others;
+    }
+
+    void setComp(const std::unordered_map<uint8_t, InfoType>& comp)
+    {
+        this->comp = comp;
+    }
+
+    void setInsertionOrders(const std::vector<uint8_t>& insertionOrder)
+    {
+        this->insertionOrder = insertionOrder;
+    }
 
     static uint8_t infoNumber(const CommanderInfo& info) { return info.commanderNumber; }
     static uint8_t infoNumber(const SoldierInfo& info) { return info.soldierNumber; }

@@ -34,7 +34,8 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
      std::shared_ptr<GPSModule> newGPSModule, std::unique_ptr<FHFModule> newFhfModule,
      std::unique_ptr<Soldier> soldiersModule)
 {
-
+    commandersMissionPage.reset();
+    
     Serial.println("transferFromMissionCommanderToMissionSoldier");
     loraModule = newLoraModule;
     gpsModule = newGPSModule;

@@ -490,6 +490,8 @@ void CommandersMissionPage::switchCommanderEvent()
         this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
     
         ++index;
+
+        delay(500);
     }
 
     Serial.println("finished loop");
@@ -514,17 +516,9 @@ void CommandersMissionPage::switchCommanderEvent()
      this->gpsModule, std::move(this->fhfModule), std::move(sold));
 
     Serial.println("this->transferFunction");
-}
-
-CommandersMissionPage::~CommandersMissionPage()
-{
-    Serial.println("DEST");
 
     this->commanderModule->clear();
     this->ballColors.clear();
     this->markers.clear();
     this->labels.clear();
-
-    Serial.println("END DEST");
-
 }

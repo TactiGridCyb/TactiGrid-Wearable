@@ -31,6 +31,9 @@ class SoldiersMissionPage : public LVGLPage
     lv_timer_t* sendTimer;
     lv_timer_t* mainLoopTimer;
 
+    std::function<void(std::shared_ptr<LoraModule>, std::shared_ptr<GPSModule>, 
+        std::unique_ptr<FHFModule>, std::unique_ptr<Commander>)> transferFunction;
+
     bool fakeGPS;
     bool delaySendFakeGPS;
 
@@ -60,6 +63,9 @@ class SoldiersMissionPage : public LVGLPage
     static std::pair<float, float> getTileCenterLatLon(float lat, float lon, int zoomLevel, float tileSize);
 
     void parseGPSData();
+
+    void setTransferFunction(std::function<void(std::shared_ptr<LoraModule>, std::shared_ptr<GPSModule>, 
+        std::unique_ptr<FHFModule>, std::unique_ptr<Commander>)> cb);
 
     static inline bool isZero(float);
 };

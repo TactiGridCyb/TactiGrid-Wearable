@@ -26,6 +26,11 @@ public:
         return GMK;
     }
 
+    const uint16_t getIntervalMS() const
+    {
+        return intervalMS;
+    }
+
     void setName(const std::string& name);
     void setPublicCert(const std::string& publicCert);
     void setPrivateKey(const std::string& privateKey);
@@ -38,9 +43,9 @@ public:
 
     void setGMK(const crypto::Key256& gmk);
 
-    mbedtls_pk_context privateKey;
-    mbedtls_x509_crt caCertificate;
-    mbedtls_x509_crt ownCertificate;
+    void clear();
+
+    
 
 private:
     std::string name;
@@ -57,4 +62,8 @@ private:
         std::memcpy(key.data(), raw, 32);
         return key;
     }();
+
+    mbedtls_pk_context privateKey;
+    mbedtls_x509_crt caCertificate;
+    mbedtls_x509_crt ownCertificate;
 };
