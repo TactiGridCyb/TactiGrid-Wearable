@@ -127,46 +127,58 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     this->commanderModule->appendFrequencies(freqs);
 
+  
     for (auto v : doc["soldiers"].as<JsonArray>()) {
         const std::string pem = v.as<std::string>();
 
-        SoldierInfo info;
-        mbedtls_x509_crt_init(&info.cert);
-        if (mbedtls_x509_crt_parse(&info.cert, reinterpret_cast<const unsigned char*>(pem.c_str()), pem.size() + 1) != 0)
+        SoldierInfo soldInfo;
+        mbedtls_x509_crt_init(&soldInfo.cert);
+        if (mbedtls_x509_crt_parse(&soldInfo.cert, reinterpret_cast<const unsigned char*>(pem.c_str()), pem.size() + 1) != 0)
         {
-            mbedtls_x509_crt_free(&info.cert);
+            mbedtls_x509_crt_free(&soldInfo.cert);
             continue;
         }
 
         try {
             NameId ni = certModule::parseNameIdFromCertPem(pem);
-            info.name = std::move(ni.name);
-            info.soldierNumber = ni.id;
-            info.status = SoldiersStatus::REGULAR;
-            info.isComp = false;
-            info.lastTimeReceivedData = millis();
+            soldInfo.name = std::move(ni.name);
+            soldInfo.soldierNumber = ni.id;
+            soldInfo.status = SoldiersStatus::REGULAR;
+            soldInfo.lastTimeReceivedData = millis();
         }
         catch (...) {
-            mbedtls_x509_crt_free(&info.cert);
+            mbedtls_x509_crt_free(&soldInfo.cert);
             continue;
         }
 
-        this->commanderModule->addCommander(std::move(info));
+        this->commanderModule->addSoldier(std::move(soldInfo));
     }
 
-    const auto& commanders = this->commanderModule->getCommanders();
-    Serial.println("CommanderInfo entries:");
-    for (const auto& [id, info] : commanders) {
-        Serial.print("Commander Number: ");
-        Serial.println(info.soldierNumber);
-        Serial.print("Name: ");
-        Serial.println(info.name.c_str());
-        Serial.print("Certificate subject name: ");
-        char buf[256];
-        mbedtls_x509_dn_gets(buf, sizeof(buf), &info.cert.subject);
-        Serial.println(buf);
-    }
+    for (auto v : doc["commanders"].as<JsonArray>()) {
+        const std::string pem = v.as<std::string>();
 
+        CommanderInfo commandInfo;
+        mbedtls_x509_crt_init(&commandInfo.cert);
+        if (mbedtls_x509_crt_parse(&commandInfo.cert, reinterpret_cast<const unsigned char*>(pem.c_str()), pem.size() + 1) != 0)
+        {
+            mbedtls_x509_crt_free(&commandInfo.cert);
+            continue;
+        }
+
+        try {
+            NameId ni = certModule::parseNameIdFromCertPem(pem);
+            commandInfo.name = std::move(ni.name);
+            commandInfo.commanderNumber = ni.id;
+            commandInfo.status = SoldiersStatus::REGULAR;
+            commandInfo.lastTimeReceivedData = millis();
+        }
+        catch (...) {
+            mbedtls_x509_crt_free(&commandInfo.cert);
+            continue;
+        }
+
+        this->commanderModule->addCommander(std::move(commandInfo));
+    }
     updateLabel(5);
 
 

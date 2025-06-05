@@ -61,12 +61,21 @@ void CommandersMissionPage::createPage() {
 
     this->missingSoldierTimer = lv_timer_create([](lv_timer_t* t){
         auto *self = static_cast<CommandersMissionPage*>(t->user_data);
-        for (const auto& soldier : self->commanderModule->getCommanders()) 
+        for (const auto& commander : self->commanderModule->getCommanders()) 
+        {
+            if(millis() - commander.second.lastTimeReceivedData >= 60000)
+            {
+                self->missingSoldierEvent(commander.first);
+                return;
+            }
+        }
+
+        for (const auto& soldier : self->commanderModule->getSoldiers()) 
         {
             if(millis() - soldier.second.lastTimeReceivedData >= 60000)
             {
                 self->missingSoldierEvent(soldier.first);
-                break;
+                return;
             }
         }
     }, 60000, this);
@@ -210,8 +219,9 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     create_fading_circle(marker_lat, marker_lon, centerLat, centerLon, newG->soldiersID, 19, &ballColors[newG->soldiersID], marker, label);
 
     this->commanderModule->updateReceivedData(newG->soldiersID);
+    const std::vector<uint8_t>& comp = this->commanderModule->getComp();
 
-    if(newG->heartRate == 0 && !this->commanderModule->getCommanders().at(newG->soldiersID).isComp)
+    if(newG->heartRate == 0 && std::find(comp.begin(), comp.end(), newG->soldiersID) != comp.end())
     {
         Serial.println("CompromisedEvent");
         // this->commanderModule->setCompromised(newG->soldiersID);

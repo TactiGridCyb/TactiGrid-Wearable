@@ -44,6 +44,11 @@ public:
         }
     }
 
+    void addSoldier(const SoldierInfo& info) {
+        uint16_t id = infoNumber(info);
+        auto [it, inserted] = soldiers.emplace(id, info);
+    }
+
     void removeOther(uint8_t id) {
         commanders.erase(id);
 
@@ -63,7 +68,15 @@ public:
 
     void updateReceivedData(uint8_t id)
     {
-        this->commanders.at(id).lastTimeReceivedData = millis();
+        if(this->soldiers.find(id) != this->soldiers.end())
+        {
+            this->soldiers.at(id).lastTimeReceivedData = millis();
+            return;
+        }
+        else if(this->commanders.find(id) != this->commanders.end())
+        {
+            this->commanders.at(id).lastTimeReceivedData = millis();
+        }
     }
 
     const std::vector<uint8_t>& getCommandersInsertionOrder() const 
