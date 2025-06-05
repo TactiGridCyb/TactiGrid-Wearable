@@ -32,7 +32,7 @@ struct sendShamir{
     std::vector<uint8_t> shamirPart;
 };
 
-class Commander : public PersonBase<SoldierInfo>
+class Commander : public PersonBase
 {
 public:
     Commander(const std::string& name,
@@ -57,6 +57,9 @@ public:
         return intervalMS;
     }
 
+    const std::unordered_map<uint8_t, SoldierInfo>& getComp();
+    
+
     void setName(const std::string& name);
     void setPublicCert(const std::string& publicCert);
     void setPrivateKey(const std::string& privateKey);
@@ -65,7 +68,11 @@ public:
     void setCurrentHeartRate(uint16_t heartRate);
     void setGMK(const crypto::Key256& gmk);
     void setCompGMK(const crypto::Key256& gmk);
+    void setCompromised(uint8_t id);
+    void setComp(const std::unordered_map<uint8_t, SoldierInfo>& comp);
+
     const mbedtls_pk_context& getPrivateKey() const;
+
 
     const std::vector<float>& getFrequencies() const;
     void appendFrequencies(const std::vector<float>& freqs);
@@ -79,6 +86,7 @@ private:
     uint16_t intervalMS;
 
     std::vector<float> frequencies;
+    std::unordered_map<uint8_t, SoldierInfo> comp;
 
     crypto::Key256 GK;
     crypto::Key256 GMK = []() {
@@ -94,6 +102,8 @@ private:
         std::memcpy(key.data(), raw, 32);
         return key;
     }();
+
+    void addComp(const SoldierInfo& info);
 
     mbedtls_pk_context privateKey;
     mbedtls_x509_crt caCertificate;

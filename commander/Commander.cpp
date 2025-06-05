@@ -51,6 +51,15 @@ void Commander::setGMK(const crypto::Key256& gmk) {
     this->GMK = gmk;
 }
 
+void Commander::setCompromised(uint8_t id)
+{
+
+    this->commanders.at(id).isComp = true;
+
+    this->addComp(this->);
+
+}
+
 void Commander::setCompGMK(const crypto::Key256& gmk) {
     this->CompGMK = gmk;
 }
@@ -62,6 +71,12 @@ uint16_t Commander::getCommanderNumber() const {
 uint16_t Commander::getCurrentHeartRate() const {
     return currentHeartRate;
 }
+
+const std::unordered_map<uint8_t, SoldierInfo>& Commander::getComp()
+{
+    return this->comp;
+}
+
 
 void Commander::setName(const std::string& name) {
     this->name = name;
@@ -114,12 +129,23 @@ void Commander::appendFrequencies(const std::vector<float>& freqs) {
 
 void Commander::clear()
 {
-    this->others.clear();
-    this->insertionOrder.clear();
+    this->commanders.clear();
+    this->commandersInsertionOrder.clear();
     this->comp.clear();
 
     mbedtls_pk_free(&this->privateKey);
     mbedtls_x509_crt_free(&this->ownCertificate);
     mbedtls_x509_crt_free(&this->caCertificate);
     
+}
+
+void Commander::addComp(const SoldierInfo& info)
+{
+    uint8_t id = info.soldierNumber;
+    auto [it, inserted] = comp.emplace(id, info);
+
+    if (!inserted) 
+    {
+        it->second = info;
+    }
 }

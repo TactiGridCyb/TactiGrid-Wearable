@@ -155,15 +155,15 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
         lv_timer_del(this->mainLoopTimer);
 
-        std::vector<uint8_t> insertionOrder = this->soldierModule->getOthersInsertionOrder();
-        if(insertionOrder.at(1) == this->soldierModule->getSoldierNumber())
+        std::vector<uint8_t> commandersInsertionOrder = this->soldierModule->getCommandersInsertionOrder();
+        if(commandersInsertionOrder.at(1) == this->soldierModule->getSoldierNumber())
         {
             std::unique_ptr<Commander> command = std::make_unique<Commander>(this->soldierModule->getName(),
             this->soldierModule->getPublicCert(), this->soldierModule->getPrivateKey(),
             this->soldierModule->getCAPublicCert(),
             this->soldierModule->getSoldierNumber(), this->soldierModule->getIntervalMS());
 
-            
+
         }
     }
     

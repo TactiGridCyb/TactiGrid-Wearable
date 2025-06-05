@@ -61,7 +61,7 @@ void CommandersMissionPage::createPage() {
 
     this->missingSoldierTimer = lv_timer_create([](lv_timer_t* t){
         auto *self = static_cast<CommandersMissionPage*>(t->user_data);
-        for (const auto& soldier : self->commanderModule->getOthers()) 
+        for (const auto& soldier : self->commanderModule->getCommanders()) 
         {
             if(millis() - soldier.second.lastTimeReceivedData >= 60000)
             {
@@ -149,7 +149,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     soldInfo["lat"] = marker_lat;
     soldInfo["lon"] = marker_lon;
     soldInfo["heartRate"] = newG->heartRate;
-    soldInfo["name"] = this->commanderModule->getOthers().at(newG->soldiersID).name;
+    soldInfo["name"] = this->commanderModule->getCommanders().at(newG->soldiersID).name;
 
     String jsonStr;
     serializeJson(currentEvent, jsonStr);
@@ -211,13 +211,13 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
     this->commanderModule->updateReceivedData(newG->soldiersID);
 
-    if(newG->heartRate == 0 && !this->commanderModule->getOthers().at(newG->soldiersID).isComp)
+    if(newG->heartRate == 0 && !this->commanderModule->getCommanders().at(newG->soldiersID).isComp)
     {
         Serial.println("CompromisedEvent");
         // this->commanderModule->setCompromised(newG->soldiersID);
         // delay(500);
         // const std::string newEventText = "Compromised Soldier Event - " + 
-        // this->commanderModule->getOthers().at(newG->soldiersID).name;
+        // this->commanderModule->getCommanders().at(newG->soldiersID).name;
         // this->switchGMKEvent(newEventText.c_str(), newG->soldiersID);
 
         this->switchCommanderEvent();
@@ -321,13 +321,13 @@ void CommandersMissionPage::create_fading_circle(double markerLat, double marker
         
         label = lv_label_create(lv_scr_act());
 
-        const auto& others = this->commanderModule->getOthers();
-        for (const auto& kv : others) {
+        const auto& commanders = this->commanderModule->getCommanders();
+        for (const auto& kv : commanders) {
             Serial.printf("Other ID: %u\n", kv.first);
         }
-        auto it = others.find(soldiersID);
+        auto it = commanders.find(soldiersID);
 
-        if (it != others.end()) {
+        if (it != commanders.end()) {
             Serial.printf("Soldier %u found in map!!\n", soldiersID);
             std::string s = it->second.name;
             lv_label_set_text(label, s.c_str());
@@ -383,16 +383,16 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     std::string info("IMPORTANT INFO");
     crypto::ByteVec salt(16);
     randombytes_buf(salt.data(), salt.size());
-    const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), millis(), info, salt, this->commanderModule->getOthers().size());
+    const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), millis(), info, salt, this->commanderModule->getCommanders().size());
     Serial.println("newGMK");
-    for (const auto& soldier : this->commanderModule->getOthers()) 
+    for (const auto& soldier : this->commanderModule->getCommanders()) 
     {
         const crypto::Key256& keyRef = (soldier.first == soldiersIDMoveToComp ? this->commanderModule->getCompGMK() : newGMK);
         
         payload.encryptedGMK.clear();
         payload.soldiersID = soldier.first;
         Serial.printf("%d\n", payload.soldiersID);
-        certModule::encryptWithPublicKey(this->commanderModule->getOthers().at(payload.soldiersID).cert,
+        certModule::encryptWithPublicKey(this->commanderModule->getCommanders().at(payload.soldiersID).cert,
         crypto::CryptoModule::key256ToAsciiString(keyRef), payload.encryptedGMK);
         Serial.println("crypto::CryptoModule::key256ToAsciiString");
         std::string buffer;
@@ -400,7 +400,7 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
         buffer += static_cast<char>(payload.soldiersID);
         buffer.append(reinterpret_cast<const char*>(payload.encryptedGMK.data()), payload.encryptedGMK.size());
 
-        Serial.printf("CERT: %s\n", certModule::certToString(this->commanderModule->getOthers().at(soldier.first).cert).c_str());
+        Serial.printf("CERT: %s\n", certModule::certToString(this->commanderModule->getCommanders().at(soldier.first).cert).c_str());
         Serial.printf("GMK SENT: %s\n", crypto::CryptoModule::key256ToAsciiString(keyRef).c_str());
 
         std::string base64Payload = crypto::CryptoModule::base64Encode(
@@ -420,7 +420,7 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
 void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID)
 {
     Serial.printf("missingSoldierEvent for %d\n", soldiersID);
-    const std::string newEventText = "Missing Soldier Event - " + this->commanderModule->getOthers().at(soldiersID).name;
+    const std::string newEventText = "Missing Soldier Event - " + this->commanderModule->getCommanders().at(soldiersID).name;
 
     Serial.println("PRE PREMOVE");
     this->commanderModule->removeOther(soldiersID);
@@ -438,7 +438,7 @@ void CommandersMissionPage::switchCommanderEvent()
 
     lv_timer_del(this->missingSoldierTimer);
 
-    if (!ShamirHelper::splitFile(this->logFilePath.c_str(), this->commanderModule->getOthers().size(), sharePaths)) 
+    if (!ShamirHelper::splitFile(this->logFilePath.c_str(), this->commanderModule->getCommanders().size(), sharePaths)) 
     {
         Serial.println("❌ Failed to split log file with Shamir.");
         return;
@@ -446,7 +446,7 @@ void CommandersMissionPage::switchCommanderEvent()
     this->loraModule->setOnReadData(nullptr);
     uint8_t index = 0;
 
-    for (const auto& soldier : this->commanderModule->getOthers()) 
+    for (const auto& soldier : this->commanderModule->getCommanders()) 
     {
         Serial.println("Sending to soldier");
         payload.soldiersID = soldier.first;

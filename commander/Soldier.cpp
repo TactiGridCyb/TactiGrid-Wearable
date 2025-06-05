@@ -115,8 +115,8 @@ void Soldier::appendFrequencies(const std::vector<float>& freqs) {
 
 void Soldier::clear()
 {
-    this->others.clear();
-    this->insertionOrder.clear();
+    this->commanders.clear();
+    this->commandersInsertionOrder.clear();
     this->comp.clear();
 
     mbedtls_pk_free(&this->privateKey);

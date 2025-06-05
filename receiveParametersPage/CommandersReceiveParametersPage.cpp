@@ -151,12 +151,12 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
             continue;
         }
 
-        this->commanderModule->addOther(std::move(info));
+        this->commanderModule->addCommander(std::move(info));
     }
 
-    const auto& others = this->commanderModule->getOthers();
+    const auto& commanders = this->commanderModule->getCommanders();
     Serial.println("CommanderInfo entries:");
-    for (const auto& [id, info] : others) {
+    for (const auto& [id, info] : commanders) {
         Serial.print("Commander Number: ");
         Serial.println(info.soldierNumber);
         Serial.print("Name: ");

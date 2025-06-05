@@ -34,99 +34,71 @@ struct SoldierInfo {
     enum SoldiersStatus status;
 };
 
-template<typename InfoType>
 class PersonBase {
 public:
-    void addOther(const InfoType& info) {
+    void addCommander(const CommanderInfo& info) {
         uint16_t id = infoNumber(info);
-        auto [it, inserted] = others.emplace(id, info);
+        auto [it, inserted] = commanders.emplace(id, info);
         if (inserted) {
-            insertionOrder.push_back(id);
+            commandersInsertionOrder.push_back(id);
         } else {
             it->second = info;
         }
     }
 
     void removeOther(uint8_t id) {
-        others.erase(id);
+        commanders.erase(id);
 
         auto newEnd = std::remove(
-            insertionOrder.begin(),
-            insertionOrder.end(),
+            commandersInsertionOrder.begin(),
+            commandersInsertionOrder.end(),
             id
         );
 
-        insertionOrder.erase(newEnd, insertionOrder.end());
+        commandersInsertionOrder.erase(newEnd, commandersInsertionOrder.end());
     }
 
 
-    const std::unordered_map<uint8_t, InfoType>& getOthers() const {
-        return others;
-    }
-
-    const std::unordered_map<uint8_t, InfoType>& getComp() const {
-        return comp;
+    const std::unordered_map<uint8_t, CommanderInfo>& getCommanders() const {
+        return commanders;
     }
 
     void updateReceivedData(uint8_t id)
     {
-        static_assert(
-            std::is_same<InfoType,CommanderInfo>::value || std::is_same<InfoType,SoldierInfo>::value,
-                "PersonBase may only be instantiated with a class that has isComp var"
-        );
-
-        this->others.at(id).lastTimeReceivedData = millis();
+        this->commanders.at(id).lastTimeReceivedData = millis();
     }
 
-    void setCompromised(uint8_t id)
+    const std::vector<uint8_t>& getCommandersInsertionOrder() const 
     {
-        static_assert(
-            std::is_same<InfoType,CommanderInfo>::value || std::is_same<InfoType,SoldierInfo>::value,
-                "PersonBase may only be instantiated with a class that has isComp var"
-        );
-
-        this->others.at(id).isComp = true;
-
-        this->addComp(id);
-
+        return this->commandersInsertionOrder;
     }
 
-    const std::vector<uint8_t>& getOthersInsertionOrder() const 
+    const std::unordered_map<uint8_t, SoldierInfo>& getSoldiers() const
     {
-        return this->insertionOrder;
+        return this->soldiers;
     }
+
 protected:
-    std::unordered_map<uint8_t, InfoType> others;
-    std::unordered_map<uint8_t, InfoType> comp;
-    std::vector<uint8_t> insertionOrder;
+    std::unordered_map<uint8_t, CommanderInfo> commanders;
+    std::unordered_map<uint8_t, SoldierInfo> soldiers;
+    std::vector<uint8_t> commandersInsertionOrder;
 
-
-    void setOthers(const std::unordered_map<uint8_t, InfoType>& others)
+    void setSoldiers(const std::unordered_map<uint8_t, SoldierInfo>& soldiers)
     {
-        this->others = others;
+        this->soldiers = soldiers;
     }
 
-    void setComp(const std::unordered_map<uint8_t, InfoType>& comp)
+    void setCommanders(const std::unordered_map<uint8_t, CommanderInfo>& commanders)
     {
-        this->comp = comp;
+        this->commanders = commanders;
     }
 
-    void setInsertionOrders(const std::vector<uint8_t>& insertionOrder)
+    void setInsertionOrders(const std::vector<uint8_t>& commandersInsertionOrder)
     {
-        this->insertionOrder = insertionOrder;
+        this->commandersInsertionOrder = commandersInsertionOrder;
     }
 
     static uint8_t infoNumber(const CommanderInfo& info) { return info.commanderNumber; }
     static uint8_t infoNumber(const SoldierInfo& info) { return info.soldierNumber; }
 
-private:
-    void addComp(const InfoType& info) {
-        uint8_t id = infoNumber(info);
-        auto [it, inserted] = comp.emplace(id, info);
-
-        if (!inserted) 
-        {
-            it->second = info;
-        }
-    }
 };
