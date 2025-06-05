@@ -55,6 +55,8 @@ class SoldiersMissionPage : public LVGLPage
 
     void onCommanderSwitchEvent(SwitchCommander&);
 
+    void onSoldierTurnToCommanderEvent(SwitchCommander&);
+
     public:
     SoldiersMissionPage(std::shared_ptr<LoraModule>,
          std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Soldier>, bool = true);

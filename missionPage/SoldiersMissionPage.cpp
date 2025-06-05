@@ -93,6 +93,9 @@ void SoldiersMissionPage::createPage()
 
 void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 {
+
+    size_t index = 0;
+
     if (len < 4) {
         Serial.println("Received data too short for any struct with length prefix");
         return;
@@ -121,8 +124,8 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
      static_cast<uint8_t>(decodedData[0]), static_cast<uint8_t>(decodedData[1]));
 
     SwitchGMK sgPayload;
-    sgPayload.msgID = static_cast<uint8_t>(decodedData[0]);
-    sgPayload.soldiersID = static_cast<uint8_t>(decodedData[1]);
+    sgPayload.msgID = static_cast<uint8_t>(decodedData[index++]);
+    sgPayload.soldiersID = static_cast<uint8_t>(decodedData[index++]);
 
     if(sgPayload.soldiersID != this->soldierModule->getSoldierNumber())
     {
@@ -149,27 +152,28 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         SwitchCommander scPayload;
         scPayload.msgID = sgPayload.msgID;
         scPayload.soldiersID = sgPayload.soldiersID;
-        scPayload.shamirPart.assign(decodedData.begin() + 2, decodedData.end());
+
+        uint16_t shamirLen = (decodedData[index] << 8) | decodedData[index + 1];
+        scPayload.shamirPartLength = shamirLen;
+        index += 2;
+
+        scPayload.shamirPart.assign(decodedData.begin() + index, decodedData.begin() + index + shamirLen);
+        index += shamirLen;
+
+        uint8_t compromisedSoldiersLen = decodedData[index++];
+
+        scPayload.compromisedSoldiers.assign(decodedData.begin() + index,
+        decodedData.begin() + index + compromisedSoldiersLen);
+        index += compromisedSoldiersLen;
 
         this->onCommanderSwitchEvent(scPayload);
-
-        lv_timer_del(this->mainLoopTimer);
 
         std::vector<uint8_t> commandersInsertionOrder = this->soldierModule->getCommandersInsertionOrder();
         if(commandersInsertionOrder.at(1) == this->soldierModule->getSoldierNumber())
         {
-            std::unique_ptr<Commander> command = std::make_unique<Commander>(this->soldierModule->getName(),
-            this->soldierModule->getPublicCert(), this->soldierModule->getPrivateKey(),
-            this->soldierModule->getCAPublicCert(),
-            this->soldierModule->getSoldierNumber(), this->soldierModule->getIntervalMS());
-
-
+            this->onSoldierTurnToCommanderEvent(scPayload);
         }
     }
-    
-
-    
-
 }
 
 void SoldiersMissionPage::onGMKSwitchEvent(SwitchGMK payload)
@@ -381,4 +385,14 @@ void SoldiersMissionPage::onCommanderSwitchEvent(SwitchCommander& payload)
     Serial.printf("✅ Saved share to %s (%d bytes)\n", sharePath, payload.shamirPart.size());
 
     payload.shamirPart.clear();
+}
+
+void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload)
+{
+    lv_timer_del(this->mainLoopTimer);
+    
+    std::unique_ptr<Commander> command = std::make_unique<Commander>(this->soldierModule->getName(),
+    this->soldierModule->getPublicCert(), this->soldierModule->getPrivateKey(),
+    this->soldierModule->getCAPublicCert(),
+    this->soldierModule->getSoldierNumber(), this->soldierModule->getIntervalMS());
 }

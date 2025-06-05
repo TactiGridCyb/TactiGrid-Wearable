@@ -461,6 +461,10 @@ void CommandersMissionPage::switchCommanderEvent()
         Serial.println("Sending to soldier");
         payload.soldiersID = soldier.first;
         payload.shamirPart.clear();
+        payload.compromisedSoldiers.clear();
+
+        payload.compromisedSoldiers = this->commanderModule->getComp();
+        payload.compromisedSoldiersLength = payload.compromisedSoldiers.size();
 
         File currentShamir = FFat.open(sharePaths[index].c_str(), FILE_READ);
         if (!currentShamir) 
@@ -480,11 +484,17 @@ void CommandersMissionPage::switchCommanderEvent()
         }
         currentShamir.close();
 
+        uint16_t len = payload.shamirPart.size();
+        payload.shamirPartLength = len;
 
         std::string buffer;
         buffer += static_cast<char>(payload.msgID);
         buffer += static_cast<char>(payload.soldiersID);
-        buffer.append(reinterpret_cast<const char*>(payload.shamirPart.data()), payload.shamirPart.size());
+        buffer += static_cast<char>((len >> 8) & 0xFF);
+        buffer += static_cast<char>(len & 0xFF);
+        buffer.append(reinterpret_cast<const char*>(payload.shamirPart.data()), len);
+        buffer += static_cast<char>(payload.compromisedSoldiersLength);
+        buffer.append(reinterpret_cast<const char*>(payload.compromisedSoldiers.data()), payload.compromisedSoldiers.size());
 
         std::string base64Payload = crypto::CryptoModule::base64Encode(
             reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
