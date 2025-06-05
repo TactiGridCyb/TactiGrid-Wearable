@@ -69,5 +69,6 @@ class SoldiersMissionPage : public LVGLPage
     void setTransferFunction(std::function<void(std::shared_ptr<LoraModule>, std::shared_ptr<GPSModule>, 
         std::unique_ptr<FHFModule>, std::unique_ptr<Commander>)> cb);
 
+
     static inline bool isZero(float);
 };

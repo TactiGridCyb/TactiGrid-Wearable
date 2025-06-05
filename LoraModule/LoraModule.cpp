@@ -400,6 +400,7 @@ void LoraModule::handleCompletedOperation()
       }
       if (onReadData) 
       {
+        Serial.printf("Calling onReadData %d\n", pktLen);
         onReadData(buf, pktLen);
       }
     }
@@ -428,4 +429,9 @@ void LoraModule::syncFrequency(const FHFModule* module)
 
     Serial.println("post check syncFrequency");
   }
+}
+
+const std::function<void(const uint8_t* data, size_t len)>& LoraModule::getOnFileReceived()
+{
+  return this->onFileReceived;
 }

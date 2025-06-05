@@ -59,6 +59,8 @@ public:
 
     void syncFrequency(const FHFModule* module);
 
+    const std::function<void(const uint8_t* data, size_t len)>& getOnFileReceived();
+
 private:
     bool tryStartOp(Op desired);
 

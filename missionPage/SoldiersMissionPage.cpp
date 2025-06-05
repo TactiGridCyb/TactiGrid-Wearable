@@ -24,6 +24,7 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
     Serial.printf("📍 gpsModule: %s\n", this->gpsModule ? "✅ OK" : "❌ NULL");
     Serial.printf("📻 fhfModule: %s\n", this->fhfModule ? "✅ OK" : "❌ NULL");
     Serial.printf("📻 soldierModule: %s\n", this->soldierModule ? "✅ OK" : "❌ NULL");
+    Serial.printf("📌 loraModule shared_ptr address: %p\n", this->loraModule.get());
 
     this->delaySendFakeGPS = false;
     Serial.println("this->delaySendFakeGPS");
@@ -435,5 +436,7 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
 
 
     Serial.println("this->destroyPage()");
+
+    Serial.printf("📦 Address of std::function cb variable: %p\n", (void*)&this->loraModule->getOnFileReceived());
     this->transferFunction(this->loraModule, this->gpsModule, std::move(this->fhfModule), std::move(command));
 }

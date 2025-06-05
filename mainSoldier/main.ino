@@ -59,10 +59,13 @@ void transferFromSendCoordsToReceiveCoordsPage(std::shared_ptr<LoraModule> newLo
     std::move(wifiModule), newGPSModule, std::move(newFHFModule), std::move(commandersModule), logFilePath);
 
     Serial.println("commandersMissionPage->createPage()");
+
+    delay(5000);
+    
     commandersMissionPage->createPage();
 
-    Serial.println("commandersMissionPage->createPage() finished");
-    commandersMissionPage->setTransferFunction(transferFromMissionCommanderToMissionSoldier);
+    // Serial.println("commandersMissionPage->createPage() finished");
+    // commandersMissionPage->setTransferFunction(transferFromMissionCommanderToMissionSoldier);
 }
 
 void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiModule)
