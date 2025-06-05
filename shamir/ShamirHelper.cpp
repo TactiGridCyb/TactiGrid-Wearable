@@ -1,5 +1,7 @@
 #include "ShamirHelper.h"
 
+uint8_t ShamirHelper::minThreshold = 2;
+
 //=============================================================================
 // splitFile:
 //  - inputPath: path to the file to split (e.g., "/config.json")
@@ -8,10 +10,10 @@
 // Returns a vector of Strings containing the file paths of the generated share files.
 // Each share file is named inputPath + ".share" + index.
 //=============================================================================
-bool ShamirHelper::splitFile(const char* inputPath, int nShares, int threshold, int prime, std::vector<String>& sharePaths) {
+bool ShamirHelper::splitFile(const char* inputPath, int nShares, std::vector<String>& sharePaths) {
   sharePaths.clear();  // ensure it's empty before starting
 
-  if (nShares < threshold || threshold < 2) {
+  if (nShares < ShamirHelper::minThreshold || ShamirHelper::minThreshold < 2) {
     Serial.println("❌ Invalid parameters: nShares must be >= threshold >= 2.");
     return false;
   }
@@ -51,9 +53,9 @@ bool ShamirHelper::splitFile(const char* inputPath, int nShares, int threshold, 
 
   while (inFile.available()) {
     uint8_t secretByte = inFile.read();
-    uint8_t randomCoeff = random(1, prime);
+    uint8_t randomCoeff = random(1, ShamirHelper::PRIME);
     for (int i = 1; i <= nShares; i++) {
-        uint8_t y = evalPolynomial(i, secretByte, randomCoeff, prime);
+        uint8_t y = evalPolynomial(i, secretByte, randomCoeff, ShamirHelper::PRIME);
         String shareLine = String(i) + "," + String(y) + "\n";
         shareFiles[i - 1].print(shareLine);
 
@@ -73,7 +75,7 @@ bool ShamirHelper::splitFile(const char* inputPath, int nShares, int threshold, 
   Serial.print("✅ Split complete: ");
   Serial.print(nShares);
   Serial.print(" share files created (threshold = ");
-  Serial.print(threshold);
+  Serial.print(ShamirHelper::minThreshold);
   Serial.println(").");
 
   return true;
@@ -86,9 +88,9 @@ bool ShamirHelper::splitFile(const char* inputPath, int nShares, int threshold, 
 //  - outputPath: path where the recovered file will be written (e.g., "/recovered.json")
 // Returns true on success, false on failure.
 //=============================================================================
-bool ShamirHelper::reconstructFile(const std::vector<String>& sharePaths, int threshold, const char* outputPath, int prime) {
+bool ShamirHelper::reconstructFile(const std::vector<String>& sharePaths, const char* outputPath) {
   int availableShares = sharePaths.size();
-  if (availableShares < threshold) {
+  if (availableShares < ShamirHelper::minThreshold) {
     Serial.println("❌ Not enough shares provided to reconstruct.");
     return false;
   }
@@ -139,11 +141,11 @@ bool ShamirHelper::reconstructFile(const std::vector<String>& sharePaths, int th
     return false;
   }
 
-  std::vector<int> yValues(threshold, 0);
-  std::vector<int> xSubset(threshold, 0);
+  std::vector<int> yValues(ShamirHelper::minThreshold, 0);
+  std::vector<int> xSubset(ShamirHelper::minThreshold, 0);
 
   for (int byteIdx = 0; byteIdx < byteCount; byteIdx++) {
-    for (int s = 0; s < threshold; s++) {
+    for (int s = 0; s < ShamirHelper::minThreshold; s++) {
       String line = shareFiles[s].readStringUntil('\n');
       int commaPos = line.indexOf(',');
       if (commaPos < 1) {
@@ -156,7 +158,7 @@ bool ShamirHelper::reconstructFile(const std::vector<String>& sharePaths, int th
       yValues[s] = line.substring(commaPos + 1).toInt();
     }
 
-    int recovered = lagrangeInterpolation(0, xSubset, yValues, prime);
+    int recovered = lagrangeInterpolation(0, xSubset, yValues, ShamirHelper::PRIME);
     outFile.write((uint8_t)recovered);
   }
 
@@ -223,4 +225,10 @@ int ShamirHelper::lagrangeInterpolation(int atX, const std::vector<int>& xVals, 
   }
 
   return (int)result;
+}
+
+
+void ShamirHelper::setThreshold(uint8_t minThreshold)
+{
+  ShamirHelper::minThreshold = minThreshold;
 }

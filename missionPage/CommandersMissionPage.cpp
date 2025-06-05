@@ -436,13 +436,9 @@ void CommandersMissionPage::switchCommanderEvent()
     //Split here the log file, its path is this->logFilePath
     std::vector<String> sharePaths;
 
-    const int threshold = 2;
-    const int prime = 251;
-
     lv_timer_del(this->missingSoldierTimer);
 
-    if (!ShamirHelper::splitFile(this->logFilePath.c_str(), this->commanderModule->getOthers().size(),
-      threshold, prime, sharePaths)) 
+    if (!ShamirHelper::splitFile(this->logFilePath.c_str(), this->commanderModule->getOthers().size(), sharePaths)) 
     {
         Serial.println("❌ Failed to split log file with Shamir.");
         return;
