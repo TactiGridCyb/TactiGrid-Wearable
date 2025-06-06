@@ -189,9 +189,9 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
             Serial.println(commanderOrdered);
         }
 
-        this->soldierModule->removeFirstCommander();
+        this->soldierModule->removeFirstCommanderFromInsertionOrder();
 
-        Serial.println("this->soldierModule->removeFirstCommander()");
+        Serial.println("this->soldierModule->removeFirstCommanderFromInsertionOrder()");
 
         std::vector<uint8_t> commandersInsertionOrder = this->soldierModule->getCommandersInsertionOrder();
 
@@ -433,9 +433,11 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
     command->setSoldiers(this->soldierModule->getSoldiers());
     command->setCommanders(this->soldierModule->getCommanders());
     command->setInsertionOrders(this->soldierModule->getCommandersInsertionOrder());
+    command->setMissing(payload.missingSoldiers);
 
     Serial.println("command->setInsertionOrders");
     payload.compromisedSoldiers.clear();
+    payload.missingSoldiers.clear();
     this->soldierModule->clear();
 
     Serial.println("soldierModule->clear()");

@@ -157,6 +157,8 @@ void Commander::clear()
     this->commanders.clear();
     this->commandersInsertionOrder.clear();
     this->comp.clear();
+    this->soldiers.clear();
+    this->missing.clear();
 
     mbedtls_pk_free(&this->privateKey);
     mbedtls_x509_crt_free(&this->ownCertificate);

@@ -52,7 +52,7 @@ public:
         Serial.printf("addSoldier for %d\n", id);
     }
 
-    void removeFirstCommander() 
+    void removeFirstCommanderFromInsertionOrder() 
     {
         if (!this->commandersInsertionOrder.empty()) 
         {
@@ -63,6 +63,10 @@ public:
     void removeCommander(uint8_t id)
     {
         this->commanders.erase(id);
+
+        auto it = std::find(this->commandersInsertionOrder.begin(), this->commandersInsertionOrder.end(), id);
+        this->commandersInsertionOrder.erase(it);
+
     }
 
     void removeSoldier(uint8_t id)

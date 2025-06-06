@@ -23,6 +23,8 @@ struct SwitchCommander{
     std::vector<uint8_t> shamirPart;
     uint8_t compromisedSoldiersLength;
     std::vector<uint8_t> compromisedSoldiers;
+    uint8_t missingSoldiersLength;
+    std::vector<uint8_t> missingSoldiers;
 };
 
 struct requestShamir{

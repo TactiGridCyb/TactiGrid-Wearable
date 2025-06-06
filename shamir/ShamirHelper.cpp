@@ -13,7 +13,8 @@ uint8_t ShamirHelper::minThreshold = 2;
 bool ShamirHelper::splitFile(const char* inputPath, int nShares, std::vector<String>& sharePaths) {
   sharePaths.clear();  // ensure it's empty before starting
 
-  if (nShares < ShamirHelper::minThreshold || ShamirHelper::minThreshold < 2) {
+  if (nShares < ShamirHelper::minThreshold || ShamirHelper::minThreshold < 2) 
+  {
     Serial.println("❌ Invalid parameters: nShares must be >= threshold >= 2.");
     return false;
   }
