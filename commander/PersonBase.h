@@ -52,11 +52,22 @@ public:
         Serial.printf("addSoldier for %d\n", id);
     }
 
-    void removeCommander() {
+    void removeFirstCommander() 
+    {
         if (!this->commandersInsertionOrder.empty()) 
         {
             commandersInsertionOrder.erase(commandersInsertionOrder.begin());
         }
+    }
+
+    void removeCommander(uint8_t id)
+    {
+        this->commanders.erase(id);
+    }
+
+    void removeSoldier(uint8_t id)
+    {
+        this->soldiers.erase(id);
     }
 
 

@@ -6,6 +6,8 @@
 #include "CryptoModule.h"
 #include "mbedtls/pk.h"
 #include "PersonBase.h"
+#include <stdexcept>
+#include <cstring>
 #include "../certModule/certModule.h"
 
 struct SwitchGMK{
@@ -72,11 +74,14 @@ public:
     void setCompGMK(const crypto::Key256& gmk);
     void setCompromised(const uint8_t id);
     void setComp(const std::vector<uint8_t>& comp);
+    void setMissing(const std::vector<uint8_t>& missing);
+    void setMissing(uint8_t id);
 
     const mbedtls_pk_context& getPrivateKey() const;
 
-
     const std::vector<float>& getFrequencies() const;
+    const std::vector<uint8_t>& getMissing() const;
+    const std::vector<uint8_t> getNotMissing() const;
     void appendFrequencies(const std::vector<float>& freqs);
 
     void clear();
@@ -89,6 +94,7 @@ private:
 
     std::vector<float> frequencies;
     std::vector<uint8_t> comp;
+    std::vector<uint8_t> missing;
 
     crypto::Key256 GK;
     crypto::Key256 GMK = []() {
@@ -106,6 +112,7 @@ private:
     }();
 
     void addComp(const uint8_t id);
+    bool isMissing(uint8_t id);
 
     mbedtls_pk_context privateKey;
     mbedtls_x509_crt caCertificate;

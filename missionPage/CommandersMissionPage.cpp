@@ -25,6 +25,10 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         this->mainPage = lv_scr_act();
         this->infoBox = LVGLPage::createInfoBox();
 
+        FFatHelper::deleteFile(this->logFilePath.c_str());
+        FFatHelper::deleteFile(this->tileFilePath);
+
+        Serial.printf("this->commanderSwitchEvent: %s\n", (this->commanderSwitchEvent ? "true"  : "false"));
 
         if(!this->commanderSwitchEvent)
         {
@@ -36,23 +40,49 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         }
         else
         {
-            this->shamirPartsCollected = 1;
-
+            this->shamirPartsCollected = 0;
             LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, "Switch Commander Event!");
-             this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
-                this->onShamirPartReceived(data, len);
-            });
 
-            this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
-                this->loraModule->onLoraFileDataReceived(data, len);
-            });
+            this->didntSendShamir.reserve(this->commanderModule->getSoldiers().size() + this->commanderModule->getCommanders().size() - 1);
+            
+            std::vector<uint8_t> soldiersKeys;
+            soldiersKeys.reserve(this->commanderModule->getSoldiers().size());
+            for (auto const& kv : this->commanderModule->getSoldiers()) 
+            {
+                soldiersKeys.push_back(kv.first);
+            }
+
+            this->didntSendShamir.insert(this->didntSendShamir.end(),
+            soldiersKeys.begin(), soldiersKeys.end());
+
+            soldiersKeys.clear();
+
+            soldiersKeys.reserve(this->commanderModule->getCommanders().size());
+            for (auto const& kv : this->commanderModule->getCommanders()) 
+            {
+                if(kv.first != this->commanderModule->getCommanderNumber())
+                {
+                    soldiersKeys.push_back(kv.first);
+                }
+            }
+            
+            this->didntSendShamir.insert(this->didntSendShamir.end(),
+            soldiersKeys.begin(), soldiersKeys.end());
+
+            soldiersKeys.clear();
+
+            lv_timer_create([](lv_timer_t* t){
+                delay(10000);
+                auto *self = static_cast<CommandersMissionPage*>(t->user_data);
+                
+                lv_timer_del(t);
+            }, 100, this);
+
+            
         }
         
 
         Serial.printf("📦 Address of std::function cb variable: %p\n", (void*)&this->loraModule->getOnFileReceived());
-
-        FFatHelper::deleteFile(this->logFilePath.c_str());
-        FFatHelper::deleteFile(this->tileFilePath);
 
         
 
@@ -493,7 +523,9 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID)
     const std::string newEventText = "Missing Soldier Event - " + this->commanderModule->getCommanders().at(soldiersID).name;
 
     Serial.println("PRE PREMOVE");
-    // this->commanderModule->removeCommander(soldiersID);
+
+
+    this->commanderModule->setMissing(soldiersID);
 
     this->switchGMKEvent(newEventText.c_str());
 }
@@ -576,7 +608,7 @@ void CommandersMissionPage::switchCommanderEvent()
 
     Serial.println("deleted timer");
 
-    this->commanderModule->removeCommander();
+    this->commanderModule->removeFirstCommander();
     
     std::unique_ptr<Soldier> sold = std::make_unique<Soldier>(this->commanderModule->getName(),
      this->commanderModule->getPublicCert(), this->commanderModule->getPrivateKey(),
@@ -643,6 +675,86 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
 
     Serial.printf("Deserialized SwitchGMK: msgID=%d, soldiersID=%d, shamirPart size=%zu\n",
                   payload.msgID, payload.soldiersID, payload.shamirPart.size());
+
+    if(payload.shamirPart.size() == 0)
+    {
+        return;
+    }
+
+    char sharePath[25];
+    snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", payload.soldiersID);
+
+    if(!FFat.exists(sharePath))
+    {
+        File currentShare = FFat.open(sharePath, FILE_WRITE);
+        if (!currentShare)
+        {
+            Serial.print("Failed to open file to save share: ");
+            Serial.println(sharePath);
+            return;
+        }
+
+        size_t bytesWritten = currentShare.write(payload.shamirPart.data(), payload.shamirPart.size());
+        if (bytesWritten != payload.shamirPart.size()) 
+        {
+            Serial.printf("⚠️  Only wrote %u/%u bytes to \"%s\"\n",
+                        (unsigned)bytesWritten, (unsigned)payload.shamirPart.size(), sharePath);
+        } 
+        else 
+        {
+            Serial.printf("✅ Wrote %u bytes to \"%s\"\n",
+                        (unsigned)bytesWritten, sharePath);
+            
+            this->shamirPartsCollected++;
+            this->didntSendShamir.erase(this->didntSendShamir.begin());
+        }
+
+        currentShare.close();
+        this->shamirPaths.push_back(sharePath);
+    }
+
+    if(this->shamirPartsCollected >= ShamirHelper::getThreshold())
+    {
+        ShamirHelper::reconstructFile(this->shamirPaths, this->logFilePath.c_str());
+        FFatHelper::removeFilesIncludeWords("share", "txt");
+        
+        this->commanderSwitchEvent = false;
+
+        this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
+                this->onDataReceived(data, len);
+            });
+
+        this->loraModule->setOnFileReceived(nullptr);
+
+        this->didntSendShamir.clear();
+
+        return;
+    } 
+    else if (this->shamirPartsCollected == 1 && !this->loraModule->getOnFileReceived())
+    {
+        Serial.println("!this->loraModule->getOnFileReceived()");
+        this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
+            this->onShamirPartReceived(data, len);
+        });
+
+        this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
+            this->loraModule->onLoraFileDataReceived(data, len);
+        });
+    }
+
+
+    requestShamir req;
+    req.msgID = 0x04;
+    req.soldiersID = *this->didntSendShamir.begin();
+
+    std::string buffer;
+    buffer += static_cast<char>(req.msgID);
+    buffer += static_cast<char>(req.soldiersID);
+
+    std::string base64Payload = crypto::CryptoModule::base64Encode(
+    reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
+
+    this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
 
     
 

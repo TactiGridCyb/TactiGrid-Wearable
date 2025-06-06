@@ -118,6 +118,8 @@ void setup()
         return;
     }
     
+    FFatHelper::removeFilesIncludeWords("share", "txt");
+
     String ssidString(ssid);
     String passwordString(password);
 

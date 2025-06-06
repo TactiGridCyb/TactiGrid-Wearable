@@ -149,3 +149,42 @@ void FFatHelper::listFiles(const char* path, uint8_t depth) {
         file = dir.openNextFile();
     }
 }
+
+void FFatHelper::removeFilesIncludeWords(const char* filterWord, const char* filesType)
+{
+    File root = FFat.open("/");
+
+    if (!root) 
+    {
+        Serial.println("❌ Failed to open FFat root");
+        return;
+    }
+    if (!root.isDirectory()) 
+    {
+        Serial.println("❌ FFat / is not a directory");
+        return;
+    }
+
+    File entry = root.openNextFile();
+    while (entry) {
+        String path = entry.name();
+
+        if (!entry.isDirectory()) {
+            
+            if (path.endsWith(filesType) && path.indexOf(filterWord) >= 0) {
+
+                if (FFat.remove(path.c_str())) 
+                {
+                    Serial.printf("✅ Deleted: %s\n", path.c_str());
+                } 
+                else 
+                {
+                    Serial.printf("❌ Failed to delete: %s\n", path.c_str());
+                }
+            }
+        }
+        entry.close();
+        entry = root.openNextFile();
+    }
+    root.close();
+}

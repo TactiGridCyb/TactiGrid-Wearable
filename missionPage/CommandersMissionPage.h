@@ -52,6 +52,9 @@ private:
 
     std::string logFilePath;
 
+    std::vector<String> shamirPaths;
+    std::vector<uint8_t> didntSendShamir;
+
     bool fakeGPS;
 
     bool commanderSwitchEvent;

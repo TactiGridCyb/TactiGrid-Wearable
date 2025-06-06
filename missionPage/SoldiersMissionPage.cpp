@@ -189,9 +189,9 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
             Serial.println(commanderOrdered);
         }
 
-        this->soldierModule->removeCommander();
+        this->soldierModule->removeFirstCommander();
 
-        Serial.println("this->soldierModule->removeCommander()");
+        Serial.println("this->soldierModule->removeFirstCommander()");
 
         std::vector<uint8_t> commandersInsertionOrder = this->soldierModule->getCommandersInsertionOrder();
 

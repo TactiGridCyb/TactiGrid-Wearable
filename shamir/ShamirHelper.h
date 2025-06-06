@@ -16,6 +16,7 @@ public:
 
   static void setThreshold(uint8_t minThreshold);
 
+  static uint8_t getThreshold();
 private:
   const static int PRIME = 257;
   static uint8_t minThreshold;

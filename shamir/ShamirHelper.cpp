@@ -232,3 +232,8 @@ void ShamirHelper::setThreshold(uint8_t minThreshold)
 {
   ShamirHelper::minThreshold = minThreshold;
 }
+
+uint8_t ShamirHelper::getThreshold()
+{
+  return ShamirHelper::minThreshold;
+}

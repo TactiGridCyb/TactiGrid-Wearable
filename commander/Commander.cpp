@@ -1,6 +1,5 @@
 #include "Commander.h"
-#include <stdexcept>
-#include <cstring>
+
 
 Commander::Commander(const std::string& name,
                                const mbedtls_x509_crt& publicCert,
@@ -59,6 +58,24 @@ void Commander::setCompromised(const uint8_t id)
 void Commander::setComp(const std::vector<uint8_t>& comp)
 {
     this->comp = comp;
+}
+
+void Commander::setMissing(const std::vector<uint8_t>& missing)
+{
+    this->missing = missing;
+}
+
+void Commander::setMissing(uint8_t id)
+{
+    this->missing.push_back(id);
+    if(this->commanders.find(id) != this->commanders.end())
+    {
+        this->removeCommander(id);
+    }
+    else if(this->soldiers.find(id) != this->soldiers.end())
+    {
+        this->removeSoldier(id);
+    }
 }
 
 void Commander::setCompGMK(const crypto::Key256& gmk) {
@@ -120,9 +137,16 @@ const mbedtls_pk_context& Commander::getPrivateKey() const
     return privateKey;
 }
 
-const std::vector<float>& Commander::getFrequencies() const {
+const std::vector<float>& Commander::getFrequencies() const 
+{
     return frequencies;
 }
+
+const std::vector<uint8_t>& Commander::getMissing() const
+{
+    return this->missing;
+}
+
 
 void Commander::appendFrequencies(const std::vector<float>& freqs) {
     frequencies.insert(frequencies.end(), freqs.begin(), freqs.end());
@@ -143,4 +167,16 @@ void Commander::clear()
 void Commander::addComp(const uint8_t id)
 {
     this->comp.push_back(id);
+}
+
+bool Commander::isMissing(uint8_t id)
+{
+    auto it = std::find(this->missing.begin(), this->missing.end(), this->missing);
+
+    if(it != this->missing.end())
+    {
+        return true;
+    }
+
+    return false;
 }
