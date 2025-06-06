@@ -18,7 +18,8 @@
 class CommandersMissionPage : public LVGLPage {
 public:
     CommandersMissionPage(std::shared_ptr<LoraModule>, std::unique_ptr<WifiModule>,
-         std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Commander>, const std::string&, bool = true);
+         std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Commander>,
+         const std::string&, bool = false, bool = true);
 
     void createPage() override;
 
@@ -52,6 +53,10 @@ private:
     std::string logFilePath;
 
     bool fakeGPS;
+
+    bool commanderSwitchEvent;
+
+    uint8_t shamirPartsCollected;
     
     lv_obj_t* infoBox;
 
@@ -68,6 +73,7 @@ private:
          std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Soldier>)> transferFunction;
 
     void onDataReceived(const uint8_t* data, size_t len);
+    void onShamirPartReceived(const uint8_t* data, size_t len);
     void showMiddleTile();
 
     void switchGMKEvent(const char* infoBoxText, uint8_t soldiersIDMoveToComp = -1);

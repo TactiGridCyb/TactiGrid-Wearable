@@ -33,7 +33,7 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
      std::shared_ptr<GPSModule> newGPSModule, std::unique_ptr<FHFModule> newFhfModule,
      std::unique_ptr<Soldier> soldiersModule)
 {
-    commandersMissionPage.reset();
+    
     
     Serial.println("transferFromMissionCommanderToMissionSoldier");
 
@@ -47,25 +47,27 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
     soldiersMissionPage->createPage();
     Serial.println("soldiersMissionPage->createPage()");
 
+    commandersMissionPage.reset();
+
 }
 
 void transferFromSendCoordsToReceiveCoordsPage(std::shared_ptr<LoraModule> newLoraModule, 
     std::shared_ptr<GPSModule> newGPSModule, std::unique_ptr<FHFModule> newFHFModule,
     std::unique_ptr<Commander> commandersModule)
 {
-    soldiersMissionPage.reset();
     
+
     commandersMissionPage = std::make_unique<CommandersMissionPage>(newLoraModule, 
     std::move(wifiModule), newGPSModule, std::move(newFHFModule), std::move(commandersModule), logFilePath);
 
     Serial.println("commandersMissionPage->createPage()");
-
-    delay(5000);
-    
     commandersMissionPage->createPage();
 
-    // Serial.println("commandersMissionPage->createPage() finished");
-    // commandersMissionPage->setTransferFunction(transferFromMissionCommanderToMissionSoldier);
+    Serial.println("commandersMissionPage->createPage() finished");
+    commandersMissionPage->setTransferFunction(transferFromMissionCommanderToMissionSoldier);
+
+    soldiersMissionPage.reset();
+    Serial.println("DELETED ALL");
 }
 
 void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiModule)

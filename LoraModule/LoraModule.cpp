@@ -11,15 +11,30 @@ LoraModule::LoraModule(float frequency)
   instance = this;
 }
 
+void LoraModule::resetD1O()
+{
+  Serial.println("CALLING resetD1O");
+  this->loraDevice.setDio1Action(nullptr);
+  loraDevice.finishTransmit();
+  loraDevice.standby();
+}
+
+void LoraModule::setupD1O()
+{
+  Serial.println("CALLING setupD1O");
+  this->loraDevice.setDio1Action(dio1ISR);
+}
 LoraModule::~LoraModule()
 {
   Serial.println("LORA DEST");
   loraDevice.finishTransmit();
+  loraDevice.standby();
   instance = nullptr;
 }
 
 void IRAM_ATTR LoraModule::dio1ISR()
 {
+  Serial.println("dio1ISR");
   if (instance) {
     instance->notifyOpFinished();
   }
@@ -217,7 +232,8 @@ void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
 
     if (memcmp(pkt, kFileInitTag, strlen(kFileInitTag)) == 0) 
     {
-      
+      Serial.println("kFileInitTag");
+
       if (!tryStartOp(Op::FileRx))
       {
         return;
@@ -241,38 +257,42 @@ void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
         Serial.println("❌ INIT frame parse failed!");
       }
 
+      loraDevice.startReceive();
       return;
     }
 
     if (memcmp(pkt, kFileEndTag, strlen(kFileEndTag)) == 0) 
     {
-        if (this->onFileReceived && this->receivedChunks == this->expectedChunks) 
-        {
-          Serial.printf("✅ File complete (%u chunks)\n", this->receivedChunks);
-          this->currentOp.store(Op::None, std::memory_order_release);
-          this->receivedChunks = 0;
-          this->expectedChunks = 0;
+      Serial.println("kFileEndTag");
+      if (this->onFileReceived && this->receivedChunks == this->expectedChunks) 
+      {
+        Serial.printf("✅ File complete (%u chunks)\n", this->receivedChunks);
+        this->currentOp.store(Op::None, std::memory_order_release);
+        this->receivedChunks = 0;
+        this->expectedChunks = 0;
 
-          if(this->onFileReceived)
-          {
-            Serial.println("onFileReceived exists");
-            this->onFileReceived(this->fileBuffer.data(), this->fileBuffer.size());
-          }
-          
-          
-          Serial.println("returning from function");
-          this->printCurrentOP();
-          return;
-        }
-        else 
+        if(this->onFileReceived)
         {
-          Serial.printf("❌ Incomplete file (%u/%u chunks)\n", this->receivedChunks, this->expectedChunks);
+          Serial.println("onFileReceived exists");
+          this->onFileReceived(this->fileBuffer.data(), this->fileBuffer.size());
         }
+        
+        
+        Serial.println("returning from function");
+        this->printCurrentOP();
+        
         return;
+      }
+      else 
+      {
+        Serial.printf("❌ Incomplete file (%u/%u chunks)\n", this->receivedChunks, this->expectedChunks);
+      }
+      return;
     }
 
     if (pkt[0] == 0xAB && len >= 4) 
     {
+      Serial.println("pkt[0] == 0xAB && len >= 4");
       uint16_t chunkIndex = (pkt[1] << 8) | pkt[2];
       uint8_t chunkLen = pkt[3];
       size_t offset = chunkIndex * this->transferChunkSize;
@@ -289,6 +309,8 @@ void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
 
       Serial.printf("🧩 Chunk #%u received: offset=%zu, len=%u, totalChunks=%u/%u\n",
                     chunkIndex, offset, chunkLen, this->receivedChunks, this->expectedChunks);
+
+      loraDevice.startReceive();
     }
 }
 
@@ -402,12 +424,15 @@ void LoraModule::handleCompletedOperation()
       {
         Serial.printf("Calling onReadData %d\n", pktLen);
         onReadData(buf, pktLen);
+        
+        Serial.println("FINISHED onReadData");
       }
     }
 
     if(op == Op::FileRx)
     {
-      loraDevice.startReceive();
+      Serial.println("op == Op::FileRx");
+      
     }
   }
 }

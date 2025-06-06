@@ -61,6 +61,10 @@ public:
 
     const std::function<void(const uint8_t* data, size_t len)>& getOnFileReceived();
 
+    void resetD1O();
+
+    void setupD1O();
+
 private:
     bool tryStartOp(Op desired);
 

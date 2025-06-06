@@ -1,7 +1,8 @@
 #include "CommandersMissionPage.h"
 
 CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraModule, std::unique_ptr<WifiModule> wifiModule,
-     std::shared_ptr<GPSModule> gpsModule, std::unique_ptr<FHFModule> fhfModule, std::unique_ptr<Commander> commanderModule, const std::string& logFilePath, bool fakeGPS)
+     std::shared_ptr<GPSModule> gpsModule, std::unique_ptr<FHFModule> fhfModule,
+    std::unique_ptr<Commander> commanderModule, const std::string& logFilePath, bool commanderChange, bool fakeGPS)
     : logFilePath(logFilePath) 
     {
         this->loraModule = std::move(loraModule);
@@ -9,6 +10,8 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         this->gpsModule = std::move(gpsModule);
         this->fhfModule = std::move(fhfModule);
         this->commanderModule = std::move(commanderModule);
+
+        this->commanderSwitchEvent = commanderChange;
 
         Serial.println("🔍 Checking modules:");
         Serial.printf("📡 loraModule: %s\n", this->loraModule ? "✅ OK" : "❌ NULL");
@@ -20,19 +23,39 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         Serial.printf("📌 loraModule shared_ptr address: %p\n", this->loraModule.get());
 
         this->mainPage = lv_scr_act();
+        this->infoBox = LVGLPage::createInfoBox();
 
-        this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
-            this->onDataReceived(data, len);
-        });
 
-        this->loraModule->setOnFileReceived(nullptr);
+        if(!this->commanderSwitchEvent)
+        {
+            this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
+                this->onDataReceived(data, len);
+            });
+
+            this->loraModule->setOnFileReceived(nullptr);
+        }
+        else
+        {
+            this->shamirPartsCollected = 1;
+
+            LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, "Switch Commander Event!");
+             this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
+                this->onShamirPartReceived(data, len);
+            });
+
+            this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
+                this->loraModule->onLoraFileDataReceived(data, len);
+            });
+        }
+        
 
         Serial.printf("📦 Address of std::function cb variable: %p\n", (void*)&this->loraModule->getOnFileReceived());
 
         FFatHelper::deleteFile(this->logFilePath.c_str());
         FFatHelper::deleteFile(this->tileFilePath);
 
-        this->infoBox = LVGLPage::createInfoBox();
+        
+
     }
 
 void CommandersMissionPage::createPage() {
@@ -41,7 +64,6 @@ void CommandersMissionPage::createPage() {
     lv_obj_set_style_bg_color(mainPage, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(mainPage, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    Serial.println("lv_obj_t *mainLabel");
     lv_obj_t *mainLabel = lv_label_create(mainPage);
     lv_label_set_text(mainLabel, "TactiGrid Commander");
     lv_obj_align(mainLabel, LV_ALIGN_TOP_MID, 0, 0);
@@ -67,6 +89,10 @@ void CommandersMissionPage::createPage() {
     Serial.println("this->missingSoldierTimer");
     this->missingSoldierTimer = lv_timer_create([](lv_timer_t* t){
         auto *self = static_cast<CommandersMissionPage*>(t->user_data);
+        if(self->commanderSwitchEvent)
+        {
+            return;
+        }
         for (const auto& commander : self->commanderModule->getCommanders()) 
         {
             if(millis() - commander.second.lastTimeReceivedData >= 60000)
@@ -89,19 +115,20 @@ void CommandersMissionPage::createPage() {
 
 void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 {
+    Serial.printf("onDataReceived %d\n", len);
     String incoming;
     for (size_t i = 0; i < len; i++) 
     {
         incoming += (char)data[i];
     }
-
+    Serial.println("onDataReceived");
     int p1 = incoming.indexOf('|');
     int p2 = incoming.indexOf('|', p1 + 1);
     if (p1 < 0 || p2 < 0) {                      
         Serial.println("Bad ciphertext format");
         return;
     }
-
+    Serial.println("Bad ciphertext format123");
     crypto::Ciphertext ct;
     ct.nonce = hexToBytes(incoming.substring(0, p1));
     ct.data = hexToBytes(incoming.substring(p1 + 1, p2));
@@ -452,6 +479,8 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
         Serial.println("SENDING base64Payload");
         this->loraModule->cancelReceive();
         this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+
+        delay(500);
     }
     
     this->commanderModule->setGMK(newGMK);
@@ -561,9 +590,6 @@ void CommandersMissionPage::switchCommanderEvent()
 
     Serial.println("destroyPage");
 
-
-    
-
     this->commanderModule->clear();
     this->ballColors.clear();
     this->markers.clear();
@@ -573,6 +599,51 @@ void CommandersMissionPage::switchCommanderEvent()
 
     this->transferFunction(this->loraModule, std::move(this->wifiModule),
      this->gpsModule, std::move(this->fhfModule), std::move(sold));
+}
+
+
+void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len)
+{
+    Serial.println("onShamirPartReceived");
+    if (len < 4) {
+        Serial.println("Received data too short for any struct with length prefix");
+        return;
+    }
+
+    std::string base64Str(reinterpret_cast<const char*>(data), len);
+    Serial.printf("DECODED DATA: %s\n", base64Str.c_str());
+
+    std::vector<uint8_t> decodedData;
+    Serial.println("-----------------------------");
+
+    try {
+        decodedData = crypto::CryptoModule::base64Decode(base64Str);
+        
+    } catch (const std::exception& e) {
+        Serial.printf("Base64 decode failed: %s\n", e.what());
+        return;
+    }
+
+    if (decodedData.size() < 2) {
+        Serial.println("Decoded data too short for any struct with length prefix");
+        return;
+    }
+
+    sendShamir payload;
+
+    payload.msgID = static_cast<uint8_t>(decodedData[0]);
+    payload.soldiersID = static_cast<uint8_t>(decodedData[1]);
+
+    if(payload.msgID != 0x03)
+    {
+        return;
+    }
+
+    payload.shamirPart.assign(decodedData.begin() + 2, decodedData.end());
+
+    Serial.printf("Deserialized SwitchGMK: msgID=%d, soldiersID=%d, shamirPart size=%zu\n",
+                  payload.msgID, payload.soldiersID, payload.shamirPart.size());
 
     
+
 }

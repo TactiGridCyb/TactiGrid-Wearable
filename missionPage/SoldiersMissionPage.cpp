@@ -47,6 +47,8 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
 
     this->coordCount = 5;
 
+    this->finishTimer = false;
+
      // Serial.println("this->wifiModule->isConnected()"); // Removed because wifiModule is not a member of SoldiersMissionPage
 }
 
@@ -82,6 +84,12 @@ void SoldiersMissionPage::createPage()
     this->mainLoopTimer = lv_timer_create([](lv_timer_t* t){
         auto *self = static_cast<SoldiersMissionPage*>(t->user_data);
         self->loraModule->handleCompletedOperation();
+
+        if(self->finishTimer)
+        {
+            Serial.println("finish timer");
+            return;
+        }
 
         if (!self->loraModule->isBusy()) {
             self->loraModule->readData();
@@ -438,5 +446,8 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
     Serial.println("this->destroyPage()");
 
     Serial.printf("📦 Address of std::function cb variable: %p\n", (void*)&this->loraModule->getOnFileReceived());
+
+    this->finishTimer = true;
+    
     this->transferFunction(this->loraModule, this->gpsModule, std::move(this->fhfModule), std::move(command));
 }
