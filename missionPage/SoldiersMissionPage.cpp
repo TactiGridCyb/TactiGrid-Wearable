@@ -175,6 +175,12 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         decodedData.begin() + index + compromisedSoldiersLen);
         index += compromisedSoldiersLen;
 
+        uint8_t missingSoldiersLen = decodedData[index++];
+
+        scPayload.missingSoldiers.assign(decodedData.begin() + index,
+        decodedData.begin() + index + missingSoldiersLen);
+        index += missingSoldiersLen;
+
         this->onCommanderSwitchEvent(scPayload);
 
         Serial.println("scPayload.compromisedSoldiers");
@@ -187,6 +193,12 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         for(const auto& commanderOrdered: this->soldierModule->getCommandersInsertionOrder())
         {
             Serial.println(commanderOrdered);
+        }
+
+        Serial.println("scPayload.missingSoldiers");
+        for(const auto& missingSoldier: scPayload.missingSoldiers)
+        {
+            Serial.println(missingSoldier);
         }
 
         this->soldierModule->removeFirstCommanderFromInsertionOrder();
@@ -407,13 +419,19 @@ void SoldiersMissionPage::onCommanderSwitchEvent(SwitchCommander& payload)
         return;
     }
 
-    for (size_t i = 0; i < payload.shamirPart.size(); ++i) 
+    size_t toWrite = payload.shamirPart.size();
+    size_t written = currentShare.write(payload.shamirPart.data(), toWrite);
+
+    if (written != toWrite) 
     {
-        currentShare.printf("%u,%u\n", payload.soldiersID, payload.shamirPart[i]);
+        Serial.printf("⚠️  Only wrote %u/%u bytes\n", (unsigned)written, (unsigned)toWrite);
+    } 
+    else 
+    {
+        Serial.printf("✅ Wrote %u bytes exactly\n", (unsigned)toWrite);
     }
 
     currentShare.close();
-    Serial.printf("✅ Saved share to %s (%d bytes)\n", sharePath, payload.shamirPart.size());
 
     payload.shamirPart.clear();
 }
