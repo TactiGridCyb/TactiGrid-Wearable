@@ -10,7 +10,7 @@ inline bool SoldiersMissionPage::isZero(float x)
 
 SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
      std::shared_ptr<GPSModule> gpsModule, std::unique_ptr<FHFModule> fhfModule, 
-     std::unique_ptr<Soldier> soldierModule, bool fakeGPS)
+     std::unique_ptr<Soldier> soldierModule, bool commanderChange, bool fakeGPS)
 {
     Serial.println("SoldiersMissionPage::SoldiersMissionPage");
 
@@ -27,15 +27,7 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
     Serial.printf("📌 loraModule shared_ptr address: %p\n", this->loraModule.get());
 
     this->delaySendFakeGPS = false;
-    Serial.println("this->delaySendFakeGPS");
-
-    this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
-        this->onDataReceived(data, len);
-    });
-
-    this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
-        this->loraModule->onLoraFileDataReceived(data, len);
-    });
+    Serial.printf("commanderChange %s\n", commanderChange ? "true" : "false");
 
     Serial.println("this->loraModule->setOnReadData");
     this->mainPage = lv_scr_act();
@@ -43,11 +35,33 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
     Serial.printf("lv_scr_act: %p\n", (void*)this->mainPage);
 
     this->fakeGPS = fakeGPS;
+    this->commanderSwitchEvent = commanderChange;
     this->currentIndex = 0;
 
     this->coordCount = 5;
 
     this->finishTimer = false;
+
+    if(this->commanderSwitchEvent)
+    {
+        this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
+            this->receiveShamirRequest(data, len);
+        });
+
+        this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
+            this->loraModule->onLoraFileDataReceived(data, len);
+        });
+    }
+    else
+    {
+        this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
+            this->onDataReceived(data, len);
+        });
+
+        this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
+            this->loraModule->onLoraFileDataReceived(data, len);
+        });
+    }
 
      // Serial.println("this->wifiModule->isConnected()"); // Removed because wifiModule is not a member of SoldiersMissionPage
 }
@@ -290,6 +304,12 @@ void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRat
 
 void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
     auto* self = static_cast<SoldiersMissionPage*>(timer->user_data);
+
+    if(self->commanderSwitchEvent)
+    {
+        return;
+    }
+
     Serial.println("sendTimerCallback");
     Serial.println(self->currentIndex);
 
@@ -470,4 +490,93 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
     this->finishTimer = true;
     
     this->transferFunction(this->loraModule, this->gpsModule, std::move(this->fhfModule), std::move(command));
+}
+
+void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
+{
+    Serial.println("SoldiersMissionPage::receiveShamirRequest");
+    
+    if (len < 4) 
+    {
+        Serial.println("Received data too short for any struct with length prefix");
+        return;
+    }
+
+    std::string base64Str(reinterpret_cast<const char*>(data), len);
+    Serial.printf("DECODED DATA: %s\n", base64Str.c_str());
+
+    std::vector<uint8_t> decodedData;
+    Serial.println("-----------------------------");
+
+    try {
+        decodedData = crypto::CryptoModule::base64Decode(base64Str);
+        
+    } catch (const std::exception& e) {
+        Serial.printf("Base64 decode failed: %s\n", e.what());
+        return;
+    }
+
+    if (decodedData.size() < 2) {
+        Serial.println("Decoded data too short for any struct with length prefix");
+        return;
+    }
+
+    Serial.printf("PAYLOAD LEN: %d %u %u\n", base64Str.length(), 
+     static_cast<uint8_t>(decodedData[0]), static_cast<uint8_t>(decodedData[1]));
+
+    requestShamir payload;
+    payload.msgID = static_cast<uint8_t>(decodedData[0]);
+    payload.soldiersID = static_cast<uint8_t>(decodedData[1]);
+
+    if(payload.soldiersID != this->soldierModule->getSoldierNumber() || payload.msgID != 0x04)
+    {
+        return;
+    }
+
+    sendShamir ans;
+    ans.msgID = 0x03;
+    ans.soldiersID = payload.soldiersID;
+
+    char sharePath[25];
+    snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", payload.soldiersID);
+
+    File currentShamir = FFat.open(sharePath, FILE_READ);
+    if (!currentShamir) 
+    {
+        Serial.print("❌ Failed to open share file: ");
+        Serial.println(sharePath);
+
+        return;
+    }
+
+    while (currentShamir.available()) 
+    {
+        String line = currentShamir.readStringUntil('\n');
+        int comma = line.indexOf(',');
+        if (comma < 0) continue;
+        int y = line.substring(comma + 1).toInt();
+        ans.shamirPart.push_back((uint8_t)y);
+    }
+
+    currentShamir.close();
+
+    FFatHelper::deleteFile(sharePath);
+
+    std::string buffer;
+
+    buffer += static_cast<char>(payload.msgID);
+    buffer += static_cast<char>(payload.soldiersID);
+    buffer.append(reinterpret_cast<const char*>(ans.shamirPart.data()), ans.shamirPart.size());
+
+    std::string base64Payload = crypto::CryptoModule::base64Encode(
+    reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
+
+    this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+
+    this->commanderSwitchEvent = false;
+
+    this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) 
+    {
+        this->onDataReceived(data, len);
+    });
 }

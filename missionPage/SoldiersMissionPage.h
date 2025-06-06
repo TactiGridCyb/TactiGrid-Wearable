@@ -37,6 +37,8 @@ class SoldiersMissionPage : public LVGLPage
     bool fakeGPS;
     bool delaySendFakeGPS;
 
+    bool commanderSwitchEvent;
+
     bool finishTimer;
 
     static constexpr SoldiersSentData coords[5] = {
@@ -59,9 +61,11 @@ class SoldiersMissionPage : public LVGLPage
 
     void onSoldierTurnToCommanderEvent(SwitchCommander&);
 
+    void receiveShamirRequest(const uint8_t* data, size_t len);
+
     public:
     SoldiersMissionPage(std::shared_ptr<LoraModule>,
-         std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Soldier>, bool = true);
+         std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Soldier>, bool = false, bool = true);
     void createPage();
 
     static std::pair<float, float> getTileCenterLatLon(float lat, float lon, int zoomLevel, float tileSize);
