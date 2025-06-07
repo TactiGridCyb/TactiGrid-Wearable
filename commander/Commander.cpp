@@ -171,6 +171,11 @@ void Commander::clear()
     
 }
 
+bool Commander::isComp(uint8_t id)
+{
+    return std::find(this->comp.begin(), this->comp.end(), id) != this->comp.end();
+}
+
 void Commander::addComp(const uint8_t id)
 {
     this->comp.push_back(id);

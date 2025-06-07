@@ -85,7 +85,9 @@ public:
     const std::vector<uint8_t>& getMissing() const;
     const std::vector<uint8_t> getNotMissing() const;
     void appendFrequencies(const std::vector<float>& freqs);
+    
 
+    bool isComp(uint8_t id);
     void clear();
 
 private:

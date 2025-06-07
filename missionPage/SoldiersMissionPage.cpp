@@ -101,7 +101,6 @@ void SoldiersMissionPage::createPage()
 
         if(self->finishTimer)
         {
-            Serial.println("finish timer");
             return;
         }
 
@@ -168,11 +167,6 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         this->loraModule->setOnFileReceived(nullptr);
         this->finishTimer = true;
 
-        if(this->sendTimer)
-        {
-            this->currentIndex = 100;
-            lv_timer_del(this->sendTimer);
-        }
 
         SwitchCommander scPayload;
         scPayload.msgID = sgPayload.msgID;
@@ -239,15 +233,20 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         if(!commandersInsertionOrder.empty() && commandersInsertionOrder.at(0) == this->soldierModule->getSoldierNumber())
         {
             this->onSoldierTurnToCommanderEvent(scPayload);
+            
         }
         else
         {
+            this->finishTimer = false;
             this->commanderSwitchEvent = true;
 
             this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
                 this->receiveShamirRequest(data, len);
             });
-
+            
+            this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
+                this->loraModule->onLoraFileDataReceived(data, len);
+            });
 
         }
     }
@@ -474,7 +473,12 @@ void SoldiersMissionPage::onCommanderSwitchEvent(SwitchCommander& payload)
 void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload)
 {
     Serial.println("onSoldierTurnToCommanderEvent");
-    
+    if(this->sendTimer)
+    {
+        this->currentIndex = 100;
+        lv_timer_del(this->sendTimer);
+    }
+
     std::unique_ptr<Commander> command = std::make_unique<Commander>(this->soldierModule->getName(),
     this->soldierModule->getPublicCert(), this->soldierModule->getPrivateKey(),
     this->soldierModule->getCAPublicCert(),
@@ -510,7 +514,7 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
 {
     Serial.println("SoldiersMissionPage::receiveShamirRequest");
     
-    if (len < 4) 
+    if (len < 4)
     {
         Serial.println("Received data too short for any struct with length prefix");
         return;
@@ -598,6 +602,7 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
 
     delay(10000);
     this->commanderSwitchEvent = false;
+    this->currentIndex = 0;
 
     this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) 
     {

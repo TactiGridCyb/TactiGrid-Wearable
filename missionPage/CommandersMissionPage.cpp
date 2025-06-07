@@ -46,7 +46,8 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
 
             Serial.printf("Reserved %d places\n", this->commanderModule->getSoldiers().size() +
             this->commanderModule->getCommanders().size());
-            this->didntSendShamir.reserve(this->commanderModule->getSoldiers().size() + this->commanderModule->getCommanders().size());
+            this->didntSendShamir.reserve(this->commanderModule->getSoldiers().size() + this->commanderModule->getCommanders().size() - 
+            this->commanderModule->getComp().size());
             this->didntSendShamir.push_back(this->commanderModule->getCommanderNumber());
 
             std::vector<uint8_t> soldiersKeys;
@@ -55,8 +56,12 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
             Serial.println("Soldiers:");
             for (auto const& kv : this->commanderModule->getSoldiers()) 
             {
-                Serial.println(kv.first);
-                soldiersKeys.push_back(kv.first);
+                if(!this->commanderModule->isComp(kv.first))
+                {
+                    Serial.println(kv.first);
+                    soldiersKeys.push_back(kv.first);
+                }
+                
             }
 
             this->didntSendShamir.insert(this->didntSendShamir.end(),
@@ -68,7 +73,7 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
             Serial.println("Commanders:");
             for (auto const& kv : this->commanderModule->getCommanders()) 
             {
-                if(kv.first != this->commanderModule->getCommanderNumber())
+                if(!this->commanderModule->isComp(kv.first) && kv.first != this->commanderModule->getCommanderNumber())
                 {
                     Serial.println(kv.first);
                     soldiersKeys.push_back(kv.first);
@@ -627,14 +632,21 @@ void CommandersMissionPage::switchCommanderEvent()
 
     std::vector<uint8_t> allSoldiers;
     allSoldiers.reserve(this->commanderModule->getCommanders().size() + this->commanderModule->getSoldiers().size());
-    for (const auto& [k, _] : this->commanderModule->getCommanders()) 
+    for (const auto& [k, v] : this->commanderModule->getCommanders()) 
     {
-        allSoldiers.push_back(k);
+        if(!this->commanderModule->isComp(k))
+        {
+            allSoldiers.push_back(k);
+        }
+        
     }
 
-    for (const auto& [k, _] : this->commanderModule->getSoldiers()) 
+    for (const auto& [k, v] : this->commanderModule->getSoldiers()) 
     {
-        allSoldiers.push_back(k);
+        if(!this->commanderModule->isComp(k))
+        {
+            allSoldiers.push_back(k);
+        }
     }
     Serial.println("allSoldiers:");
     for(const auto& sold : allSoldiers)
@@ -744,8 +756,10 @@ void CommandersMissionPage::switchCommanderEvent()
      this->commanderModule->getPublicCert(), this->commanderModule->getPrivateKey(),
      this->commanderModule->getCAPublicCert(), this->commanderModule->getCommanderNumber(),
      this->commanderModule->getIntervalMS());
-    
+
+    sold->setInsertionOrders(this->commanderModule->getCommandersInsertionOrder());
     sold->setCommanders(this->commanderModule->getCommanders());
+
     Serial.println("created sold");
     this->destroyPage();
     delay(10);
