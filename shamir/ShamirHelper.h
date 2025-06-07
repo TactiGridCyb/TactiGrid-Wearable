@@ -20,7 +20,7 @@ public:
 
   static uint8_t getThreshold();
 private:
-  const static int PRIME = 257;
+  const static int PRIME = 255;
   static uint8_t minThreshold;
 
   static uint16_t evalPolynomial(uint8_t x, uint8_t secret, uint16_t randomCoeff, int prime);
