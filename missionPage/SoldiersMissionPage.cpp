@@ -151,6 +151,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
     if(sgPayload.soldiersID != this->soldierModule->getSoldierNumber())
     {
+        Serial.println("Message wasn't for me!");
         return;
     }
     else if(sgPayload.msgID == 0x01)
@@ -237,6 +238,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         }
         else
         {
+            Serial.println("Im not supposed to be the next commander! waiting for shamirReq!");
             this->finishTimer = false;
             this->commanderSwitchEvent = true;
 
@@ -548,6 +550,7 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
 
     if(payload.soldiersID != this->soldierModule->getSoldierNumber() || payload.msgID != 0x04)
     {
+        Serial.println("Message wasn't for me or message number is not matching current event!");
         return;
     }
 
@@ -597,6 +600,7 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
     reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
     
     Serial.printf("Important vars: %d %d\n", ans.msgID, ans.soldiersID);
+    Serial.println(base64Payload.c_str());
     this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
     
 

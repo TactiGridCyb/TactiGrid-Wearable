@@ -52,18 +52,20 @@ bool ShamirHelper::splitFile(const char* inputPath, int nShares, const std::vect
       inFile.close();
       return false;
     }
-    shareFiles.push_back(sf);
+    shareFiles.push_back(std::move(sf));
     sharePaths.push_back(spath);
   }
 
   Serial.println("-------------------------------");
   while (inFile.available()) {
     uint8_t secretByte = inFile.read();
-    uint8_t randomCoeff = random(1, ShamirHelper::PRIME);
+    uint16_t randomCoeff = random(1, ShamirHelper::PRIME);
     for (int i = 0; i < nShares; i++) {
         uint8_t x = shareIds[i];
-        uint8_t y = evalPolynomial(x, secretByte, randomCoeff, ShamirHelper::PRIME);
-        shareFiles[i].printf("%d,%d\n", x, y);
+        uint16_t y = evalPolynomial(x, secretByte, randomCoeff, ShamirHelper::PRIME);
+        shareFiles[i].print(x);
+        shareFiles[i].print(',');
+        shareFiles[i].println((int)y);
 
         // Serial.print("(");
         // Serial.print(i);
@@ -105,7 +107,8 @@ bool ShamirHelper::reconstructFile(const std::vector<String>& sharePaths, const 
   std::vector<int> xValues(availableShares, 0);
 
   for (int idx = 0; idx < availableShares; idx++) {
-    File sf = FFat.open(sharePaths[idx].c_str(), FILE_READ);
+    shareFiles.emplace_back(FFat.open(sharePaths[idx].c_str(), FILE_READ));
+    File &sf = shareFiles.back();
     if (!sf) {
       Serial.print("❌ Failed to open share file: ");
       Serial.println(sharePaths[idx]);
@@ -123,20 +126,16 @@ bool ShamirHelper::reconstructFile(const std::vector<String>& sharePaths, const 
       return false;
     }
 
-    int thisX = firstLine.substring(0, commaIdx).toInt();
-    xValues[idx] = thisX;
-    shareFiles.push_back(sf);
+    xValues[idx] = firstLine.substring(0, commaIdx).toInt();
   }
 
   int byteCount = 0;
-  {
-    File& firstShare = shareFiles[0];
-    while (firstShare.available()) {
-      firstShare.readStringUntil('\n');
-      byteCount++;
-    }
-    firstShare.seek(0);
+  File& firstShare = shareFiles[0];
+  while (firstShare.available()) {
+    firstShare.readStringUntil('\n');
+    byteCount++;
   }
+  firstShare.seek(0);
 
   File outFile = FFat.open(outputPath, FILE_WRITE);
   if (!outFile) {
@@ -146,8 +145,10 @@ bool ShamirHelper::reconstructFile(const std::vector<String>& sharePaths, const 
     return false;
   }
 
-  std::vector<int> yValues(ShamirHelper::minThreshold, 0);
-  std::vector<int> xSubset(ShamirHelper::minThreshold, 0);
+  std::vector<int> yValues(ShamirHelper::minThreshold);
+  std::vector<int> xSubset(ShamirHelper::minThreshold);
+  std::vector<uint8_t> secret(byteCount);
+
 
   for (int byteIdx = 0; byteIdx < byteCount; byteIdx++) {
     for (int s = 0; s < ShamirHelper::minThreshold; s++) {
@@ -164,8 +165,10 @@ bool ShamirHelper::reconstructFile(const std::vector<String>& sharePaths, const 
     }
 
     int recovered = lagrangeInterpolation(0, xSubset, yValues, ShamirHelper::PRIME);
-    outFile.write((uint8_t)recovered);
+    secret[byteIdx] = (uint8_t)recovered;
   }
+
+  outFile.write(secret.data(), secret.size());
 
   outFile.close();
   for (File& sf : shareFiles) sf.close();
@@ -180,9 +183,8 @@ bool ShamirHelper::reconstructFile(const std::vector<String>& sharePaths, const 
 //=============================================================================
 // evalPolynomial: f(x) = (secret + randomCoeff * x) mod PRIME
 //=============================================================================
-uint8_t ShamirHelper::evalPolynomial(uint8_t x, uint8_t secret, uint8_t randomCoeff, int prime) {
-  int val = ((int)secret + (int)randomCoeff * (int)x) % prime;
-  return (uint8_t)val;
+uint16_t ShamirHelper::evalPolynomial(uint8_t x, uint8_t secret, uint16_t randomCoeff, int prime) {
+  return (uint16_t)((secret + (int)randomCoeff * x) % prime);
 }
 
 //=============================================================================

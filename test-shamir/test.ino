@@ -62,16 +62,40 @@ void setup() {
     }
   }
   Serial.println("✅ FFat mounted.");
+  const char* tst = R"JSON([
+{"timestamp":"2025-06-07T19:05:36Z","isEvent":false,"data":{"lat":31.97087,"lon":34.78566,"heartRate":78,"name":"How Are"}}
+,
+{"timestamp":"2025-06-07T19:05:43Z","isEvent":false,"data":{"lat":31.97087,"lon":34.78568,"heartRate":100,"name":"Im Good"}}
+,
+{"timestamp":"2025-06-07T19:05:50Z","isEvent":false,"data":{"lat":31.97086,"lon":34.78564,"heartRate":55,"name":"How Are"}}
+,
+{"timestamp":"2025-06-07T19:05:57Z","isEvent":false,"data":{"lat":31.97084,"lon":34.78562,"heartRate":0,"name":"How Are"}}
+])JSON";
 
+  Serial.println(tst);
   // 2) Create a known test file
-  createTestFile();
+  //createTestFile();
+
+  File f1 = FFat.open(TEST_PATH, FILE_WRITE);
+  if (!f1) {
+    Serial.println("❌ Could not create /test.txt");
+    return;
+  }
+  f1.print(tst);
+  f1.close();
+  Serial.println("✅ /test.txt created.");
 
   // 3) Seed random BEFORE splitting
   randomSeed(micros());
 
   // 4) Split "/test.txt" into 3 shares, threshold = 2
   std::vector<String> sharePaths;
-  ShamirHelper::splitFile(TEST_PATH, 3, sharePaths);
+
+  std::vector<uint8_t> sharePaths1;
+  sharePaths1.push_back(1);
+  sharePaths1.push_back(3);
+  sharePaths1.push_back(2);
+  ShamirHelper::splitFile(TEST_PATH, 3, sharePaths1, sharePaths);
   if (sharePaths.size() < 3) {
     Serial.println("❌ splitFile() failed. Halting.");
     while (true);

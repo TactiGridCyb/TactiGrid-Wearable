@@ -734,14 +734,14 @@ void CommandersMissionPage::switchCommanderEvent()
             reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
 
         Serial.printf("PAYLOAD SENT (base64): %d %d %d\n", shamirPartsLen, payload.compromisedSoldiersLength, payload.missingSoldiersLength);
-
+        Serial.println(base64Payload.c_str());
         Serial.println("SENDING base64Payload");
         this->loraModule->cancelReceive();
         this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
     
         ++index;
 
-        delay(1000);
+        delay(2000);
     }
 
     Serial.println("finished loop");

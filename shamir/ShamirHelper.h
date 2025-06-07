@@ -23,7 +23,7 @@ private:
   const static int PRIME = 257;
   static uint8_t minThreshold;
 
-  static uint8_t evalPolynomial(uint8_t x, uint8_t secret, uint8_t randomCoeff, int prime);
+  static uint16_t evalPolynomial(uint8_t x, uint8_t secret, uint16_t randomCoeff, int prime);
   static int modInverse(int a, int m);
   static int lagrangeInterpolation(int atX, const std::vector<int>& xVals, const std::vector<int>& yVals, int prime);
 

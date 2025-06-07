@@ -292,7 +292,7 @@ void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
       return;
     }
 
-    if (pkt[0] == 0xAB && len >= 4) 
+    if (pkt[0] == 0xAB && len >= 4 && this->expectedChunks > 0) 
     {
       Serial.println("pkt[0] == 0xAB && len >= 4");
       uint16_t chunkIndex = (pkt[1] << 8) | pkt[2];
