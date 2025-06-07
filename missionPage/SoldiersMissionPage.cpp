@@ -451,6 +451,7 @@ void SoldiersMissionPage::onCommanderSwitchEvent(SwitchCommander& payload)
     Serial.println("Received share");
     char sharePath[25];
     snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", payload.soldiersID);
+    Serial.println(sharePath);
 
     File currentShare = FFat.open(sharePath, FILE_WRITE);
     if (!currentShare)
@@ -580,8 +581,8 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
     std::string buffer;
     buffer.reserve(2 + ans.shamirPart.size() * 2);
 
-    buffer += static_cast<char>(payload.msgID);
-    buffer += static_cast<char>(payload.soldiersID);
+    buffer += static_cast<char>(ans.msgID);
+    buffer += static_cast<char>(ans.soldiersID);
     for(auto &pt : ans.shamirPart) 
     {
         buffer.push_back((char)pt.first);
@@ -590,9 +591,12 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
 
     std::string base64Payload = crypto::CryptoModule::base64Encode(
     reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
-
+    
+    Serial.printf("Important vars: %d %d\n", ans.msgID, ans.soldiersID);
     this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+    
 
+    delay(10000);
     this->commanderSwitchEvent = false;
 
     this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) 

@@ -60,6 +60,7 @@ private:
     bool commanderSwitchEvent;
 
     uint8_t shamirPartsCollected;
+    uint8_t currentShamirRec;
     
     lv_obj_t* infoBox;
 
@@ -67,7 +68,7 @@ private:
 
     lv_timer_t* missingSoldierTimer;
     lv_timer_t* regularLoopTimer;
-    
+    lv_timer_t* shamirTimeoutTimer;
 
     std::unordered_map<uint16_t, lv_color_t> ballColors;
     std::unordered_map<uint16_t, lv_obj_t*> labels;
@@ -83,6 +84,7 @@ private:
     void switchGMKEvent(const char* infoBoxText, uint8_t soldiersIDMoveToComp = -1);
     void missingSoldierEvent(uint8_t soldiersID);
     void switchCommanderEvent();
-    
+
+    void sendNextShamirRequest();    
 
 };

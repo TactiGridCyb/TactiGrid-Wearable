@@ -10,7 +10,8 @@ uint8_t ShamirHelper::minThreshold = 2;
 // Returns a vector of Strings containing the file paths of the generated share files.
 // Each share file is named inputPath + ".share" + index.
 //=============================================================================
-bool ShamirHelper::splitFile(const char* inputPath, int nShares, std::vector<String>& sharePaths) {
+bool ShamirHelper::splitFile(const char* inputPath, int nShares, const std::vector<uint8_t>& shareIds,
+  std::vector<String>& sharePaths) {
   sharePaths.clear();  // ensure it's empty before starting
 
   if (nShares < ShamirHelper::minThreshold || ShamirHelper::minThreshold < 2) 
@@ -38,8 +39,11 @@ bool ShamirHelper::splitFile(const char* inputPath, int nShares, std::vector<Str
 
   std::vector<File> shareFiles;
   shareFiles.reserve(nShares);
-  for (int i = 1; i <= nShares; i++) {
-    String spath = String(inputPath) + ".share" + String(i);
+  for (int i = 0; i < nShares; i++) {
+    uint8_t id = shareIds[i];
+    String spath = "/share_" + String(id) + ".txt";
+    Serial.printf("Creating spath %s\n", spath);
+
     File sf = FFat.open(spath.c_str(), FILE_WRITE);
     if (!sf) {
       Serial.print("❌ Failed to create share file: ");
@@ -52,12 +56,14 @@ bool ShamirHelper::splitFile(const char* inputPath, int nShares, std::vector<Str
     sharePaths.push_back(spath);
   }
 
+  Serial.println("-------------------------------");
   while (inFile.available()) {
     uint8_t secretByte = inFile.read();
     uint8_t randomCoeff = random(1, ShamirHelper::PRIME);
-    for (int i = 1; i <= nShares; i++) {
-        uint8_t y = evalPolynomial(i, secretByte, randomCoeff, ShamirHelper::PRIME);
-        shareFiles[i-1].printf("%d,%d\n", i, y);
+    for (int i = 0; i < nShares; i++) {
+        uint8_t x = shareIds[i];
+        uint8_t y = evalPolynomial(x, secretByte, randomCoeff, ShamirHelper::PRIME);
+        shareFiles[i].printf("%d,%d\n", x, y);
 
         // Serial.print("(");
         // Serial.print(i);

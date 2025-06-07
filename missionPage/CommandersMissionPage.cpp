@@ -41,6 +41,7 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         else
         {
             this->shamirPartsCollected = 0;
+            this->currentShamirRec = this->commanderModule->getCommanderNumber();
             LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, "Switch Commander Event!");
 
             Serial.printf("Reserved %d places\n", this->commanderModule->getSoldiers().size() +
@@ -49,6 +50,7 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
             this->didntSendShamir.push_back(this->commanderModule->getCommanderNumber());
 
             std::vector<uint8_t> soldiersKeys;
+
             soldiersKeys.reserve(this->commanderModule->getSoldiers().size());
             Serial.println("Soldiers:");
             for (auto const& kv : this->commanderModule->getSoldiers()) 
@@ -608,33 +610,47 @@ void CommandersMissionPage::switchCommanderEvent()
 
     lv_timer_del(this->missingSoldierTimer);
 
-    if (!ShamirHelper::splitFile(this->logFilePath.c_str(), this->commanderModule->getCommanders().size(), sharePaths)) 
-    {
-        Serial.println("❌ Failed to split log file with Shamir.");
-        return;
-    }
+    
     this->loraModule->setOnReadData(nullptr);
+    
+
     uint8_t index = 0;
 
     std::vector<uint8_t> allSoldiers;
-    allSoldiers.reserve(this->commanderModule->getCommanders().size() + this->commanderModule->getSoldiers().size() - 1);
+    allSoldiers.reserve(this->commanderModule->getCommanders().size() + this->commanderModule->getSoldiers().size());
     for (const auto& [k, _] : this->commanderModule->getCommanders()) 
     {
-        if(k != this->commanderModule->getCommanderNumber())
-        {
-            allSoldiers.push_back(k);
-        }
+        allSoldiers.push_back(k);
     }
 
     for (const auto& [k, _] : this->commanderModule->getSoldiers()) 
     {
         allSoldiers.push_back(k);
     }
+    Serial.println("allSoldiers:");
+    for(const auto& sold : allSoldiers)
+    {
+        Serial.println(sold);
+    }
+
+    if (!ShamirHelper::splitFile(this->logFilePath.c_str(), allSoldiers.size(), 
+    allSoldiers, sharePaths)) 
+    {
+        Serial.println("❌ Failed to split log file with Shamir.");
+        return;
+    }
+
+    Serial.println("sharePaths:");
+    for(const auto& path : sharePaths)
+    {
+        Serial.println(path);
+    }
 
     for (const auto& soldier : allSoldiers) 
     {
         if(soldier == this->commanderModule->getCommanderNumber())
         {
+            index++;
             continue;
         }
 
@@ -773,6 +789,7 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
 
     if(payload.msgID != 0x03)
     {
+        Serial.printf("ID is not 0x03! %d\n", payload.msgID);
         return;
     }
 
@@ -836,6 +853,14 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
 
     if(this->shamirPartsCollected >= ShamirHelper::getThreshold())
     {
+        Serial.println("ShamirHelper::getThreshold()");
+        Serial.println("this->shamirPaths:");
+
+        for(const auto& path: this->shamirPaths)
+        {
+            Serial.println(path);
+        }
+
         ShamirHelper::reconstructFile(this->shamirPaths, this->logFilePath.c_str());
 
         String content;
@@ -870,10 +895,23 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
         });
     }
 
+    this->sendNextShamirRequest();
+    
+}
+
+void CommandersMissionPage::sendNextShamirRequest()
+{
+
+    if (this->didntSendShamir.empty())
+    {
+        return;
+    }
+
+    this->currentShamirRec = this->didntSendShamir.front();
 
     requestShamir req;
     req.msgID = 0x04;
-    req.soldiersID = *this->didntSendShamir.begin();
+    req.soldiersID = this->currentShamirRec;
 
     std::string buffer;
     buffer += static_cast<char>(req.msgID);
@@ -886,4 +924,26 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
 
     this->loraModule->cancelReceive();
     this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+
+
+    shamirTimeoutTimer = lv_timer_create(
+        [](lv_timer_t* t) {
+            Serial.println("shamirTimeoutTimer started!");
+            auto *self = static_cast<CommandersMissionPage*>(t->user_data);
+
+            lv_timer_del(t);
+            self->shamirTimeoutTimer = nullptr;
+
+
+            if (!self->didntSendShamir.empty() && self->didntSendShamir.front() == self->currentShamirRec)
+            {
+                self->didntSendShamir.erase(self->didntSendShamir.begin());
+                self->sendNextShamirRequest();
+            }
+
+            Serial.println("shamirTimeoutTimer finished!");
+        },
+        20000,
+        this
+    );
 }

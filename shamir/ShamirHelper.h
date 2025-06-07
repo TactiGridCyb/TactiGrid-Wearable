@@ -9,7 +9,8 @@ class ShamirHelper {
 public:
   // Splits the file at inputPath into nShares, requiring threshold to reconstruct.
   // Returns a vector of share file paths.
-  static bool splitFile(const char* inputPath, int nShares, std::vector<String>& sharePaths);
+  static bool splitFile(const char* inputPath, int nShares, const std::vector<uint8_t>& shareIds,
+  std::vector<String>& sharePaths);
 
   // Reconstructs the original file from at least 'threshold' sharePaths.
   // Writes the result to outputPath. Returns true on success.
