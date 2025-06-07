@@ -86,7 +86,7 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
             }
 
             lv_timer_create([](lv_timer_t* t){
-                delay(10000);
+                delay(15000);
                 auto *self = static_cast<CommandersMissionPage*>(t->user_data);
                 sendShamir payload;
                 payload.msgID = 0x03;
@@ -109,7 +109,6 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
                 while (currentShamir.available()) 
                 {
                     String line = currentShamir.readStringUntil('\n');
-                    Serial.println(line);
                     int comma = line.indexOf(',');
                     if (comma < 1) continue;
 
@@ -882,6 +881,9 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
 
     std::string base64Payload = crypto::CryptoModule::base64Encode(
     reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
+        
+    Serial.printf("Sending requestShamir to %d\n", req.soldiersID);
 
+    this->loraModule->cancelReceive();
     this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
 }

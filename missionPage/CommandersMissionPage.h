@@ -67,6 +67,7 @@ private:
 
     lv_timer_t* missingSoldierTimer;
     lv_timer_t* regularLoopTimer;
+    
 
     std::unordered_map<uint16_t, lv_color_t> ballColors;
     std::unordered_map<uint16_t, lv_obj_t*> labels;

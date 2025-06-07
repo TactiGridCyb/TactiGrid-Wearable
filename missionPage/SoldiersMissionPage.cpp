@@ -166,9 +166,11 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     {
         this->loraModule->setOnReadData(nullptr);
         this->loraModule->setOnFileReceived(nullptr);
+        this->finishTimer = true;
 
         if(this->sendTimer)
         {
+            this->currentIndex = 100;
             lv_timer_del(this->sendTimer);
         }
 
@@ -471,7 +473,6 @@ void SoldiersMissionPage::onCommanderSwitchEvent(SwitchCommander& payload)
 void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload)
 {
     Serial.println("onSoldierTurnToCommanderEvent");
-    lv_timer_del(this->mainLoopTimer);
     
     std::unique_ptr<Commander> command = std::make_unique<Commander>(this->soldierModule->getName(),
     this->soldierModule->getPublicCert(), this->soldierModule->getPrivateKey(),
@@ -494,12 +495,12 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
     this->destroyPage();
     delay(10);
 
+    lv_timer_del(this->mainLoopTimer);
 
     Serial.println("this->destroyPage()");
 
     Serial.printf("📦 Address of std::function cb variable: %p\n", (void*)&this->loraModule->getOnFileReceived());
 
-    this->finishTimer = true;
     
     this->transferFunction(this->loraModule, this->gpsModule, std::move(this->fhfModule), std::move(command));
 }
