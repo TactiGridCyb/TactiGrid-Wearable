@@ -62,15 +62,21 @@ public:
 
     void removeCommander(uint8_t id)
     {
+        Serial.println("removeCommander");
+
         this->commanders.erase(id);
 
         auto it = std::find(this->commandersInsertionOrder.begin(), this->commandersInsertionOrder.end(), id);
-        this->commandersInsertionOrder.erase(it);
+        if(it != this->commandersInsertionOrder.end())
+        {
+            this->commandersInsertionOrder.erase(it);
+        }
 
     }
 
     void removeSoldier(uint8_t id)
     {
+        Serial.println("removeSoldier");
         this->soldiers.erase(id);
     }
 
@@ -89,6 +95,19 @@ public:
         else if(this->commanders.find(id) != this->commanders.end())
         {
             this->commanders.at(id).lastTimeReceivedData = millis();
+        }
+    }
+
+    void resetAllData()
+    {
+        for(const auto& kv : this->commanders)
+        {
+            this->commanders.at(kv.first).lastTimeReceivedData = millis();
+        }
+
+        for(const auto& kv : this->soldiers)
+        {
+            this->soldiers.at(kv.first).lastTimeReceivedData = millis();
         }
     }
 

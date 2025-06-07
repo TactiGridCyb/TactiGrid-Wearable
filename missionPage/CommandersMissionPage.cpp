@@ -196,7 +196,7 @@ void CommandersMissionPage::createPage() {
         {
             if(millis() - commander.second.lastTimeReceivedData >= 60000)
             {
-                self->missingSoldierEvent(commander.first);
+                self->missingSoldierEvent(commander.first, true);
                 return;
             }
         }
@@ -205,7 +205,7 @@ void CommandersMissionPage::createPage() {
         {
             if(millis() - soldier.second.lastTimeReceivedData >= 60000)
             {
-                self->missingSoldierEvent(soldier.first);
+                self->missingSoldierEvent(soldier.first, false);
                 return;
             }
         }
@@ -586,13 +586,22 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, infoBoxText);
 }
 
-void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID)
+void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID, bool isCommander)
 {
     Serial.printf("missingSoldierEvent for %d\n", soldiersID);
-    const std::string newEventText = "Missing Soldier Event - " + this->commanderModule->getCommanders().at(soldiersID).name;
+
+    std::string newEventText;
+
+    if(isCommander)
+    {
+        newEventText = "Missing Soldier Event - " + this->commanderModule->getCommanders().at(soldiersID).name;
+    }
+    else
+    {
+        newEventText = "Missing Soldier Event - " + this->commanderModule->getSoldiers().at(soldiersID).name;
+    }
 
     Serial.println("PRE PREMOVE");
-
 
     this->commanderModule->setMissing(soldiersID);
 
@@ -872,6 +881,8 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
         
         this->commanderSwitchEvent = false;
 
+        this->commanderModule->resetAllData();
+
         this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
                 this->onDataReceived(data, len);
         });
@@ -928,8 +939,16 @@ void CommandersMissionPage::sendNextShamirRequest()
 
     shamirTimeoutTimer = lv_timer_create(
         [](lv_timer_t* t) {
-            Serial.println("shamirTimeoutTimer started!");
             auto *self = static_cast<CommandersMissionPage*>(t->user_data);
+            if (!self->didntSendShamir.empty())
+            {
+                Serial.printf("shamirTimeoutTimer started for %d!\n", self->currentShamirRec);
+            }
+            else
+            {
+                Serial.println("shamirTimeoutTimer started !");
+            }
+            
 
             lv_timer_del(t);
             self->shamirTimeoutTimer = nullptr;

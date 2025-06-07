@@ -67,7 +67,10 @@ void Commander::setMissing(const std::vector<uint8_t>& missing)
 
 void Commander::setMissing(uint8_t id)
 {
+    Serial.println("setMissing");
     this->missing.push_back(id);
+
+    Serial.println("Started checking");
     if(this->commanders.find(id) != this->commanders.end())
     {
         this->removeCommander(id);
@@ -76,6 +79,8 @@ void Commander::setMissing(uint8_t id)
     {
         this->removeSoldier(id);
     }
+
+    Serial.println("Finished setMissing");
 }
 
 void Commander::setCompGMK(const crypto::Key256& gmk) {
