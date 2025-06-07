@@ -20,7 +20,7 @@ struct SwitchCommander{
     uint8_t msgID;
     uint8_t soldiersID;
     uint16_t shamirPartLength;
-    std::vector<uint8_t> shamirPart;
+    std::vector<std::pair<uint8_t,uint8_t>> shamirPart;
     uint8_t compromisedSoldiersLength;
     std::vector<uint8_t> compromisedSoldiers;
     uint8_t missingSoldiersLength;
@@ -35,7 +35,7 @@ struct requestShamir{
 struct sendShamir{
     uint8_t msgID;
     uint8_t soldiersID;
-    std::vector<uint8_t> shamirPart;
+    std::vector<std::pair<uint8_t,uint8_t>> shamirPart;
 };
 
 class Commander : public PersonBase

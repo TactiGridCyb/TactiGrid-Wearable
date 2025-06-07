@@ -1,8 +1,7 @@
 #include <Arduino.h>
 #include <FFat.h>
-#include "../shmair-class/shamir.h"
+#include <ShamirHelper.h>
 
-ShamirSecretSharing sham(257);
 
 const char* TEST_PATH      = "/test.txt";
 const char* RECOVERED_PATH = "/recovered.txt";
@@ -71,25 +70,26 @@ void setup() {
   randomSeed(micros());
 
   // 4) Split "/test.txt" into 3 shares, threshold = 2
-  auto shares = sham.splitFile(TEST_PATH, 3, 2);
-  if (shares.size() < 3) {
+  std::vector<String> sharePaths;
+  ShamirHelper::splitFile(TEST_PATH, 3, sharePaths);
+  if (sharePaths.size() < 3) {
     Serial.println("❌ splitFile() failed. Halting.");
     while (true);
   }
 
   // Print which two shares we’re about to use
   Serial.print("Reconstructing from: ");
-  Serial.print(shares[0]);  // should be "/test.txt.share1"
+  Serial.print(sharePaths[0]);  // should be "/test.txt.share1"
   Serial.print("  +  ");
-  Serial.println(shares[1]); // should be "/test.txt.share2"
+  Serial.println(sharePaths[1]); // should be "/test.txt.share2"
 
   Serial.print("Reconstructing from shares: ");
-Serial.print(shares[0]);   // should be "/test.txt.share1"
-Serial.print("  and  ");
-Serial.println(shares[1]); // should be "/test.txt.share2"
+  Serial.print(sharePaths[0]);   // should be "/test.txt.share1"
+  Serial.print("  and  ");
+  Serial.println(sharePaths[1]); // should be "/test.txt.share2"
 
   // 5) Reconstruct using share1 & share2
-  bool ok = sham.reconstructFile({ shares[0], shares[1] }, 2, RECOVERED_PATH);
+  bool ok = ShamirHelper::reconstructFile(sharePaths, RECOVERED_PATH);
   if (!ok) {
     Serial.println("❌ reconstructFile() failed.");
     while (true);

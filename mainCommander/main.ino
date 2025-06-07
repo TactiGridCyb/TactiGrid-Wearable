@@ -33,7 +33,7 @@ void transferFromSendCoordsToReceiveCoordsPage(std::shared_ptr<LoraModule> newLo
     std::shared_ptr<GPSModule> newGPSModule, std::unique_ptr<FHFModule> newFHFModule,
     std::unique_ptr<Commander> commandersModule)
 {
-    soldiersMissionPage.reset();
+    
     
     commandersMissionPage = std::make_unique<CommandersMissionPage>(newLoraModule, 
     std::move(wifiModule), newGPSModule, std::move(newFHFModule), std::move(commandersModule), logFilePath);
@@ -42,6 +42,7 @@ void transferFromSendCoordsToReceiveCoordsPage(std::shared_ptr<LoraModule> newLo
     commandersMissionPage->createPage();
 
     Serial.println("commandersMissionPage->createPage() finished");
+    soldiersMissionPage.reset();
 }
 
 void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> newLoraModule,
@@ -56,7 +57,7 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
     wifiModule = std::move(newWifiModule);
 
     soldiersMissionPage = std::make_unique<SoldiersMissionPage>(newLoraModule,
-     newGPSModule, std::move(newFhfModule), std::move(soldiersModule));
+     newGPSModule, std::move(newFhfModule), std::move(soldiersModule), true);
 
     Serial.println("std::make_unique<SoldiersMissionPage>");
 
@@ -67,7 +68,7 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
     Serial.printf("[🧠 STACK] - Stack high water mark: %u words (~%u bytes)\n", 
                   highWaterMark, highWaterMark * sizeof(uint32_t));
 
-    soldiersMissionPage->setTransferFunction(transferFromSendCoordsToReceiveCoordsPage);
+    // soldiersMissionPage->setTransferFunction(transferFromSendCoordsToReceiveCoordsPage);
 }
 
 void transferFromMainToReceiveCoordsPage()
@@ -115,6 +116,7 @@ void setup()
 
     beginLvglHelper();
     lv_png_init();
+    randomSeed(millis());
 
     if (!FFat.begin(true)) 
     {
@@ -126,6 +128,10 @@ void setup()
         Serial.println("Mounted FFat!");
     }
     
+    FFatHelper::removeFilesIncludeWords("share", "txt");
+    FFatHelper::removeFilesStartingWith("log.txt.share");
+    FFatHelper::removeFilesStartingWith("test.txt");
+
     String ssidString(ssid);
     String passwordString(password);
 

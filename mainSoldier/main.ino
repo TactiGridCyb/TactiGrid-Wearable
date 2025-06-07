@@ -40,7 +40,7 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
     wifiModule = std::move(newWifiModule);
 
     soldiersMissionPage = std::make_unique<SoldiersMissionPage>(newLoraModule,
-     newGPSModule, std::move(newFhfModule), std::move(soldiersModule));
+     newGPSModule, std::move(newFhfModule), std::move(soldiersModule), true);
 
     Serial.println("std::make_unique<SoldiersMissionPage>");
 
@@ -58,7 +58,7 @@ void transferFromSendCoordsToReceiveCoordsPage(std::shared_ptr<LoraModule> newLo
     
 
     commandersMissionPage = std::make_unique<CommandersMissionPage>(newLoraModule, 
-    std::move(wifiModule), newGPSModule, std::move(newFHFModule), std::move(commandersModule), logFilePath);
+    std::move(wifiModule), newGPSModule, std::move(newFHFModule), std::move(commandersModule), logFilePath, true);
 
     Serial.println("commandersMissionPage->createPage()");
     commandersMissionPage->createPage();
@@ -119,6 +119,8 @@ void setup()
     }
     
     FFatHelper::removeFilesIncludeWords("share", "txt");
+    FFatHelper::removeFilesStartingWith("log.txt.share");
+    FFatHelper::removeFilesStartingWith("test.txt");
 
     String ssidString(ssid);
     String passwordString(password);

@@ -150,41 +150,85 @@ void FFatHelper::listFiles(const char* path, uint8_t depth) {
     }
 }
 
-void FFatHelper::removeFilesIncludeWords(const char* filterWord, const char* filesType)
+void FFatHelper::removeFilesIncludeWords(const char* filterWord,
+                                         const char* filesType)
 {
     File root = FFat.open("/");
-
-    if (!root) 
-    {
-        Serial.println("❌ Failed to open FFat root");
-        return;
-    }
-    if (!root.isDirectory()) 
-    {
-        Serial.println("❌ FFat / is not a directory");
+    if (!root || !root.isDirectory()) {
+        Serial.println("❌ Failed to open FFat root or it’s not a directory");
         return;
     }
 
-    File entry = root.openNextFile();
-    while (entry) {
+    std::vector<String> toDelete;
+    File entry;
+    while ((entry = root.openNextFile())) {
         String path = entry.name();
-
-        if (!entry.isDirectory()) {
-            
-            if (path.endsWith(filesType) && path.indexOf(filterWord) >= 0) {
-
-                if (FFat.remove(path.c_str())) 
-                {
-                    Serial.printf("✅ Deleted: %s\n", path.c_str());
-                } 
-                else 
-                {
-                    Serial.printf("❌ Failed to delete: %s\n", path.c_str());
-                }
-            }
+        if (!entry.isDirectory()
+            && path.endsWith(filesType)
+            && path.indexOf(filterWord) >= 0)
+        {
+            toDelete.push_back(path);
         }
         entry.close();
-        entry = root.openNextFile();
     }
     root.close();
+
+    for (auto &rawPath : toDelete) 
+    {
+        String path = rawPath;
+        if (!path.startsWith("/")) 
+        {
+            path = "/" + path;
+        }
+
+        Serial.printf("Attempting to delete: %s … ", path.c_str());
+        if (!FFat.exists(path.c_str())) 
+        {
+            Serial.printf("⚠️  not found: %s\n", path.c_str());
+        }
+        else if (FFat.remove(path.c_str())) 
+        {
+            Serial.printf("✅ Deleted: %s\n", path.c_str());
+        } else 
+        {
+            Serial.printf("❌ Failed to delete even though it exists: %s\n", path.c_str());
+        }
+    }
+}
+
+void FFatHelper::removeFilesStartingWith(const char* prefix) {
+    File root = FFat.open("/");
+    if (!root || !root.isDirectory()) {
+        Serial.println("❌ Failed to open FFat root or it’s not a directory");
+        return;
+    }
+
+    std::vector<String> toDelete;
+    File entry;
+    while ((entry = root.openNextFile())) {
+        String name = entry.name();
+        if (!entry.isDirectory() && name.startsWith(prefix)) {
+            toDelete.push_back(name);
+        }
+        entry.close();
+    }
+    root.close();
+
+    for (auto &rawName : toDelete) {
+        String path = rawName;
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+
+        Serial.printf("Attempting to delete: %s … ", path.c_str());
+        if (!FFat.exists(path.c_str())) {
+            Serial.printf("⚠️  not found: %s\n", path.c_str());
+        }
+        else if (FFat.remove(path.c_str())) {
+            Serial.printf("✅ Deleted: %s\n", path.c_str());
+        } else {
+            Serial.printf("❌ Failed to delete even though it exists: %s\n",
+                          path.c_str());
+        }
+    }
 }

@@ -19,7 +19,7 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
     this->fhfModule = std::move(fhfModule);
     this->soldierModule = std::move(soldierModule);
 
-    Serial.println("🔍 Checking modules:");
+    Serial.printf("🔍 Checking modules for %d:\n", this->soldierModule->getSoldierNumber());
     Serial.printf("📡 loraModule: %s\n", this->loraModule ? "✅ OK" : "❌ NULL");
     Serial.printf("📍 gpsModule: %s\n", this->gpsModule ? "✅ OK" : "❌ NULL");
     Serial.printf("📻 fhfModule: %s\n", this->fhfModule ? "✅ OK" : "❌ NULL");
@@ -177,24 +177,37 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         scPayload.soldiersID = sgPayload.soldiersID;
 
         uint16_t shamirLen = (decodedData[index] << 8) | decodedData[index + 1];
-        scPayload.shamirPartLength = shamirLen;
+        scPayload.shamirPart.reserve(shamirLen);
         index += 2;
 
-        scPayload.shamirPart.assign(decodedData.begin() + index, decodedData.begin() + index + shamirLen);
-        index += shamirLen;
+        if (decodedData.size() < index + shamirLen * 2 + 2) {
+            Serial.println("❌ Not enough data for Shamir part");
+            return;
+        }
 
+        for(int k = 0; k < shamirLen; ++k) {
+            uint8_t x = uint8_t(decodedData[index++]);
+            uint8_t y = uint8_t(decodedData[index++]);
+            scPayload.shamirPart.emplace_back(x,y);
+        }
+
+        scPayload.shamirPartLength = shamirLen;
+        
         uint8_t compromisedSoldiersLen = decodedData[index++];
 
         scPayload.compromisedSoldiers.assign(decodedData.begin() + index,
         decodedData.begin() + index + compromisedSoldiersLen);
         index += compromisedSoldiersLen;
+        scPayload.compromisedSoldiersLength = compromisedSoldiersLen;
 
         uint8_t missingSoldiersLen = decodedData[index++];
 
         scPayload.missingSoldiers.assign(decodedData.begin() + index,
         decodedData.begin() + index + missingSoldiersLen);
         index += missingSoldiersLen;
+        scPayload.missingSoldiersLength = missingSoldiersLen;
 
+        Serial.printf("Important vars: %d %d %d\n", shamirLen, compromisedSoldiersLen, missingSoldiersLen);
         this->onCommanderSwitchEvent(scPayload);
 
         Serial.println("scPayload.compromisedSoldiers");
@@ -221,13 +234,19 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
         std::vector<uint8_t> commandersInsertionOrder = this->soldierModule->getCommandersInsertionOrder();
 
-        if(commandersInsertionOrder.at(0) == this->soldierModule->getSoldierNumber())
+        if(!commandersInsertionOrder.empty() && commandersInsertionOrder.at(0) == this->soldierModule->getSoldierNumber())
         {
             this->onSoldierTurnToCommanderEvent(scPayload);
         }
         else
         {
-            
+            this->commanderSwitchEvent = true;
+
+            this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
+                this->receiveShamirRequest(data, len);
+            });
+
+
         }
     }
 }
@@ -439,16 +458,9 @@ void SoldiersMissionPage::onCommanderSwitchEvent(SwitchCommander& payload)
         return;
     }
 
-    size_t toWrite = payload.shamirPart.size();
-    size_t written = currentShare.write(payload.shamirPart.data(), toWrite);
-
-    if (written != toWrite) 
+    for(auto &pt : payload.shamirPart) 
     {
-        Serial.printf("⚠️  Only wrote %u/%u bytes\n", (unsigned)written, (unsigned)toWrite);
-    } 
-    else 
-    {
-        Serial.printf("✅ Wrote %u bytes exactly\n", (unsigned)toWrite);
+        currentShare.printf("%u,%u\n", pt.first, pt.second);
     }
 
     currentShare.close();
@@ -553,9 +565,11 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
     {
         String line = currentShamir.readStringUntil('\n');
         int comma = line.indexOf(',');
-        if (comma < 0) continue;
-        int y = line.substring(comma + 1).toInt();
-        ans.shamirPart.push_back((uint8_t)y);
+        if (comma < 1) continue;
+
+        uint8_t x = (uint8_t)line.substring(0, comma).toInt();
+        uint8_t y = (uint8_t)line.substring(comma + 1).toInt();
+        ans.shamirPart.emplace_back(x, y);
     }
 
     currentShamir.close();
@@ -563,10 +577,15 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
     FFatHelper::deleteFile(sharePath);
 
     std::string buffer;
+    buffer.reserve(2 + ans.shamirPart.size() * 2);
 
     buffer += static_cast<char>(payload.msgID);
     buffer += static_cast<char>(payload.soldiersID);
-    buffer.append(reinterpret_cast<const char*>(ans.shamirPart.data()), ans.shamirPart.size());
+    for(auto &pt : ans.shamirPart) 
+    {
+        buffer.push_back((char)pt.first);
+        buffer.push_back((char)pt.second);
+    }
 
     std::string base64Payload = crypto::CryptoModule::base64Encode(
     reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());

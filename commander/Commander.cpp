@@ -173,7 +173,7 @@ void Commander::addComp(const uint8_t id)
 
 bool Commander::isMissing(uint8_t id)
 {
-    auto it = std::find(this->missing.begin(), this->missing.end(), this->missing);
+    auto it = std::find(this->missing.begin(), this->missing.end(), id);
 
     if(it != this->missing.end())
     {

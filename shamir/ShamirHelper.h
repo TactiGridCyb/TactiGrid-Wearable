@@ -2,6 +2,7 @@
 
 #include <LilyGoLib.h>
 #include <FFat.h>
+#include <FFatHelper.h>
 #include <vector>
 
 class ShamirHelper {

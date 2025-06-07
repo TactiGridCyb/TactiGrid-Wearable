@@ -57,20 +57,18 @@ bool ShamirHelper::splitFile(const char* inputPath, int nShares, std::vector<Str
     uint8_t randomCoeff = random(1, ShamirHelper::PRIME);
     for (int i = 1; i <= nShares; i++) {
         uint8_t y = evalPolynomial(i, secretByte, randomCoeff, ShamirHelper::PRIME);
-        String shareLine = String(i) + "," + String(y) + "\n";
-        shareFiles[i - 1].print(shareLine);
+        shareFiles[i-1].printf("%d,%d\n", i, y);
 
-        Serial.print("(");
-        Serial.print(i);
-        Serial.print(",");
-        Serial.print(y);
-        Serial.print(") ");
+        // Serial.print("(");
+        // Serial.print(i);
+        // Serial.print(",");
+        // Serial.print(y);
+        // Serial.print(") ");
     }
-
-    Serial.println();
   }
 
   for (File& sf : shareFiles) sf.close();
+
   inFile.close();
 
   Serial.print("✅ Split complete: ");
