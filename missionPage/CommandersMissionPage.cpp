@@ -50,8 +50,10 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
 
             std::vector<uint8_t> soldiersKeys;
             soldiersKeys.reserve(this->commanderModule->getSoldiers().size());
+            Serial.println("Soldiers:");
             for (auto const& kv : this->commanderModule->getSoldiers()) 
             {
+                Serial.println(kv.first);
                 soldiersKeys.push_back(kv.first);
             }
 
@@ -61,10 +63,12 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
             soldiersKeys.clear();
 
             soldiersKeys.reserve(this->commanderModule->getCommanders().size());
+            Serial.println("Commanders:");
             for (auto const& kv : this->commanderModule->getCommanders()) 
             {
                 if(kv.first != this->commanderModule->getCommanderNumber())
                 {
+                    Serial.println(kv.first);
                     soldiersKeys.push_back(kv.first);
                 }
             }
@@ -596,6 +600,7 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID)
 
 void CommandersMissionPage::switchCommanderEvent()
 {
+
     Serial.println("switchCommanderEvent");
     SwitchCommander payload;
     payload.msgID = 0x02;
@@ -672,8 +677,6 @@ void CommandersMissionPage::switchCommanderEvent()
         uint16_t shamirPartsLen = payload.shamirPart.size();
         payload.shamirPartLength = shamirPartsLen;
 
-
-
         std::string buffer;
         buffer += static_cast<char>(payload.msgID);
         buffer += static_cast<char>(payload.soldiersID);
@@ -694,7 +697,7 @@ void CommandersMissionPage::switchCommanderEvent()
         std::string base64Payload = crypto::CryptoModule::base64Encode(
             reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
 
-        Serial.printf("PAYLOAD SENT (base64): %s %d %d\n", shamirPartsLen, payload.compromisedSoldiersLength, payload.missingSoldiersLength);
+        Serial.printf("PAYLOAD SENT (base64): %d %d %d\n", shamirPartsLen, payload.compromisedSoldiersLength, payload.missingSoldiersLength);
 
         Serial.println("SENDING base64Payload");
         this->loraModule->cancelReceive();

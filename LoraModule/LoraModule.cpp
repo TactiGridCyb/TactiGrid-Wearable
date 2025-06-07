@@ -34,7 +34,6 @@ LoraModule::~LoraModule()
 
 void IRAM_ATTR LoraModule::dio1ISR()
 {
-  Serial.println("dio1ISR");
   if (instance) {
     instance->notifyOpFinished();
   }
@@ -158,11 +157,14 @@ int16_t LoraModule::sendFile(const uint8_t* data, size_t length, size_t chunkSiz
   }
 
   Serial.println("sendFile");
+  this->printCurrentOP();
 
   while (!tryStartOp(Op::FileTx)) 
   {
     delay(1);
   }
+  Serial.println("Not busy");
+
 
   this->loraDevice.setDio1Action(nullptr);
 

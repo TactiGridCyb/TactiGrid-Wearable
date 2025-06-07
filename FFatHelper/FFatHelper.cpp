@@ -16,8 +16,14 @@ bool FFatHelper::saveFile(const uint8_t* data, size_t len, const char* filePath)
 
 bool FFatHelper::deleteFile(const char* filePath)
 {
-    if (FFat.exists(filePath)) {
+    if (FFat.exists(filePath)) 
+    {
+        Serial.printf("File %s exists!\n", filePath);
         return FFat.remove(filePath);
+    }
+    else
+    {
+        Serial.printf("File %s doesn't exist!\n", filePath);
     }
 
   return false;
