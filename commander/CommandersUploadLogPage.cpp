@@ -42,11 +42,45 @@ void CommandersUploadLogPage::upload_log_event_callback(lv_event_t* e) {
     auto* page = static_cast<CommandersUploadLogPage*>(lv_event_get_user_data(e));
     if (!page) return;
 
-    String logContent;
-    
-    FFatHelper::readFile(page->logFilePath.c_str(), logContent);
-    page->wifiModule->sendString(logContent.c_str(), "192.168.0.44", 5555);
+    crypto::Key256 currentKey = crypto::CryptoModule::generateGMK();
 
+    crypto::Ciphertext ct = crypto::CryptoModule::encryptFile(currentKey, page->logFilePath.c_str());
+
+
+    File out = FFat.open(page->encLogPath, FILE_WRITE);
+
+    out.write(ct.nonce.data(), ct.nonce.size());
+    out.write(ct.data.data(), ct.data.size());
+    out.write(ct.tag.data(), ct.tag.size());
+
+    out.close();
+
+    String caCert;
+
+    FFatHelper::readFile(page->caCertPath, caCert);
+    std::string pemCert(caCert.c_str());
+
+    std::string keyData(reinterpret_cast<const char*>(currentKey.data()), currentKey.size());
+    std::vector<uint8_t> encryptedKey;
+
+    certModule::encryptWithPublicKeyPem(pemCert, keyData, encryptedKey);
     
+    File f = FFat.open(page->encKeyPath, FILE_WRITE);
+    if (!f) 
+    {
+        Serial.println("❌ Failed to open encrypted key file");
+        return;
+    }
+    f.write(encryptedKey.data(), encryptedKey.size());
+    f.close();
+
+
+
+    page->wifiModule->sendFile(page->certPath, "192.168.0.44", 1234);
+
+    page->wifiModule->sendFile(page->encKeyPath, "192.168.0.44", 1234);
+    
+    page->wifiModule->sendFile(page->encLogPath, "192.168.0.44", 1234);
+
 }
 

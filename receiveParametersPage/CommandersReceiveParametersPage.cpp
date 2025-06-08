@@ -207,6 +207,14 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     Serial.println("CA Certificate PEM:");
     Serial.println(caPem.c_str());
 
+    File certFile = FFat.open(this->certFile.c_str(), FILE_WRITE);
+    certFile.print(ownCertPem.c_str());
+    certFile.close();
+
+    File CAcertFile = FFat.open(this->caCertPath.c_str(), FILE_WRITE);
+    CAcertFile.print(caPem.c_str());
+    CAcertFile.close();
+
     String missionIDStr = String(missionID.c_str());
     FFatHelper::initializeLogFile(this->logFilePath.c_str(), this->commanderModule->getIntervalMS(), missionIDStr);
     Serial.println("After init");

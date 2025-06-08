@@ -45,6 +45,10 @@ public:
     
     static NameId parseNameIdFromCertPem(const std::string& pem);
 
+    static bool encryptWithPublicKeyPem(const std::string& pemCert,
+                             const std::string& data,
+                             std::vector<uint8_t>& output);
+
 private:
     mbedtls_pk_context privateKey;
     mbedtls_x509_crt certificate;

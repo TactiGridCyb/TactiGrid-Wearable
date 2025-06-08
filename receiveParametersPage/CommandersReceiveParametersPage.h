@@ -45,4 +45,6 @@ class CommandersReceiveParametersPage : public LVGLPage {
         void updateLabel(uint8_t index);
 
         const std::string logFilePath = "/log.txt";
+        const std::string certFile = "/cert.txt";
+        const std::string caCertPath = "/CAcert.txt";
 };

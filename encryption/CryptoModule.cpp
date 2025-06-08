@@ -1,8 +1,5 @@
 #include "CryptoModule.h"
-#include <stdexcept>
-#include <sstream>
-#include <iomanip>
-#include <algorithm>
+
 
 namespace crypto {
 
@@ -154,6 +151,29 @@ namespace crypto {
         Key256 key = {};
         std::memcpy(key.data(), s.c_str(), KEY_LEN);
         return key;
+    }
+
+    Ciphertext CryptoModule::encryptFile(const Key256& gk, const std::string& filePath)
+    {
+        File f = FFat.open(filePath.c_str(), FILE_READ);
+        if (!f) 
+        {
+            throw std::runtime_error("encryptFile: cannot open " + filePath);
+        }
+
+        size_t sz = f.size();
+        ByteVec plaintext(sz);
+        size_t read = f.read(plaintext.data(), sz);
+        f.close();
+
+        if (read != sz) 
+        {
+            throw std::runtime_error("encryptFile: failed reading full file");
+        }
+
+        Ciphertext ct = CryptoModule::encrypt(gk, plaintext);
+
+        return ct;
     }
 
 }

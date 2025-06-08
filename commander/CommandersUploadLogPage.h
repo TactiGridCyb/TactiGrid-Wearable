@@ -4,6 +4,8 @@
 #include "lvgl.h"
 #include <string>
 #include <memory>
+#include <CryptoModule.h>
+#include <certModule.h>
 
 class CommandersUploadLogPage : public LVGLPage {
 public:
@@ -14,6 +16,11 @@ public:
 private:
     std::shared_ptr<WifiModule> wifiModule;
     std::string logFilePath;
+
+    const char* encLogPath = "/encLog.txt";
+    const char* certPath = "/cert.txt";
+    const char* caCertPath = "/CAcert.txt";
+    const char* encKeyPath = "/encKey.txt";
 
     static void upload_log_event_callback(lv_event_t* e);
 };

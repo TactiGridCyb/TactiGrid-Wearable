@@ -121,6 +121,7 @@ void setup()
     FFatHelper::removeFilesIncludeWords("share", "txt");
     FFatHelper::removeFilesStartingWith("log.txt.share");
     FFatHelper::removeFilesStartingWith("test.txt");
+    FFatHelper::deleteFile("/cert.txt");
 
     String ssidString(ssid);
     String passwordString(password);

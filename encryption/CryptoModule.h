@@ -6,7 +6,10 @@
 #include <sodium.h>
 #include <stdexcept>
 #include <cstring>
-
+#include <sstream>
+#include <iomanip>
+#include <algorithm>
+#include <FFat.h>
 namespace crypto {
 
 using Key256 = std::array<unsigned char, crypto_aead_xchacha20poly1305_ietf_KEYBYTES>;
@@ -40,6 +43,8 @@ public:
 
     static std::string base64Encode(const uint8_t* data, size_t len);
     static std::vector<uint8_t> base64Decode(const std::string& s);
+
+    static Ciphertext encryptFile(const Key256& gk, const std::string& filePath);
 };
 
 }

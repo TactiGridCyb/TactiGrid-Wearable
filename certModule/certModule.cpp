@@ -316,3 +316,29 @@ NameId certModule::parseNameIdFromCertPem(const std::string& pem) {
     result.id = static_cast<uint16_t>(std::stoul(cnStr.substr(pos + 1)));
     return result;
 }
+
+bool certModule::encryptWithPublicKeyPem(const std::string& pemCert,
+                             const std::string& data,
+                             std::vector<uint8_t>& output)
+{
+    int ret;
+    mbedtls_x509_crt cert;
+    mbedtls_x509_crt_init(&cert);
+
+    ret = mbedtls_x509_crt_parse(
+        &cert,
+        reinterpret_cast<const unsigned char*>(pemCert.c_str()),
+        pemCert.size() + 1
+    );
+    
+    if (ret != 0) {
+        Serial.printf("❌ CRT parse failed: -0x%04X\n", -ret);
+        mbedtls_x509_crt_free(&cert);
+        return false;
+    }
+
+    bool ok = encryptWithPublicKey(cert, data, output);
+
+    mbedtls_x509_crt_free(&cert);
+    return ok;
+}
