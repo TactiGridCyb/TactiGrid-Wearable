@@ -132,6 +132,8 @@ void setup()
     FFatHelper::removeFilesIncludeWords("share", "txt");
     FFatHelper::removeFilesStartingWith("log.txt.share");
     FFatHelper::removeFilesStartingWith("test.txt");
+    FFatHelper::deleteFile(logFilePath.c_str());
+    
 
 
     String ssidString(ssid);

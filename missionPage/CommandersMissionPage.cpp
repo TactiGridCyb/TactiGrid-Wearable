@@ -25,7 +25,6 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         this->mainPage = lv_scr_act();
         this->infoBox = LVGLPage::createInfoBox();
 
-        FFatHelper::deleteFile(this->logFilePath.c_str());
         FFatHelper::deleteFile(this->tileFilePath);
 
         Serial.printf("this->commanderSwitchEvent: %s\n", (this->commanderSwitchEvent ? "true"  : "false"));
@@ -40,6 +39,7 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         }
         else
         {
+            FFatHelper::deleteFile(this->logFilePath.c_str());
             this->shamirPartsCollected = 0;
             this->currentShamirRec = this->commanderModule->getCommanderNumber();
             LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, "Switch Commander Event!");
@@ -351,19 +351,19 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
     if(newG->heartRate == 0 && std::find(comp.begin(), comp.end(), newG->soldiersID) == comp.end())
     {
-        Serial.println("CompromisedEvent");
-        this->commanderModule->setCompromised(newG->soldiersID);
-        delay(500);
-        const std::string newEventText = "Compromised Soldier Event - " + 
-        this->commanderModule->getCommanders().at(newG->soldiersID).name;
-        this->switchGMKEvent(newEventText.c_str(), newG->soldiersID);
+        // Serial.println("CompromisedEvent");
+        // this->commanderModule->setCompromised(newG->soldiersID);
+        // delay(500);
+        // const std::string newEventText = "Compromised Soldier Event - " + 
+        // this->commanderModule->getCommanders().at(newG->soldiersID).name;
+        // this->switchGMKEvent(newEventText.c_str(), newG->soldiersID);
         
-        JsonDocument doc;
-        doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
-        doc["eventName"] = "compromisedSoldier";
-        doc["compromisedID"] = newG->soldiersID;
+        // JsonDocument doc;
+        // doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
+        // doc["eventName"] = "compromisedSoldier";
+        // doc["compromisedID"] = newG->soldiersID;
 
-        FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
+        // FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 
         this->switchCommanderEvent();
     }
@@ -648,6 +648,18 @@ void CommandersMissionPage::switchCommanderEvent()
     
     this->loraModule->setOnReadData(nullptr);
     
+    uint8_t nextID = -1;
+    if(this->commanderModule->getCommandersInsertionOrder().size() > 1)
+    {
+        nextID = this->commanderModule->getCommandersInsertionOrder().at(1);
+    }
+
+    JsonDocument doc;
+    doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
+    doc["eventName"] = "commanderSwitch";
+    doc["newCommanderID"] = nextID;
+
+    FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 
     uint8_t index = 0;
 
@@ -772,19 +784,6 @@ void CommandersMissionPage::switchCommanderEvent()
     Serial.println("deleted timer");
 
     this->commanderModule->removeFirstCommanderFromInsertionOrder();
-
-    uint8_t nextID = -1;
-    if(!this->commanderModule->getCommandersInsertionOrder().empty())
-    {
-        nextID = this->commanderModule->getCommandersInsertionOrder().front();
-    }
-
-    JsonDocument doc;
-    doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
-    doc["eventName"] = "commanderSwitch";
-    doc["newCommanderID"] = nextID;
-
-    FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
     
 
     std::unique_ptr<Soldier> sold = std::make_unique<Soldier>(this->commanderModule->getName(),

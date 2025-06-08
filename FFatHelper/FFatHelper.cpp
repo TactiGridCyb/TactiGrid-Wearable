@@ -265,12 +265,13 @@ void FFatHelper::removeFilesIncludeWords(const char* filterWord,
 
 bool FFatHelper::initializeLogFile(const char* path, float intervalMS, String missionID)
 {
+    Serial.printf("FFatHelper::initializeLogFile %s %.2f %s\n", path, intervalMS, missionID.c_str());
     if (FFat.exists(path)) 
     {
         Serial.println("Log file already exists. Skipping initialization.");
         return false;
     }
-
+    Serial.println("OPENING FILE");
     File file = FFat.open(path, FILE_WRITE);
     if (!file) 
     {
@@ -289,6 +290,8 @@ bool FFatHelper::initializeLogFile(const char* path, float intervalMS, String mi
     serializeJson(doc, file);
 
     file.close();
+
+    return true;
 }
 
 void FFatHelper::removeFilesStartingWith(const char* prefix) {

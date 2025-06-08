@@ -207,8 +207,9 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     Serial.println("CA Certificate PEM:");
     Serial.println(caPem.c_str());
 
-    FFatHelper::initializeLogFile(this->logFilePath.c_str(), this->commanderModule->getIntervalMS(), missionID.c_str());
-    
+    String missionIDStr = String(missionID.c_str());
+    FFatHelper::initializeLogFile(this->logFilePath.c_str(), this->commanderModule->getIntervalMS(), missionIDStr);
+    Serial.println("After init");
     this->destroyPage();
     delay(10);
 
