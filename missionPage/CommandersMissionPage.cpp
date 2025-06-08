@@ -279,37 +279,37 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     }
     Serial.println("isZero");
     struct tm timeInfo;
-    char timeStr[25];
-    if (getLocalTime(&timeInfo, 3000))
-        strftime(timeStr, sizeof(timeStr), "%Y-%m-%dT%H:%M:%SZ", &timeInfo);
+    struct timeval tv;
+
+    char timeStr[40];
+    if (gettimeofday(&tv, NULL) == 0)
+    {
+        gmtime_r(&tv.tv_sec, &timeInfo);
+        snprintf(timeStr, sizeof(timeStr),
+                 "%04d-%02d-%02dT%02d:%02d:%02d.%06ldZ",
+                 timeInfo.tm_year + 1900,
+                 timeInfo.tm_mon + 1,
+                 timeInfo.tm_mday,
+                 timeInfo.tm_hour,
+                 timeInfo.tm_min,
+                 timeInfo.tm_sec,
+                 tv.tv_usec);
+    }
     else
-        strcpy(timeStr, "1970-01-01T00:00:00Z");
+        strcpy(timeStr, "1970-01-01T00:00:00.000000Z");
 
     Serial.println("getLocalTime");
 
     JsonDocument currentEvent;
-    currentEvent["timestamp"] = timeStr;
-    currentEvent["isEvent"] = false;
-
-    JsonObject soldInfo = currentEvent.createNestedObject("data");
-    soldInfo["lat"] = marker_lat;
-    soldInfo["lon"] = marker_lon;
-    soldInfo["heartRate"] = newG->heartRate;
-
-    if(this->commanderModule->getCommanders().find(newG->soldiersID) != this->commanderModule->getCommanders().end())
-    {
-        soldInfo["name"] = this->commanderModule->getCommanders().at(newG->soldiersID).name;
-    }
-    else
-    {
-        soldInfo["name"] = this->commanderModule->getSoldiers().at(newG->soldiersID).name;
-    }
-    
+    currentEvent["time_sent"] = timeStr;
+    currentEvent["latitude"] = marker_lat;
+    currentEvent["longitude"] = marker_lon;
+    currentEvent["heartRate"] = newG->heartRate;
 
     String jsonStr;
     serializeJson(currentEvent, jsonStr);
 
-    bool writeResult = FFatHelper::appendJsonObjectToFile(this->logFilePath.c_str(), jsonStr.c_str());
+    bool writeResult = FFatHelper::appendRegularJsonObjectToFile(this->logFilePath.c_str(), currentEvent);
     Serial.print("writeToFile result: ");
     Serial.println(writeResult ? "success" : "failure");
 

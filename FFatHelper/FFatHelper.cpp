@@ -51,22 +51,14 @@ bool FFatHelper::isFileExisting(const char* filePath)
 }
 
 
-bool FFatHelper::appendJsonObjectToFile(const char* filePath, const char* jsonObject)
+bool FFatHelper::appendRegularJsonObjectToFile(const char* filePath, JsonDocument& json)
 {
     if (!FFat.exists(filePath)) 
     {
-
-        File file = FFat.open(filePath, FILE_WRITE);
-        if (!file) {
-            Serial.println("Failed to create JSON file");
-            return false;
-        }
-        file.print("[\n");
-        file.print(jsonObject);
-        file.print("\n]\n");
-        file.close();
-        return true;
+        Serial.println("Json must be initialized!!!");
+        return false;
     }
+    
 
     File file = FFat.open(filePath, "r+");
     if (!file) 
@@ -82,33 +74,44 @@ bool FFatHelper::appendJsonObjectToFile(const char* filePath, const char* jsonOb
         file.close();
         return false;
     }
-
-    ssize_t pos = fileSize - 1;
-    int foundIndex = -1;
-    while (pos >= 0) 
+    else if (fileSize > 16384) 
     {
-        file.seek(pos);
-        char c = file.read();
-        if (c == ']') 
-        {
-            foundIndex = pos;
-            break;
-        }
-        pos--;
-    }
-
-    if (foundIndex < 0) 
-    {
-        Serial.println("Did not find closing ']' in JSON file—cannot append safely.");
+        Serial.println("File too large to handle in memory.");
         file.close();
         return false;
     }
 
-    file.seek(foundIndex);
-    file.print(",\n");
+    std::unique_ptr<char[]> buf(new char[fileSize + 1]);
+    file.readBytes(buf.get(), fileSize);
+    buf[fileSize] = '\0';
+    file.close();
 
-    file.print(jsonObject);
-    file.print("\n]\n");
+    DynamicJsonDocument fullDoc(16000);
+    DeserializationError error = deserializeJson(fullDoc, buf.get());
+    if (error) 
+    {
+        Serial.println("Failed to parse existing JSON file.");
+        return false;
+    }
+
+    JsonArray dataArray = fullDoc["Data"].as<JsonArray>();
+    if (!dataArray) 
+    {
+        Serial.println("Data array not found.");
+        return false;
+    }
+
+    dataArray.add(json.as<JsonObject>());
+
+    file = FFat.open(filePath, FILE_WRITE);
+    if (!file) 
+    {
+        Serial.println("Failed to reopen file for writing.");
+        return false;
+    }
+
+    serializeJson(fullDoc, file);
+
     file.close();
     return true;
 }
