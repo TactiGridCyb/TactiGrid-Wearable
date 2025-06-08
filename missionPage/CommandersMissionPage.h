@@ -39,8 +39,11 @@ public:
     
     static std::tuple<int,int> latlon_to_pixel(double lat, double lon, double centerLat, double centerLon, int zoom);
 
+
     void setTransferFunction(std::function<void(std::shared_ptr<LoraModule>, std::unique_ptr<WifiModule>,
          std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Soldier>)> cb);
+     
+    static String getCurrentTimeStamp();
 
 
 private:

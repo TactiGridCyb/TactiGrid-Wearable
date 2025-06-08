@@ -225,7 +225,10 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
             Serial.println(missingSoldier);
         }
 
-        this->soldierModule->removeFirstCommanderFromInsertionOrder();
+        if(!this->soldierModule->getCommandersInsertionOrder().empty())
+        {
+            this->soldierModule->removeFirstCommanderFromInsertionOrder();
+        }
 
         Serial.println("this->soldierModule->removeFirstCommanderFromInsertionOrder()");
 
@@ -470,6 +473,9 @@ void SoldiersMissionPage::onCommanderSwitchEvent(SwitchCommander& payload)
     currentShare.close();
 
     payload.shamirPart.clear();
+
+    this->soldierModule->updateInsertionOrderByForbidden(payload.compromisedSoldiers);
+    this->soldierModule->updateInsertionOrderByForbidden(payload.missingSoldiers);
 }
 
 void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload)

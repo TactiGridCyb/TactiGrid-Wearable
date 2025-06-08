@@ -121,6 +121,26 @@ public:
         return this->soldiers;
     }
 
+    void updateInsertionOrderByForbidden(const std::vector<uint8_t>& forb)
+    {
+        this->commandersInsertionOrder.erase(
+            std::remove_if(this->commandersInsertionOrder.begin(), this->commandersInsertionOrder.end(), [&](uint8_t val) 
+            {
+                return std::find(forb.begin(), forb.end(), val) != forb.end();
+            }),
+            this->commandersInsertionOrder.end()
+        );
+    }
+
+    void removeUntillReachedCommanderInsertion(uint8_t commID)
+    {
+        auto it = std::find(this->commandersInsertionOrder.begin(), this->commandersInsertionOrder.end(), commID);
+        if (it != this->commandersInsertionOrder.end()) 
+        {
+            this->commandersInsertionOrder.erase(this->commandersInsertionOrder.begin(), it);
+        }
+    }
+
 public:
     std::unordered_map<uint8_t, CommanderInfo> commanders;
     std::unordered_map<uint8_t, SoldierInfo> soldiers;

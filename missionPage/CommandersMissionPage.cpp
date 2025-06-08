@@ -278,30 +278,12 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         return;
     }
     Serial.println("isZero");
-    struct tm timeInfo;
-    struct timeval tv;
-
-    char timeStr[40];
-    if (gettimeofday(&tv, NULL) == 0)
-    {
-        gmtime_r(&tv.tv_sec, &timeInfo);
-        snprintf(timeStr, sizeof(timeStr),
-                 "%04d-%02d-%02dT%02d:%02d:%02d.%06ldZ",
-                 timeInfo.tm_year + 1900,
-                 timeInfo.tm_mon + 1,
-                 timeInfo.tm_mday,
-                 timeInfo.tm_hour,
-                 timeInfo.tm_min,
-                 timeInfo.tm_sec,
-                 tv.tv_usec);
-    }
-    else
-        strcpy(timeStr, "1970-01-01T00:00:00.000000Z");
+    String timeStr = CommandersMissionPage::getCurrentTimeStamp();
 
     Serial.println("getLocalTime");
 
     JsonDocument currentEvent;
-    currentEvent["time_sent"] = timeStr;
+    currentEvent["time_sent"] = timeStr.c_str();
     currentEvent["latitude"] = marker_lat;
     currentEvent["longitude"] = marker_lon;
     currentEvent["heartRate"] = newG->heartRate;
@@ -370,11 +352,18 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     if(newG->heartRate == 0 && std::find(comp.begin(), comp.end(), newG->soldiersID) == comp.end())
     {
         Serial.println("CompromisedEvent");
-        // this->commanderModule->setCompromised(newG->soldiersID);
-        // delay(500);
-        // const std::string newEventText = "Compromised Soldier Event - " + 
-        // this->commanderModule->getCommanders().at(newG->soldiersID).name;
-        // this->switchGMKEvent(newEventText.c_str(), newG->soldiersID);
+        this->commanderModule->setCompromised(newG->soldiersID);
+        delay(500);
+        const std::string newEventText = "Compromised Soldier Event - " + 
+        this->commanderModule->getCommanders().at(newG->soldiersID).name;
+        this->switchGMKEvent(newEventText.c_str(), newG->soldiersID);
+        
+        JsonDocument doc;
+        doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
+        doc["eventName"] = "compromisedSoldier";
+        doc["compromisedID"] = newG->soldiersID;
+
+        FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 
         this->switchCommanderEvent();
     }
@@ -522,6 +511,31 @@ void CommandersMissionPage::setTransferFunction(std::function<void(std::shared_p
     this->transferFunction = cb;
 }
 
+String CommandersMissionPage::getCurrentTimeStamp()
+{
+    struct tm timeInfo;
+    struct timeval tv;
+
+    char timeStr[40];
+    if (gettimeofday(&tv, NULL) == 0)
+    {
+        gmtime_r(&tv.tv_sec, &timeInfo);
+        snprintf(timeStr, sizeof(timeStr),
+                 "%04d-%02d-%02dT%02d:%02d:%02d.%06ldZ",
+                 timeInfo.tm_year + 1900,
+                 timeInfo.tm_mon + 1,
+                 timeInfo.tm_mday,
+                 timeInfo.tm_hour,
+                 timeInfo.tm_min,
+                 timeInfo.tm_sec,
+                 tv.tv_usec);
+    }
+    else
+        strcpy(timeStr, "1970-01-01T00:00:00.000000Z");
+
+    return timeStr;
+}
+
 std::tuple<int,int> CommandersMissionPage::latlon_to_pixel(double lat, double lon, double centerLat, double centerLon, int zoom)
 {
     static constexpr double TILE_SIZE = 256.0;
@@ -611,6 +625,13 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID, bool isComma
     this->commanderModule->setMissing(soldiersID);
 
     this->switchGMKEvent(newEventText.c_str());
+
+    JsonDocument doc;
+    doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
+    doc["eventName"] = "missingSoldier";
+    doc["missingID"] = soldiersID;
+
+    FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 }
 
 void CommandersMissionPage::switchCommanderEvent()
@@ -751,7 +772,21 @@ void CommandersMissionPage::switchCommanderEvent()
     Serial.println("deleted timer");
 
     this->commanderModule->removeFirstCommanderFromInsertionOrder();
+
+    uint8_t nextID = -1;
+    if(!this->commanderModule->getCommandersInsertionOrder().empty())
+    {
+        nextID = this->commanderModule->getCommandersInsertionOrder().front();
+    }
+
+    JsonDocument doc;
+    doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
+    doc["eventName"] = "commanderSwitch";
+    doc["newCommanderID"] = nextID;
+
+    FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
     
+
     std::unique_ptr<Soldier> sold = std::make_unique<Soldier>(this->commanderModule->getName(),
      this->commanderModule->getPublicCert(), this->commanderModule->getPrivateKey(),
      this->commanderModule->getCAPublicCert(), this->commanderModule->getCommanderNumber(),

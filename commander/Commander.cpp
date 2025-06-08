@@ -53,6 +53,15 @@ void Commander::setGMK(const crypto::Key256& gmk) {
 void Commander::setCompromised(const uint8_t id)
 {
     this->addComp(id);
+
+    if(this->commanders.find(id) != this->commanders.end())
+    {
+        auto it = std::find(this->commandersInsertionOrder.begin(), this->commandersInsertionOrder.end(), id);
+        if (it != this->commandersInsertionOrder.end()) 
+        {
+            this->commandersInsertionOrder.erase(it);
+        }
+    }
 }
 
 void Commander::setComp(const std::vector<uint8_t>& comp)

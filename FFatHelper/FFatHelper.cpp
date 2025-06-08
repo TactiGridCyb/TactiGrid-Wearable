@@ -116,6 +116,64 @@ bool FFatHelper::appendRegularJsonObjectToFile(const char* filePath, JsonDocumen
     return true;
 }
 
+bool FFatHelper::appendJSONEvent(const char* filePath, JsonDocument& event)
+{
+    if (!FFat.exists(filePath)) 
+    {
+        Serial.println("Log file does not exist.");
+        return false;
+    }
+
+    File file = FFat.open(filePath, FILE_READ);
+    if (!file) 
+    {
+        Serial.println("Failed to open log file.");
+        return false;
+    }
+
+    size_t fileSize = file.size();
+    if (fileSize > 16384) 
+    {
+        Serial.println("File too large to parse safely.");
+        file.close();
+        return false;
+    }
+
+    std::unique_ptr<char[]> buf(new char[fileSize + 1]);
+    file.readBytes(buf.get(), fileSize);
+    buf[fileSize] = '\0';
+    file.close();
+
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, buf.get());
+    if (err) 
+    {
+        Serial.println("Failed to parse JSON log file.");
+        return false;
+    }
+
+    JsonArray events = doc["Events"].as<JsonArray>();
+    if (!events) {
+        Serial.println("Missing 'Events' array.");
+        return false;
+    }
+
+    events.add(event.as<JsonObject>());
+
+    file = FFat.open(filePath, FILE_WRITE);
+    if (!file) 
+    {
+        Serial.println("Failed to open file for writing.");
+        return false;
+    }
+
+    serializeJson(doc, file);
+    file.close();
+
+    Serial.println("Event successfully appended.");
+    return true;
+}
+
 bool FFatHelper::readFile(const char* filePath, String& outContent) {
     File file = FFat.open(filePath, FILE_READ);
 
@@ -224,7 +282,7 @@ bool FFatHelper::initializeLogFile(const char* path, float intervalMS, String mi
 
     doc["Interval"] = intervalMS;
     doc["Mission"] = missionID;
-    
+
     doc.createNestedArray("Data");
     doc.createNestedArray("Events");
 
