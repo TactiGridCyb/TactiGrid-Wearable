@@ -16,4 +16,6 @@ class FFatHelper
     static bool readFile(const char* filePath, String& outContent);
     static void removeFilesIncludeWords(const char* filterWord, const char* filesType);
     static void removeFilesStartingWith(const char* prefix);
+    static bool initializeLogFile(const char* path, float intervalMS, String missionID);
+
 };

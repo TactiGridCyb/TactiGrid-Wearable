@@ -25,7 +25,6 @@ class CommandersReceiveParametersPage : public LVGLPage {
                                    const char* header,
                                    const char* footer);
 
-        
 
     private:
         std::unique_ptr<WifiModule> wifiModule;
@@ -44,4 +43,6 @@ class CommandersReceiveParametersPage : public LVGLPage {
         void onSocketOpened(lv_event_t* event);
 
         void updateLabel(uint8_t index);
+
+        const std::string logFilePath = "/log.txt";
 };

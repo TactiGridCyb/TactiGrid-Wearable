@@ -98,7 +98,8 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     updateLabel(2);
     
-
+    const std::string missionID = doc["Mission"].as<std::string>();
+    
     std::vector<float> freqs;
     for (auto v : doc["frequencies"].as<JsonArray>())
       freqs.push_back(v.as<float>());
@@ -206,6 +207,7 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     Serial.println("CA Certificate PEM:");
     Serial.println(caPem.c_str());
 
+    FFatHelper::initializeLogFile(this->logFilePath.c_str(), this->commanderModule->getIntervalMS(), missionID.c_str());
     
     this->destroyPage();
     delay(10);

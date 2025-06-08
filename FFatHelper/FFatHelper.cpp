@@ -205,6 +205,34 @@ void FFatHelper::removeFilesIncludeWords(const char* filterWord,
     }
 }
 
+bool FFatHelper::initializeLogFile(const char* path, float intervalMS, String missionID)
+{
+    if (FFat.exists(path)) 
+    {
+        Serial.println("Log file already exists. Skipping initialization.");
+        return false;
+    }
+
+    File file = FFat.open(path, FILE_WRITE);
+    if (!file) 
+    {
+        Serial.println("Failed to create log file.");
+        return false;
+    }
+
+    JsonDocument doc;
+
+    doc["Interval"] = intervalMS;
+    doc["Mission"] = missionID;
+    
+    doc.createNestedArray("Data");
+    doc.createNestedArray("Events");
+
+    serializeJson(doc, file);
+
+    file.close();
+}
+
 void FFatHelper::removeFilesStartingWith(const char* prefix) {
     File root = FFat.open("/");
     if (!root || !root.isDirectory()) {

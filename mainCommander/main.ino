@@ -78,6 +78,7 @@ void transferFromMainToReceiveCoordsPage()
     gpsModule = std::make_shared<GPSModule>();
     fhfModule = std::make_unique<FHFModule>(commandersModule->getFrequencies());
 
+
     loraModule->setup(true);
 
     commandersMissionPage = std::make_unique<CommandersMissionPage>(loraModule,
@@ -132,6 +133,7 @@ void setup()
     FFatHelper::removeFilesStartingWith("log.txt.share");
     FFatHelper::removeFilesStartingWith("test.txt");
 
+
     String ssidString(ssid);
     String passwordString(password);
 
@@ -157,6 +159,7 @@ void setup()
         delay(500);
     }
     
+
     commandersReceiveParametersPage = std::make_unique<CommandersReceiveParametersPage>(std::move(wifiModule));
     commandersReceiveParametersPage->createPage();
     commandersReceiveParametersPage->setOnTransferPage(transferFromReceiveParametersToMainPage);
