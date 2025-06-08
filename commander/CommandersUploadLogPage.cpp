@@ -41,9 +41,12 @@ void CommandersUploadLogPage::createPage() {
 void CommandersUploadLogPage::upload_log_event_callback(lv_event_t* e) {
     auto* page = static_cast<CommandersUploadLogPage*>(lv_event_get_user_data(e));
     if (!page) return;
+
     String logContent;
     
     FFatHelper::readFile(page->logFilePath.c_str(), logContent);
     page->wifiModule->sendString(logContent.c_str(), "192.168.0.44", 5555);
+
+    
 }
 

@@ -96,17 +96,55 @@ void WifiModule::disconnect()
     this->connected = !WiFi.disconnect();
 }
 
-void WifiModule::sendString(String data, const char* destinationIP, uint16_t destinationPort)
+bool WifiModule::sendString(const String& data,
+                            const char* destinationIP,
+                            uint16_t destinationPort)
 {
-    this->udp.beginPacket(destinationIP, destinationPort);
+    WiFiClientSecure client;
+    client.setInsecure();  
+    Serial.printf("sendString → %s:%u\n", destinationIP, destinationPort);
+    if (!client.connect(destinationIP, destinationPort)) {
+        Serial.println("  ✗ connect failed");
+        return false;
+    }
 
-    this->udp.println(data);
-
-    this->udp.endPacket();
+    client.print(data);
+    client.flush();
+    client.stop();
+    Serial.println("  ✓ sent");
+    return true;
 }
 
-
-void WifiModule::sendFile(String filePath, const char* destinationIP, uint16_t destinationPort)
+bool WifiModule::sendFile(const String& filePath,
+                          const char* destinationIP,
+                          uint16_t destinationPort)
 {
+    WiFiClientSecure client;
+    client.setInsecure();  
+    Serial.printf("sendFile(%s) → %s:%u\n", filePath.c_str(), destinationIP, destinationPort);
+
+    if (!client.connect(destinationIP, destinationPort)) {
+        Serial.println("  ✗ connect failed");
+        return false;
+    }
+
+    File f = FFat.open(filePath.c_str(), FILE_READ);
+    if (!f) {
+        Serial.printf("  ✗ failed to open %s\n", filePath.c_str());
+        client.stop();
+        return false;
+    }
+
+    uint8_t buf[256];
+    while (f.available()) {
+        size_t n = f.read(buf, sizeof(buf));
+        client.write(buf, n);
+    }
     
+    f.close();
+
+    client.flush();
+    client.stop();
+    Serial.println("  ✓ file sent");
+    return true;
 }

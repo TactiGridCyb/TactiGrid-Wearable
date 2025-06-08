@@ -24,8 +24,8 @@ class WifiModule {
     WifiModule(String wifiName, String password);
     void connect(uint32_t = 0);
     void disconnect();
-    void sendFile(String filePath, const char* destinationIP, uint16_t destinationPort);
-    void sendString(String data, const char* destinationIP, uint16_t destinationPort);
+    bool sendFile(const String& filePath, const char* destinationIP, uint16_t destinationPort);
+    bool sendString(const String& data, const char* destinationIP, uint16_t destinationPort);
 
     bool isConnected();
 

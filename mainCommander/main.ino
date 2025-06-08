@@ -73,6 +73,8 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
 
 void transferFromMainToReceiveCoordsPage()
 {
+    FFatHelper::deleteFile(logFilePath.c_str());
+
     Serial.println("transferFromMainToSendCoordsPage");
     loraModule = std::make_shared<LoraModule>(433.5);
     gpsModule = std::make_shared<GPSModule>();
@@ -132,8 +134,7 @@ void setup()
     FFatHelper::removeFilesIncludeWords("share", "txt");
     FFatHelper::removeFilesStartingWith("log.txt.share");
     FFatHelper::removeFilesStartingWith("test.txt");
-    FFatHelper::deleteFile(logFilePath.c_str());
-    
+
 
 
     String ssidString(ssid);
