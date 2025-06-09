@@ -631,7 +631,7 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID, bool isComma
     doc["eventName"] = "missingSoldier";
     doc["missingID"] = soldiersID;
 
-    FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
+    //FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 }
 
 void CommandersMissionPage::switchCommanderEvent()
@@ -659,7 +659,7 @@ void CommandersMissionPage::switchCommanderEvent()
     doc["eventName"] = "commanderSwitch";
     doc["newCommanderID"] = nextID;
 
-    FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
+    //FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 
     uint8_t index = 0;
 

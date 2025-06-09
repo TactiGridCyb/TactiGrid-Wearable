@@ -105,7 +105,7 @@ void CommandersUploadLogPage::upload_log_event_callback(lv_event_t* e) {
 
     serializeJson(doc, payload);
     Serial.printf("Final json\n%s\n", payload.c_str());
-    page->wifiModule->sendString(payload, "192.168.0.44", 1234);
+    page->wifiModule->sendString(payload, "192.168.213.105", 8743);
 
     FFatHelper::deleteFile(page->logFilePath.c_str());
 
