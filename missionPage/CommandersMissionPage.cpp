@@ -39,7 +39,7 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         }
         else
         {
-            FFatHelper::deleteFile(this->logFilePath.c_str());
+            FFatHelper::deleteFile(logFilePath.c_str());
             this->shamirPartsCollected = 0;
             this->currentShamirRec = this->commanderModule->getCommanderNumber();
             LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, "Switch Commander Event!");

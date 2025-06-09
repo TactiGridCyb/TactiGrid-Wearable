@@ -73,8 +73,6 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
 
 void transferFromMainToReceiveCoordsPage()
 {
-    FFatHelper::deleteFile(logFilePath.c_str());
-
     Serial.println("transferFromMainToSendCoordsPage");
     loraModule = std::make_shared<LoraModule>(433.5);
     gpsModule = std::make_shared<GPSModule>();
@@ -121,6 +119,8 @@ void setup()
     lv_png_init();
     randomSeed(millis());
 
+    crypto::CryptoModule::init();
+
     if (!FFat.begin(true)) 
     {
         Serial.println("Failed to mount FFat!");
@@ -141,8 +141,18 @@ void setup()
     FFatHelper::deleteFile("/encKey.txt");
     FFatHelper::deleteFile("/uploadPayload.txt");
 
+    File log = FFat.open("/log.txt", FILE_READ);
+    const char* logEx = R"JSON({"Interval":2000,"Mission":"ABCD",
+    "Data":[{"time_sent":"2025-06-09T08:37:13.816579Z","latitude":31.97087,
+    "longitude":34.78566,"heartRate":78},{"time_sent":"2025-06-09T08:37:20.839632Z",
+    "latitude":31.97087,"longitude":34.78568,"heartRate":100},
+    {"time_sent":"2025-06-09T08:37:27.797917Z","latitude":31.97086,
+    "longitude":34.78564,"heartRate":55},{"time_sent":"2025-06-09T08:37:34.799619Z",
+    "latitude":31.97084,"longitude":34.78562,"heartRate":0}],
+    "Events":[{"timestamp":"2025-06-09T08:37:35.221533Z",
+    "eventName":"commanderSwitch","newCommanderID":2}]})JSON";
 
-
+    log.print(logEx);
 
     String ssidString(ssid);
     String passwordString(password);

@@ -10,6 +10,7 @@
 #include <mbedtls/pk.h>
 #include "mbedtls/oid.h"
 #include <stdexcept>
+#include <functional>
 #include <string>
 #include "../mainPage/CommandersMainPage.h"
 

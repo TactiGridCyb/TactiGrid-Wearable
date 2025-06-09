@@ -43,6 +43,7 @@ void CommandersUploadLogPage::upload_log_event_callback(lv_event_t* e) {
     if (!page) return;
 
     crypto::Key256 currentKey = crypto::CryptoModule::generateGMK();
+    Serial.printf("current gmk generated:%s %d\n", crypto::CryptoModule::key256ToAsciiString(currentKey).c_str(), currentKey.size());
 
     crypto::Ciphertext ct = crypto::CryptoModule::encryptFile(currentKey, page->logFilePath.c_str());
 
@@ -56,9 +57,14 @@ void CommandersUploadLogPage::upload_log_event_callback(lv_event_t* e) {
     out.close();
 
     String caCert;
+    String ownCert;
 
     FFatHelper::readFile(page->caCertPath, caCert);
+    FFatHelper::readFile(page->certPath, ownCert);
     std::string pemCert(caCert.c_str());
+    std::string ownStrCert(ownCert.c_str());
+
+    Serial.printf("OWN CERT:%s\n",ownStrCert.c_str());
 
     std::string keyData(reinterpret_cast<const char*>(currentKey.data()), currentKey.size());
     std::vector<uint8_t> encryptedKey;
@@ -87,19 +93,21 @@ void CommandersUploadLogPage::upload_log_event_callback(lv_event_t* e) {
     std::string encKeyB64 = crypto::CryptoModule::base64Encode(keyBuf.data(), keyBuf.size());
     std::string encLogB64 = crypto::CryptoModule::base64Encode(logBuf.data(), logBuf.size());
 
+    Serial.printf("enc64: %s\n encLog64: %s\n", encKeyB64.c_str(), encLogB64.c_str());
 
     String payload;
     JsonDocument doc;
 
-    doc["certificate"] = pemCert;
-    doc["encKey"] = encKeyB64;
-    doc["logFile"] = encLogB64;
+    doc["certificatePem"] = ownStrCert;
+    doc["gmk"] = encKeyB64;
+    doc["log"] = encLogB64;
 
     serializeJson(doc, payload);
-
+    Serial.printf("Final json\n%s\n", payload.c_str());
     page->wifiModule->sendString(payload, "192.168.0.44", 1234);
 
-    
+    FFatHelper::deleteFile(page->logFilePath.c_str());
+
 
 }
 

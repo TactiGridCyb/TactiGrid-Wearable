@@ -46,7 +46,7 @@ void CommandersReceiveParametersPage::createPage()
     }
 }
 
-#include <functional>
+
 
 void CommandersReceiveParametersPage::setOnTransferPage(std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Commander>)> cb) {
     this->onTransferPage = std::move(cb);
