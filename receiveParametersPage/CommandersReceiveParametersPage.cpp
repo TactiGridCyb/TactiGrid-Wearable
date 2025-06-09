@@ -81,7 +81,7 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
   FFatHelper::deleteFile(this->logFilePath.c_str());
   JsonDocument doc;
-  doc = this->wifiModule->receiveJSONTCP("192.168.0.181", 8743);
+  doc = this->wifiModule->receiveJSONTCP("192.168.213.105", 8743);
 
   try {
 
