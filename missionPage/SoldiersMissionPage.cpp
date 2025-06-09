@@ -370,8 +370,17 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
 
         Serial.println(timeStr);
         Serial.println("getLocalTime");
-        self->sendCoordinate(self->coords[self->currentIndex % self->coordCount].posLat, self->coords[self->currentIndex % self->coordCount].posLon,
-        self->coords[self->currentIndex % self->coordCount].heartRate, self->coords[self->currentIndex % self->coordCount].soldiersID);
+
+        float currentLat, currentLon;
+        uint8_t currentHeartRate = SoldiersMissionPage::generateHeartRate();
+        uint8_t ID = self->soldierModule->getSoldierNumber();
+
+        SoldiersMissionPage::generateNearbyCoordinates(self->coords[0].posLat, self->coords[0].posLon,
+             20, currentLat, currentLon);
+
+            
+
+        self->sendCoordinate(currentLat, currentLon, currentHeartRate, ID);
         
         const char *current_text = lv_label_get_text(self->sendLabel);
         
@@ -617,4 +626,23 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
     {
         this->onDataReceived(data, len);
     });
+}
+
+
+void SoldiersMissionPage::generateNearbyCoordinates(float centerLat, float centerLon, float radiusMeters,
+                               float& outLat, float& outLon) {
+
+    float distance = static_cast<float>(rand()) / RAND_MAX * radiusMeters;
+    float angle = static_cast<float>(rand()) / RAND_MAX * 2.0f * M_PI;
+
+    float deltaLat = distance * std::cos(angle) / SoldiersMissionPage::ONE_DEG_LAT_IN_METERS;
+    float deltaLon = distance * std::sin(angle) /
+                     (SoldiersMissionPage::ONE_DEG_LAT_IN_METERS * std::cos(centerLat * M_PI / 180.0f));
+
+    outLat = centerLat + deltaLat;
+    outLon = centerLon + deltaLon;
+}
+
+uint8_t SoldiersMissionPage::generateHeartRate() {
+    return rand() % 101 + 50;
 }

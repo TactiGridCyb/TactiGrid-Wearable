@@ -109,6 +109,7 @@ void setup()
 
     beginLvglHelper();
     lv_png_init();
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
     
     crypto::CryptoModule::init();
 
