@@ -118,7 +118,7 @@ namespace crypto {
         ByteVec pt(full.size() - TAG_LEN);
         unsigned long long ptlen = 0;
 
-        if (crypto_aead_chacha20poly1305_ietf_decrypt(
+        if (crypto_aead_xchacha20poly1305_ietf_decrypt(
             pt.data(), &ptlen,
             NULL,
             full.data(), full.size(),

@@ -122,6 +122,7 @@ void setup()
     FFatHelper::removeFilesStartingWith("log.txt.share");
     FFatHelper::removeFilesStartingWith("test.txt");
     FFatHelper::deleteFile("/cert.txt");
+    FFatHelper::deleteFile(logFilePath.c_str());
 
     String ssidString(ssid);
     String passwordString(password);

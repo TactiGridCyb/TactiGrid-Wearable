@@ -98,7 +98,7 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     updateLabel(2);
     
-    const std::string missionID = doc["Mission"].as<std::string>();
+    const std::string missionID = doc["mission"].as<std::string>();
     
     std::vector<float> freqs;
     for (auto v : doc["frequencies"].as<JsonArray>())
@@ -220,6 +220,8 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     Serial.println("After init");
     this->destroyPage();
     delay(10);
+
+    Serial.printf("GMK: %s\n", crypto::CryptoModule::key256ToAsciiString(GMK).c_str());
 
     Serial.println("AFTER destroyPage");
     if (this->onTransferPage) {

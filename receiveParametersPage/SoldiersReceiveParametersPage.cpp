@@ -57,7 +57,7 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
   Serial.println("onSocketOpened");
   // TCP SSL
   JsonDocument doc;
-  doc = this->wifiModule->receiveJSONTCP("192.168.0.44", 8743);
+  doc = this->wifiModule->receiveJSONTCP("192.168.0.181", 8743);
 
   try {
 
@@ -209,6 +209,8 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     Serial.println(caPem.c_str());
 
     this->destroyPage();
+    Serial.printf("GMK: %s\n", crypto::CryptoModule::key256ToAsciiString(GMK).c_str());
+
     delay(10);
     Serial.println("AFTER destroyPage");
     if (this->onTransferPage) {
