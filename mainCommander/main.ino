@@ -139,6 +139,7 @@ void setup()
     FFatHelper::deleteFile("/encLog.txt");
     FFatHelper::deleteFile("/CAcert.txt");
     FFatHelper::deleteFile("/encKey.txt");
+    FFatHelper::deleteFile("/uploadPayload.txt");
 
 
 

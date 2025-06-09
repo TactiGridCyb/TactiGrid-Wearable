@@ -74,13 +74,32 @@ void CommandersUploadLogPage::upload_log_event_callback(lv_event_t* e) {
     f.write(encryptedKey.data(), encryptedKey.size());
     f.close();
 
+    File keyFile = FFat.open(page->encKeyPath, FILE_READ);
+    std::vector<uint8_t> keyBuf(keyFile.size());
+    keyFile.read(keyBuf.data(), keyBuf.size());
+    keyFile.close();
+
+    File logFile = FFat.open(page->encLogPath, FILE_READ);
+    std::vector<uint8_t> logBuf(logFile.size());
+    logFile.read(logBuf.data(), logBuf.size());
+    logFile.close();
+
+    std::string encKeyB64 = crypto::CryptoModule::base64Encode(keyBuf.data(), keyBuf.size());
+    std::string encLogB64 = crypto::CryptoModule::base64Encode(logBuf.data(), logBuf.size());
 
 
-    page->wifiModule->sendFile(page->certPath, "192.168.0.44", 1234);
+    String payload;
+    JsonDocument doc;
 
-    page->wifiModule->sendFile(page->encKeyPath, "192.168.0.44", 1234);
+    doc["certificate"] = pemCert;
+    doc["encKey"] = encKeyB64;
+    doc["logFile"] = encLogB64;
+
+    serializeJson(doc, payload);
+
+    page->wifiModule->sendString(payload, "192.168.0.44", 1234);
+
     
-    page->wifiModule->sendFile(page->encLogPath, "192.168.0.44", 1234);
 
 }
 
