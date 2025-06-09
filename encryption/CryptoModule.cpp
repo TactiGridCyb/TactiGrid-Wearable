@@ -24,6 +24,16 @@ namespace crypto {
         return key;
     }
 
+    std::string CryptoModule::keyToHex(const Key256& key) {
+        std::ostringstream oss;
+        oss << std::hex << std::setfill('0');
+        for (unsigned char byte : key) {
+            oss << std::setw(2) << static_cast<int>(byte);
+        }
+        return oss.str();
+    }
+
+
     Key256 CryptoModule::deriveGK(
         const Key256& gmk,
         uint64_t       unixTime,
@@ -77,11 +87,11 @@ namespace crypto {
         ct.data.resize(pt.size() + TAG_LEN);
         unsigned long long clen = 0;
         
-        chk(crypto_aead_chacha20poly1305_ietf_encrypt(
-            ct.data.data(), &clen,
-            pt.data(), pt.size(),
-            nullptr, 0,
-            NULL, ct.nonce.data(), gk.data()), "encrypt");
+        chk(crypto_aead_xchacha20poly1305_ietf_encrypt(
+        ct.data.data(), &clen,
+        pt.data(), pt.size(),
+        nullptr, 0,
+        NULL, ct.nonce.data(), gk.data()), "encrypt");
 
         ct.tag.assign(ct.data.end() - TAG_LEN, ct.data.end());
         ct.data.resize(pt.size());

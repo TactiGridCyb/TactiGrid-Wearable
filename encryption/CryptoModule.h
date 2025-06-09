@@ -45,6 +45,8 @@ public:
     static std::vector<uint8_t> base64Decode(const std::string& s);
 
     static Ciphertext encryptFile(const Key256& gk, const std::string& filePath);
+
+    static std::string keyToHex(const Key256& key);
 };
 
 }

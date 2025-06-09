@@ -57,7 +57,7 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
   Serial.println("onSocketOpened");
   // TCP SSL
   JsonDocument doc;
-  doc = this->wifiModule->receiveJSONTCP("192.168.0.44", 8743);
+  doc = this->wifiModule->receiveJSONTCP("192.168.0.181", 8743);
 
   try {
 
@@ -72,8 +72,8 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     std::string privateKeyPem = extractPemBlock(
       combinedPem,
-      "-----BEGIN PRIVATE KEY-----",
-      "-----END PRIVATE KEY-----"
+      "-----BEGIN RSA PRIVATE KEY-----",
+      "-----END RSA PRIVATE KEY-----"
     );
 
     mbedtls_x509_crt ownCert;

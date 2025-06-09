@@ -43,11 +43,11 @@ void CommandersUploadLogPage::upload_log_event_callback(lv_event_t* e) {
     if (!page) return;
 
     crypto::Key256 currentKey = crypto::CryptoModule::generateGMK();
-    Serial.printf("current gmk generated:%s %d\n", crypto::CryptoModule::key256ToAsciiString(currentKey).c_str(), currentKey.size());
-
+    
     crypto::Ciphertext ct = crypto::CryptoModule::encryptFile(currentKey, page->logFilePath.c_str());
-
-
+    Serial.printf("current gmk generated:%s \n%d\n", crypto::CryptoModule::keyToHex(currentKey).c_str(), ct.nonce.size());
+    
+    
     File out = FFat.open(page->encLogPath, FILE_WRITE);
 
     out.write(ct.nonce.data(), ct.nonce.size());
@@ -65,6 +65,7 @@ void CommandersUploadLogPage::upload_log_event_callback(lv_event_t* e) {
     std::string ownStrCert(ownCert.c_str());
 
     Serial.printf("OWN CERT:%s\n",ownStrCert.c_str());
+    Serial.printf("CA CERT:%s\n",pemCert.c_str());
 
     std::string keyData(reinterpret_cast<const char*>(currentKey.data()), currentKey.size());
     std::vector<uint8_t> encryptedKey;

@@ -141,18 +141,21 @@ void setup()
     FFatHelper::deleteFile("/encKey.txt");
     FFatHelper::deleteFile("/uploadPayload.txt");
 
-    File log = FFat.open("/log.txt", FILE_READ);
-    const char* logEx = R"JSON({"Interval":2000,"Mission":"ABCD",
+    File log = FFat.open("/log.txt", FILE_WRITE);
+    const char* logEx = R"JSON({"Interval":2000,"Mission":"68448016c3264abf41426988",
     "Data":[{"time_sent":"2025-06-09T08:37:13.816579Z","latitude":31.97087,
-    "longitude":34.78566,"heartRate":78},{"time_sent":"2025-06-09T08:37:20.839632Z",
-    "latitude":31.97087,"longitude":34.78568,"heartRate":100},
+    "longitude":34.78566,"heartRate":78, "soldierId": "1"},{"time_sent":"2025-06-09T08:37:20.839632Z",
+    "latitude":31.97087,"longitude":34.78568,"heartRate":100, "soldierId": "2"},
     {"time_sent":"2025-06-09T08:37:27.797917Z","latitude":31.97086,
-    "longitude":34.78564,"heartRate":55},{"time_sent":"2025-06-09T08:37:34.799619Z",
-    "latitude":31.97084,"longitude":34.78562,"heartRate":0}],
-    "Events":[{"timestamp":"2025-06-09T08:37:35.221533Z",
-    "eventName":"commanderSwitch","newCommanderID":2}]})JSON";
+    "longitude":34.78564,"heartRate":55, "soldierId": "1"},{"time_sent":"2025-06-09T08:37:34.799619Z",
+    "latitude":31.97084,"longitude":34.78562,"heartRate":0, "soldierId": "2"}],
+    "Events":[]})JSON";
 
     log.print(logEx);
+
+    log.close();
+
+
 
     String ssidString(ssid);
     String passwordString(password);

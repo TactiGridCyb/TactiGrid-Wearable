@@ -72,8 +72,8 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     std::string privateKeyPem = extractPemBlock(
       combinedPem,
-      "-----BEGIN PRIVATE KEY-----",
-      "-----END PRIVATE KEY-----"
+      "-----BEGIN RSA PRIVATE KEY-----",
+      "-----END RSA PRIVATE KEY-----"
     );
 
     mbedtls_x509_crt ownCert;
