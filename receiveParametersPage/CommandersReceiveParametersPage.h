@@ -20,7 +20,8 @@ class CommandersReceiveParametersPage : public LVGLPage {
 
         void createPage() override;
 
-        void setOnTransferPage(std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Commander>)> cb);
+        void setOnReceiveParams(std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Commander>)> cb);
+        void setOnUploadLogs(std::function<void(std::unique_ptr<WifiModule>)> cb);
 
         static std::string extractPemBlock(const std::string& blob,
                                    const char* header,
@@ -31,17 +32,21 @@ class CommandersReceiveParametersPage : public LVGLPage {
         std::unique_ptr<WifiModule> wifiModule;
         lv_obj_t* mainPage;
         lv_obj_t* openSocketButton;
+        lv_obj_t* uploadLogsButton;
         lv_obj_t* statusLabels[6];
 
         std::unique_ptr<Commander> commanderModule;
 
-        std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Commander>)> onTransferPage;
+        std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Commander>)> onReceiveParams;
+        std::function<void(std::unique_ptr<WifiModule>)> onUploadLogs;
 
         const char* messages[6] = {
             "Received Cert", "Received CA Cert", "Received GMK", "Received Freqs", "Received Interval", "Received Soldiers Certs"
         };
 
         void onSocketOpened(lv_event_t* event);
+
+        void onMoveToUploadLogsPage(lv_event_t* event);
 
         void updateLabel(uint8_t index);
 

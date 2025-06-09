@@ -24,20 +24,37 @@ std::string CommandersReceiveParametersPage::extractPemBlock(const std::string& 
 
 void CommandersReceiveParametersPage::createPage()
 {
-    this->openSocketButton = lv_btn_create(this->mainPage);
-    lv_obj_align(this->openSocketButton, LV_ALIGN_CENTER, 0, -40);
+    lv_obj_t* vcontainer = lv_obj_create(this->mainPage);
+    lv_obj_set_size(vcontainer, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(vcontainer, LV_FLEX_FLOW_COLUMN);
+    lv_obj_align(vcontainer, LV_ALIGN_TOP_MID, 0, 20);
+
+    this->openSocketButton = lv_btn_create(vcontainer);
     lv_obj_add_event_cb(this->openSocketButton, [](lv_event_t* e) {
         auto* self = static_cast<CommandersReceiveParametersPage*>(lv_event_get_user_data(e));
-        if (self) {
+        if (self) 
+        {
             lv_obj_add_flag(self->openSocketButton, LV_OBJ_FLAG_HIDDEN);
             self->onSocketOpened(e);
         }
-    },
-    LV_EVENT_CLICKED, this);
-    
-    lv_obj_t *btn_label = lv_label_create(this->openSocketButton);
-    lv_label_set_text(btn_label, "Open Socket");
-    lv_obj_center(btn_label);
+    }, LV_EVENT_CLICKED, this);
+
+    lv_obj_t* open_label = lv_label_create(this->openSocketButton);
+    lv_label_set_text(open_label, "Open Socket");
+    lv_obj_center(open_label);
+
+    this->uploadLogsButton = lv_btn_create(vcontainer);
+    lv_obj_add_event_cb(this->uploadLogsButton, [](lv_event_t* e) {
+        auto* self = static_cast<CommandersReceiveParametersPage*>(lv_event_get_user_data(e));
+        if (self) {
+            lv_obj_add_flag(self->uploadLogsButton, LV_OBJ_FLAG_HIDDEN);
+            self->onMoveToUploadLogsPage(e);
+        }
+    }, LV_EVENT_CLICKED, this);
+
+    lv_obj_t* close_label = lv_label_create(this->uploadLogsButton);
+    lv_label_set_text(close_label, "Upload Logs");
+    lv_obj_center(close_label);
 
     for (int i = 0; i < sizeof(this->statusLabels) / sizeof(this->statusLabels[0]); ++i) {
         this->statusLabels[i] = lv_label_create(this->mainPage);
@@ -48,14 +65,21 @@ void CommandersReceiveParametersPage::createPage()
 
 
 
-void CommandersReceiveParametersPage::setOnTransferPage(std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Commander>)> cb) {
-    this->onTransferPage = std::move(cb);
+void CommandersReceiveParametersPage::setOnReceiveParams(std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Commander>)> cb) {
+    this->onReceiveParams = std::move(cb);
+}
+
+void CommandersReceiveParametersPage::setOnUploadLogs(std::function<void(std::unique_ptr<WifiModule>)> cb)
+{
+  this->onUploadLogs = std::move(cb);
 }
 
 void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 {
   Serial.println("onSocketOpened");
   // TCP SSL
+
+  FFatHelper::deleteFile(this->logFilePath.c_str());
   JsonDocument doc;
   doc = this->wifiModule->receiveJSONTCP("192.168.0.181", 8743);
 
@@ -224,18 +248,28 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     Serial.printf("GMK: %s\n", crypto::CryptoModule::key256ToAsciiString(GMK).c_str());
 
     Serial.println("AFTER destroyPage");
-    if (this->onTransferPage) {
-      Serial.println("onTransferPage Exists");
-      this->onTransferPage(std::move(this->wifiModule), std::move(this->commanderModule));
+    if (this->onReceiveParams) {
+      Serial.println("onReceiveParams Exists");
+      this->onReceiveParams(std::move(this->wifiModule), std::move(this->commanderModule));
     }
     else
     {
-      Serial.println("onTransferPage Doesn't exist");
+      Serial.println("onReceiveParams Doesn't exist");
     }
   }
   catch (const std::exception &e) {
     Serial.printf("⚠️ onSocketOpened error: %s\n", e.what());
   }
+}
+
+void CommandersReceiveParametersPage::onMoveToUploadLogsPage(lv_event_t* event)
+{
+  this->destroyPage();
+
+  delay(10);
+
+  this->onUploadLogs(std::move(this->wifiModule));
+
 }
 
 void CommandersReceiveParametersPage::updateLabel(uint8_t index)

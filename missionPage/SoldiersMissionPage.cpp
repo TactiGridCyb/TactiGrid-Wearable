@@ -252,7 +252,6 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
             this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
                 this->loraModule->onLoraFileDataReceived(data, len);
             });
-
         }
     }
 }

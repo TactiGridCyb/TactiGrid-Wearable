@@ -48,23 +48,6 @@ void CommandersMainPage::createPage()
     lv_label_set_text(receiveCoordsLabel, "Receive Pos");
     lv_obj_center(receiveCoordsLabel);
 
-    lv_obj_t *uploadLogsBtn = lv_btn_create(cont);
-    lv_obj_center(uploadLogsBtn);
-    lv_obj_set_style_flex_grow(uploadLogsBtn, 1, 0);
-    lv_obj_set_style_bg_color(uploadLogsBtn, lv_color_hex(0x346eeb), LV_STATE_DEFAULT);
-    lv_obj_add_event_cb(uploadLogsBtn, [](lv_event_t* e) {
-        auto* self = static_cast<CommandersMainPage*>(lv_event_get_user_data(e));
-        if (self && self->onTransferUploadLogsPage)
-        {
-            self->destroyPage();
-            delay(10);
-            self->onTransferUploadLogsPage();
-        }
-    }, LV_EVENT_CLICKED, this);
-
-    lv_obj_t *uploadLogsLabel = lv_label_create(uploadLogsBtn);
-    lv_label_set_text(uploadLogsLabel, "Upload Logs");
-    lv_obj_center(uploadLogsLabel);
 }
 
 void CommandersMainPage::setOnTransferReceiveCoordsPage(std::function<void()> cb)
@@ -72,7 +55,3 @@ void CommandersMainPage::setOnTransferReceiveCoordsPage(std::function<void()> cb
     this->onTransferReceiveCoordsPage = std::move(cb);
 }
 
-void CommandersMainPage::setOnTransferUploadLogsPage(std::function<void()> cb)
-{
-    this->onTransferUploadLogsPage = std::move(cb);
-}

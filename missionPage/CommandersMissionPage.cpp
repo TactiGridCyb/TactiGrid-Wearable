@@ -368,8 +368,6 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         this->switchCommanderEvent();
     }
 
-    
-
 }
 
 inline crypto::ByteVec CommandersMissionPage::hexToBytes(const String& hex) 
@@ -681,6 +679,7 @@ void CommandersMissionPage::switchCommanderEvent()
             allSoldiers.push_back(k);
         }
     }
+
     Serial.println("allSoldiers:");
     for(const auto& sold : allSoldiers)
     {
@@ -699,6 +698,11 @@ void CommandersMissionPage::switchCommanderEvent()
     {
         Serial.println(path);
     }
+    if(allSoldiers.size() > 1)
+    {
+        LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, "Sending Shamir!");
+    }
+    
 
     for (const auto& soldier : allSoldiers) 
     {
@@ -784,7 +788,6 @@ void CommandersMissionPage::switchCommanderEvent()
     Serial.println("deleted timer");
 
     this->commanderModule->removeFirstCommanderFromInsertionOrder();
-    
 
     std::unique_ptr<Soldier> sold = std::make_unique<Soldier>(this->commanderModule->getName(),
      this->commanderModule->getPublicCert(), this->commanderModule->getPrivateKey(),
