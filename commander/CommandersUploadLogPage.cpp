@@ -47,7 +47,6 @@ void CommandersUploadLogPage::upload_log_event_callback(lv_event_t* e) {
     crypto::Ciphertext ct = crypto::CryptoModule::encryptFile(currentKey, page->logFilePath.c_str());
     Serial.printf("current gmk generated:%s \n%d\n", crypto::CryptoModule::keyToHex(currentKey).c_str(), ct.nonce.size());
     
-    
     File out = FFat.open(page->encLogPath, FILE_WRITE);
 
     out.write(ct.nonce.data(), ct.nonce.size());
@@ -105,9 +104,26 @@ void CommandersUploadLogPage::upload_log_event_callback(lv_event_t* e) {
 
     serializeJson(doc, payload);
     Serial.printf("Final json\n%s\n", payload.c_str());
-    page->wifiModule->sendString(payload, "192.168.213.105", 8743);
 
-    FFatHelper::deleteFile(page->logFilePath.c_str());
+    File logFile = FFat.open(page->logFilePath.c_str(), FILE_READ);
+
+    JsonDocument logJSON;
+
+    DeserializationError error = deserializeJson(logJSON, logFile);
+    logFile.close();
+
+
+    const std::string missionID = doc["mission"].as<std::string>();
+    if (error) 
+    {
+        Serial.print("❌ Failed to parse JSON: ");
+        Serial.println(error.c_str());
+        return;
+    }
+
+    String url = "http://IP:3000/api/logs/" + String(missionID.c_str());
+
+    page->wifiModule->sendStringPost(url.c_str(), payload, 8743);
 
 
 }

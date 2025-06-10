@@ -115,6 +115,38 @@ bool WifiModule::sendString(const String& data,
     return true;
 }
 
+bool WifiModule::sendStringPost(const char* site, const String& data, uint16_t destinationPort)
+{
+    HTTPClient https;
+    WiFiClientSecure *client = new WiFiClientSecure;
+
+    client->setInsecure();
+
+    String url = String(site);
+
+    https.begin(*client, url);
+    https.addHeader("Content-Type", "application/json");
+
+    int httpCode = https.POST(data);
+
+    if (httpCode > 0) 
+    {
+        Serial.printf("✓ POST sent to %s — HTTP code: %d\n", url.c_str(), httpCode);
+        String response = https.getString();
+        Serial.println("Response:");
+        Serial.println(response);
+    } else 
+    {
+        Serial.printf("✗ POST request failed — error: %s\n", https.errorToString(httpCode).c_str());
+        delete client;
+        return false;
+    }
+
+    https.end();
+    delete client;
+    return true;
+}
+
 bool WifiModule::sendFile(const String& filePath,
                           const char* destinationIP,
                           uint16_t destinationPort)

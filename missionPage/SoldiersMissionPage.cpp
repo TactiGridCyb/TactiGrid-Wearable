@@ -386,8 +386,8 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
         
         lv_label_set_text_fmt(self->sendLabel, "%s%s - sent coords {%.5f, %.5f}\n", 
                             current_text, timeStr, 
-                            self->coords[self->currentIndex % self->coordCount].posLat, 
-                            self->coords[self->currentIndex % self->coordCount].posLon);
+                            currentLat, 
+                            currentLon);
         
         Serial.println("Finished sendTimerCallback");                    
         self->currentIndex++;
