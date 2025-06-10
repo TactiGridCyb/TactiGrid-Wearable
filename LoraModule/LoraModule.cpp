@@ -444,9 +444,13 @@ void LoraModule::handleCompletedOperation()
 void LoraModule::syncFrequency(const FHFModule* module)
 {
   uint64_t currentFreqCheck = millis();
+  Op currentOP = currentOp.load(std::memory_order_acquire);
 
-  if(currentFreqCheck - this->lastFrequencyCheck >= 1000 && !isBusy())
+  if(currentFreqCheck - this->lastFrequencyCheck >= 1000 && (currentOp == Op::None || currentOP == Op::Receive))
   {
+    this->cancelReceive();
+    this->tryStartOp(Op::FreqSync);
+
     Serial.println("check syncFrequency");
     float currentFreq = module->currentFrequency();
 
