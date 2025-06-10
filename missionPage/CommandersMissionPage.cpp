@@ -199,7 +199,7 @@ void CommandersMissionPage::createPage() {
         }
         for (const auto& commander : self->commanderModule->getCommanders()) 
         {
-            if(millis() - commander.second.lastTimeReceivedData >= 60000)
+            if(commander.first != self->commanderModule->getCommanderNumber() && millis() - commander.second.lastTimeReceivedData >= 60000)
             {
                 self->missingSoldierEvent(commander.first, true);
                 return;
