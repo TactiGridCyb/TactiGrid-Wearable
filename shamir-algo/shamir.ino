@@ -122,8 +122,8 @@
 #define THRESHOLD 2
 
 // connect to wifi - in order to then upload the files to the webapp
-const char* ssid = "peretz1";             // Wi-Fi name 
-const char* password = "box17box";     // Wi-Fi password 
+const char* ssid = "********";             // Wi-Fi name 
+const char* password = "********";     // Wi-Fi password 
 const char* serverUrl = "http://192.168.1.141:5000/upload";  // server IP
 
 lv_obj_t* send_btn;                               // GUI button object

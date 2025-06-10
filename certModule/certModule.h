@@ -49,6 +49,14 @@ public:
                              const std::string& data,
                              std::vector<uint8_t>& output);
 
+    inline mbedtls_ctr_drbg_context& getDrbg() { return ctr_drbg; }
+    inline mbedtls_pk_context* getPrivateKey() { return &privateKey; }
+    inline mbedtls_x509_crt* getCertificateCtx() { return &certificate; }
+
+    //handling base64 functions
+    static bool decodeBase64(const String& input, std::vector<uint8_t>& output);
+    static String toBase64(const std::vector<uint8_t>& input);
+
 private:
     mbedtls_pk_context privateKey;
     mbedtls_x509_crt certificate;
