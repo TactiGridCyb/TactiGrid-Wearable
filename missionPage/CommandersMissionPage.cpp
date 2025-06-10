@@ -287,6 +287,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     currentEvent["latitude"] = marker_lat;
     currentEvent["longitude"] = marker_lon;
     currentEvent["heartRate"] = newG->heartRate;
+    currentEvent["soldierId"] = newG->soldiersID;
 
     String jsonStr;
     serializeJson(currentEvent, jsonStr);
