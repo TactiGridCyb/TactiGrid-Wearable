@@ -77,8 +77,8 @@ class SoldiersMissionPage : public LVGLPage
     void setTransferFunction(std::function<void(std::shared_ptr<LoraModule>, std::shared_ptr<GPSModule>, 
         std::unique_ptr<FHFModule>, std::unique_ptr<Commander>)> cb);
 
-    static const float EARTH_RADIUS_METERS = 6378137.0f;
-    static const float ONE_DEG_LAT_IN_METERS = 111320.0f;
+    static constexpr float EARTH_RADIUS_METERS = 6378137.0f;
+    static constexpr float ONE_DEG_LAT_IN_METERS = 111320.0f;
 
     static void generateNearbyCoordinates(float centerLat, float centerLon, float radiusMeters,
                                float& outLat, float& outLon);

@@ -458,6 +458,7 @@ void LoraModule::syncFrequency(const FHFModule* module)
     {
       this->setFrequency(currentFreq);
       this->lastFrequencyCheck = currentFreqCheck;
+      Serial.printf("Switched to %.2fMHZ\n", currentFreq);
     }
 
     Serial.println("post check syncFrequency");

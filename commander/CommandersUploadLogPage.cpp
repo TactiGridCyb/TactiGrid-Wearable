@@ -105,7 +105,7 @@ void CommandersUploadLogPage::upload_log_event_callback(lv_event_t* e) {
     serializeJson(doc, payload);
     Serial.printf("Final json\n%s\n", payload.c_str());
 
-    File logFile = FFat.open(page->logFilePath.c_str(), FILE_READ);
+    logFile = FFat.open(page->logFilePath.c_str(), FILE_READ);
 
     JsonDocument logJSON;
 
