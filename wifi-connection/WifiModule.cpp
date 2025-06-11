@@ -17,25 +17,37 @@ JsonDocument WifiModule::receiveJSONTCP(const char* serverIP, uint16_t serverPor
         return JsonDocument();
     }
 
+    client.setTimeout(timeoutMs / 1000.0);
+
     JsonDocument doc;
 
-    client.setTimeout(timeoutMs / 100);
+    uint32_t start = millis();
+    while (client.connected() && !client.available()) {
+        if (millis() - start > timeoutMs) {
+            Serial.println("❌ Timeout waiting for server response");
+            client.stop();
+            return JsonDocument();
+        }
+        delay(10);
+    }
 
-    Serial.println("setTimeout");
     DeserializationError error = deserializeJson(doc, client);
     if (error) {
         Serial.print("❌ JSON parse failed: ");
         Serial.println(error.c_str());
 
+        while (client.available()) {
+            Serial.write(client.read());
+        }
+
+        client.stop();
         return JsonDocument();
     }
 
     serializeJsonPretty(doc, Serial);
     Serial.println();
 
-
     client.stop();
-
     return doc;
 }
 
