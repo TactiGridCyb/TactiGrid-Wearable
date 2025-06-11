@@ -40,6 +40,10 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
 
     this->coordCount = 5;
 
+    this->tileX = -1;
+    this->tileY = -1;
+    this->tileZoom = 0;
+
     this->finishTimer = false;
 
     if(this->commanderSwitchEvent)
@@ -359,6 +363,21 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
             self->delaySendFakeGPS = false;
         }
 
+        if(self->tileZoom == 0)
+        {
+            std::pair<float, float> tileLatLon = getTileCenterLatLon(self->coords[0].posLat,
+                 self->coords[0].posLon, 19, 256);
+
+            std::tuple<int,int,int> tileLocation = SoldiersMissionPage::positionToTile(std::get<0>(tileLatLon),
+             std::get<1>(tileLatLon), 19);
+            
+            self->tileZoom = std::get<0>(tileLocation);
+            self->tileX = std::get<1>(tileLocation);
+            self->tileY = std::get<2>(tileLocation);
+
+            
+        }
+
         struct tm timeInfo;
         char timeStr[9];
         Serial.println("timeStr");
@@ -375,8 +394,8 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
         uint8_t currentHeartRate = SoldiersMissionPage::generateHeartRate();
         uint8_t ID = self->soldierModule->getSoldierNumber();
 
-        SoldiersMissionPage::generateNearbyCoordinates(self->coords[0].posLat, self->coords[0].posLon,
-             20, currentLat, currentLon);
+        SoldiersMissionPage::generateNearbyCoordinatesFromTile(self->tileX, self->tileY,
+             self->tileZoom, currentLat, currentLon);
 
             
 
@@ -629,20 +648,35 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
 }
 
 
-void SoldiersMissionPage::generateNearbyCoordinates(float centerLat, float centerLon, float radiusMeters,
-                               float& outLat, float& outLon) {
+void SoldiersMissionPage::generateNearbyCoordinatesFromTile(int tileX, int tileY, int zoom,
+                                                             float& outLat, float& outLon) {
+    float n = std::pow(2.0f, zoom);
 
-    float distance = static_cast<float>(rand()) / RAND_MAX * radiusMeters;
-    float angle = static_cast<float>(rand()) / RAND_MAX * 2.0f * M_PI;
+    float lonLeft = tileX / n * 360.0f - 180.0f;
+    float lonRight = (tileX + 1) / n * 360.0f - 180.0f;
 
-    float deltaLat = distance * std::cos(angle) / SoldiersMissionPage::ONE_DEG_LAT_IN_METERS;
-    float deltaLon = distance * std::sin(angle) /
-                     (SoldiersMissionPage::ONE_DEG_LAT_IN_METERS * std::cos(centerLat * M_PI / 180.0f));
+    float latTop = std::atan(std::sinh(M_PI * (1 - 2 * tileY / n))) * 180.0f / M_PI;
+    float latBottom = std::atan(std::sinh(M_PI * (1 - 2 * (tileY + 1) / n))) * 180.0f / M_PI;
 
-    outLat = centerLat + deltaLat;
-    outLon = centerLon + deltaLon;
+    float randLat = static_cast<float>(rand()) / RAND_MAX;
+    float randLon = static_cast<float>(rand()) / RAND_MAX;
+
+    outLat = latBottom + randLat * (latTop - latBottom);
+    outLon = lonLeft + randLon * (lonRight - lonLeft);
 }
 
-uint8_t SoldiersMissionPage::generateHeartRate() {
+uint8_t SoldiersMissionPage::generateHeartRate() 
+{
     return rand() % 101 + 50;
+}
+
+std::tuple<int, int, int> SoldiersMissionPage::positionToTile(float lat, float lon, int zoom)
+{
+    float lat_rad = radians(lat);
+    float n = pow(2.0, zoom);
+    
+    int x_tile = floor((lon + 180.0) / 360.0 * n);
+    int y_tile = floor((1.0 - log(tan(lat_rad) + 1.0 / cos(lat_rad)) / PI) / 2.0 * n);
+    
+    return std::make_tuple(zoom, x_tile, y_tile);
 }

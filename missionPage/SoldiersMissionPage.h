@@ -22,6 +22,10 @@ class SoldiersMissionPage : public LVGLPage
     std::unique_ptr<FHFModule> fhfModule;
     std::unique_ptr<Soldier> soldierModule;
 
+    int tileX;
+    int tileY;
+    uint8_t tileZoom;
+
     lv_obj_t* mainPage;
     lv_obj_t* sendLabel;
 
@@ -80,10 +84,12 @@ class SoldiersMissionPage : public LVGLPage
     static constexpr float EARTH_RADIUS_METERS = 6378137.0f;
     static constexpr float ONE_DEG_LAT_IN_METERS = 111320.0f;
 
-    static void generateNearbyCoordinates(float centerLat, float centerLon, float radiusMeters,
-                               float& outLat, float& outLon);
+    static void generateNearbyCoordinatesFromTile(int tileX, int tileY, int zoom,
+                                                             float& outLat, float& outLon);
 
     static uint8_t generateHeartRate();
+
+    static std::tuple<int, int, int> positionToTile(float lat, float lon, int zoom);
 
     static inline bool isZero(float);
 };
