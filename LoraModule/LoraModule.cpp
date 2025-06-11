@@ -462,6 +462,8 @@ void LoraModule::syncFrequency(const FHFModule* module)
     }
 
     Serial.println("post check syncFrequency");
+
+    opFinished.store(true, std::memory_order_release);
   }
 }
 

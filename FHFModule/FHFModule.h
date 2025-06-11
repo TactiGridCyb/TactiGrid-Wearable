@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <chrono>
 #include <LilyGoLib.h>
+#include <ctime>
 
 #define HOP_INTERVAL_SEC 60
 

@@ -287,7 +287,19 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     currentEvent["latitude"] = marker_lat;
     currentEvent["longitude"] = marker_lon;
     currentEvent["heartRate"] = newG->heartRate;
-    currentEvent["soldierId"] = newG->soldiersID;
+    
+    String name;
+
+    if(this->commanderModule->getCommanders().find(newG->soldiersID) != this->commanderModule->getCommanders().end())
+    {
+        name = String(this->commanderModule->getCommanders().at(newG->soldiersID).name.c_str());
+    }
+    else
+    {
+        name = String(this->commanderModule->getSoldiers().at(newG->soldiersID).name.c_str());
+    }
+
+    currentEvent["soldierId"] = name;
 
     String jsonStr;
     serializeJson(currentEvent, jsonStr);
@@ -457,8 +469,9 @@ void CommandersMissionPage::create_fading_circle(double markerLat, double marker
     lv_anim_set_exec_cb(&a, [](void * obj, int32_t value) {
         lv_obj_set_style_opa((lv_obj_t *)obj, value, 0);
     });
-    lv_anim_start(&a);
 
+    lv_anim_start(&a);
+    Serial.printf("Set animation for %d, in %d %d\n", soldiersID, pixel_x, pixel_y);
 
     if(!label)
     {
@@ -609,16 +622,19 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID, bool isComma
     Serial.printf("missingSoldierEvent for %d\n", soldiersID);
 
     std::string newEventText;
+    String missingName = "";
 
     if(isCommander)
     {
-        newEventText = "Missing Soldier Event - " + this->commanderModule->getCommanders().at(soldiersID).name;
+        missingName = String(this->commanderModule->getCommanders().at(soldiersID).name.c_str());
     }
     else
     {
-        newEventText = "Missing Soldier Event - " + this->commanderModule->getSoldiers().at(soldiersID).name;
+        missingName = String(this->commanderModule->getSoldiers().at(soldiersID).name.c_str());
+        
     }
 
+    newEventText = "Missing Soldier Event - " + std::string(missingName.c_str());
     Serial.println("PRE PREMOVE");
 
     this->commanderModule->setMissing(soldiersID);
@@ -628,9 +644,9 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID, bool isComma
     JsonDocument doc;
     doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
     doc["eventName"] = "missingSoldier";
-    doc["missingID"] = soldiersID;
+    doc["missingID"] = missingName;
 
-    //FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
+    FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 }
 
 void CommandersMissionPage::switchCommanderEvent()
@@ -648,17 +664,19 @@ void CommandersMissionPage::switchCommanderEvent()
     this->loraModule->setOnReadData(nullptr);
     
     uint8_t nextID = -1;
+    String newCommandersName = "";
     if(this->commanderModule->getCommandersInsertionOrder().size() > 1)
     {
         nextID = this->commanderModule->getCommandersInsertionOrder().at(1);
+        newCommandersName = String(this->commanderModule->getCommanders().at(nextID).name.c_str());
     }
 
     JsonDocument doc;
     doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
     doc["eventName"] = "commanderSwitch";
-    doc["newCommanderID"] = nextID;
+    doc["newCommanderID"] = newCommandersName;
 
-    //FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
+    FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 
     uint8_t index = 0;
 

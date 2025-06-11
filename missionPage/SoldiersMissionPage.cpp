@@ -92,7 +92,7 @@ void SoldiersMissionPage::createPage()
 
     if(this->fakeGPS)
     {
-        this->sendTimer = lv_timer_create(SoldiersMissionPage::sendTimerCallback, 7000, this);
+        this->sendTimer = lv_timer_create(SoldiersMissionPage::sendTimerCallback, 10000, this);
     }
     else
     {
@@ -374,7 +374,8 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
             self->tileZoom = std::get<0>(tileLocation);
             self->tileX = std::get<1>(tileLocation);
             self->tileY = std::get<2>(tileLocation);
-
+            
+            Serial.printf("First time setting coords! %d %d %d\n", self->tileX, self->tileY, self->tileZoom);
             
         }
 
