@@ -1,2 +1,2 @@
-#define WIFI_SSID "default"
-#define WIFI_PASS "1357924680"
+#define WIFI_SSID "hello"
+#define WIFI_PASS "ctc5xwpwct"

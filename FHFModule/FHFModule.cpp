@@ -31,9 +31,9 @@ float FHFModule::currentFrequency() const
 {
     int64_t slot = currentHopSlot();
 
-    if (frequencies.empty()) {
-        return 0;
-    }
+    float freq = frequencies.empty() ? 0 : frequencies[slot % frequencies.size()];
+    Serial.printf("[FHFModule] Slot: %lld | Freq Index: %lld | Frequency: %.2f\n",
+                  slot, slot % frequencies.size(), freq);
 
-    return frequencies[slot % frequencies.size()];
+    return freq;
 }
