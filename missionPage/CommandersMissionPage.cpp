@@ -24,6 +24,10 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
 
         this->mainPage = lv_scr_act();
         this->infoBox = LVGLPage::createInfoBox();
+        
+        this->tileZoom = 0;
+        this->tileX = -1;
+        this->tileY = -1;
 
         FFatHelper::deleteFile(this->tileFilePath);
 
@@ -190,6 +194,34 @@ void CommandersMissionPage::createPage() {
         }, self);
     }, 100, this);
 
+    this->selfLogTimer = lv_timer_create([](lv_timer_t* t){
+        auto *self = static_cast<CommandersMissionPage*>(t->user_data);
+        lv_async_call([](void* user_data) 
+        {
+            auto *me = static_cast<CommandersMissionPage*>(user_data);
+            if(me->tileZoom == 0)
+            {
+                return;
+            }
+
+            JsonDocument currentCommandersEvent;
+            currentCommandersEvent["time_sent"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
+            float commandersLat, commandersLon;
+
+            LVGLPage::generateNearbyCoordinatesFromTile(me->tileX, me->tileY, me->tileZoom, commandersLat, commandersLon);
+
+
+            currentCommandersEvent["latitude"] = commandersLat;
+            currentCommandersEvent["longitude"] = commandersLon;
+            currentCommandersEvent["heartRate"] = LVGLPage::generateHeartRate();
+            currentCommandersEvent["soldierId"] = me->commanderModule->getName();
+
+            FFatHelper::appendRegularJsonObjectToFile(me->logFilePath.c_str(), currentCommandersEvent);
+
+        }, self);
+
+    }, 10000, this);
+
     Serial.println("this->missingSoldierTimer");
     this->missingSoldierTimer = lv_timer_create([](lv_timer_t* t){
         auto *self = static_cast<CommandersMissionPage*>(t->user_data);
@@ -301,26 +333,32 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
     currentEvent["soldierId"] = name;
 
-    String jsonStr;
-    serializeJson(currentEvent, jsonStr);
-
     bool writeResult = FFatHelper::appendRegularJsonObjectToFile(this->logFilePath.c_str(), currentEvent);
     Serial.print("writeToFile result: ");
     Serial.println(writeResult ? "success" : "failure");
 
     Serial.println(this->logFilePath.c_str());
 
-    std::tuple<int,int,int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
+    if(this->tileZoom == 0)
+    {
+        Serial.println("positionToTile");
 
-    Serial.println("positionToTile");
+        std::tuple<int,int,int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
 
-    std::string middleTile = this->tileUrlInitial +
-        std::to_string(std::get<0>(tileLocation)) + "/" +
-        std::to_string(std::get<1>(tileLocation)) + "/" +
-        std::to_string(std::get<2>(tileLocation)) + ".png";
+        this->tileZoom = std::get<0>(tileLocation);
+        this->tileX = std::get<1>(tileLocation);
+        this->tileY = std::get<2>(tileLocation);
+    }
+    
 
     if(!FFatHelper::isFileExisting(this->tileFilePath))
     {
+        std::string middleTile = this->tileUrlInitial +
+        std::to_string(this->tileZoom) + "/" +
+        std::to_string(this->tileX) + "/" +
+        std::to_string(this->tileY) + ".png";
+
+
         Serial.println(middleTile.c_str());
         this->wifiModule->downloadFile(middleTile.c_str(), this->tileFilePath);
     }
@@ -338,8 +376,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         showMiddleTile();
     }
 
-    auto [zoom, x_tile, y_tile] = tileLocation;
-    auto [centerLat, centerLon] = tileCenterLatLon(zoom, x_tile, y_tile);
+    auto [centerLat, centerLon] = tileCenterLatLon(this->tileZoom, this->tileX, this->tileY);
 
     int heartRate = newG->heartRate;
     lv_color_t color = getColorFromHeartRate(heartRate);
@@ -659,6 +696,7 @@ void CommandersMissionPage::switchCommanderEvent()
     std::vector<String> sharePaths;
 
     lv_timer_del(this->missingSoldierTimer);
+    lv_timer_del(this->selfLogTimer);
 
     
     this->loraModule->setOnReadData(nullptr);

@@ -155,6 +155,8 @@ void setup()
     receiveParametersPage->createPage();
     receiveParametersPage->setOnTransferPage(transferFromReceiveParametersToMainPage);
 
+    FFatHelper::begin();
+
 }
 
 

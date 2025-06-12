@@ -392,10 +392,10 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
         Serial.println("getLocalTime");
 
         float currentLat, currentLon;
-        uint8_t currentHeartRate = SoldiersMissionPage::generateHeartRate();
+        uint8_t currentHeartRate = LVGLPage::generateHeartRate();
         uint8_t ID = self->soldierModule->getSoldierNumber();
 
-        SoldiersMissionPage::generateNearbyCoordinatesFromTile(self->tileX, self->tileY,
+        LVGLPage::generateNearbyCoordinatesFromTile(self->tileX, self->tileY,
              self->tileZoom, currentLat, currentLon);
 
             
@@ -648,28 +648,6 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
     });
 }
 
-
-void SoldiersMissionPage::generateNearbyCoordinatesFromTile(int tileX, int tileY, int zoom,
-                                                             float& outLat, float& outLon) {
-    float n = std::pow(2.0f, zoom);
-
-    float lonLeft = tileX / n * 360.0f - 180.0f;
-    float lonRight = (tileX + 1) / n * 360.0f - 180.0f;
-
-    float latTop = std::atan(std::sinh(M_PI * (1 - 2 * tileY / n))) * 180.0f / M_PI;
-    float latBottom = std::atan(std::sinh(M_PI * (1 - 2 * (tileY + 1) / n))) * 180.0f / M_PI;
-
-    float randLat = static_cast<float>(rand()) / RAND_MAX;
-    float randLon = static_cast<float>(rand()) / RAND_MAX;
-
-    outLat = latBottom + randLat * (latTop - latBottom);
-    outLon = lonLeft + randLon * (lonRight - lonLeft);
-}
-
-uint8_t SoldiersMissionPage::generateHeartRate() 
-{
-    return rand() % 101 + 50;
-}
 
 std::tuple<int, int, int> SoldiersMissionPage::positionToTile(float lat, float lon, int zoom)
 {

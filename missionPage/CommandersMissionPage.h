@@ -64,6 +64,10 @@ private:
 
     uint8_t shamirPartsCollected;
     uint8_t currentShamirRec;
+
+    uint8_t tileZoom;
+    int tileX;
+    int tileY;
     
     lv_obj_t* infoBox;
 
@@ -72,6 +76,7 @@ private:
     lv_timer_t* missingSoldierTimer;
     lv_timer_t* regularLoopTimer;
     lv_timer_t* shamirTimeoutTimer;
+    lv_timer_t* selfLogTimer;
 
     std::unordered_map<uint16_t, lv_color_t> ballColors;
     std::unordered_map<uint16_t, lv_obj_t*> labels;

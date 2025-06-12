@@ -167,6 +167,8 @@ void setup()
     commandersReceiveParametersPage->createPage();
     commandersReceiveParametersPage->setOnReceiveParams(transferFromReceiveParametersToMainPage);
     commandersReceiveParametersPage->setOnUploadLogs(transferFromMainToUploadLogsPage);
+
+    FFatHelper::begin();
 }
 
 
