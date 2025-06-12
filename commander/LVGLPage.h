@@ -1,10 +1,10 @@
 #pragma once
 
 #include <lvgl.h>
+#include <LilyGoLib.h>
 
 #define LV_HOR_RES_MAX 240
 #define LV_VER_RES_MAX 240
-#define PI 3.14159265358979323846
 
 
 class LVGLPage {
@@ -79,13 +79,13 @@ class LVGLPage {
 
     static void generateNearbyCoordinatesFromTile(int tileX, int tileY, int zoom,
                                                              float& outLat, float& outLon) {
-        float n = std::pow(2.0f, zoom);
+        float n = pow(2.0f, zoom);
 
         float lonLeft = tileX / n * 360.0f - 180.0f;
         float lonRight = (tileX + 1) / n * 360.0f - 180.0f;
 
-        float latTop = std::atan(std::sinh(PI * (1 - 2 * tileY / n))) * 180.0f / PI;
-        float latBottom = std::atan(std::sinh(PI * (1 - 2 * (tileY + 1) / n))) * 180.0f / PI;
+        float latTop = atan(sinh(M_PI * (1 - 2 * tileY / n))) * 180.0f / M_PI;
+        float latBottom = atan(sinh(M_PI * (1 - 2 * (tileY + 1) / n))) * 180.0f / M_PI;
 
         float randLat = static_cast<float>(rand()) / RAND_MAX;
         float randLon = static_cast<float>(rand()) / RAND_MAX;

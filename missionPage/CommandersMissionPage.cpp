@@ -173,7 +173,7 @@ void CommandersMissionPage::createPage() {
 
     lv_obj_t* waitingLabel = lv_label_create(mainPage);
     lv_obj_center(waitingLabel);
-    lv_label_set_text(waitingLabel, "Waiting For Initial Coords");
+    lv_label_set_text_fmt(waitingLabel, "Waiting For Initial Coords with freq %.2f", this->loraModule->getCurrentFreq());
     lv_obj_set_style_text_color(waitingLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
 
     Serial.println("this->regularLoopTimer");

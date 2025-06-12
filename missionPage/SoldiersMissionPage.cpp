@@ -96,7 +96,7 @@ void SoldiersMissionPage::createPage()
     }
     else
     {
-
+        this->sendRealGPSTimer = lv_timer_create(SoldiersMissionPage::sendRealGPSTimerCallback, 10000, this);
     }
 
     this->mainLoopTimer = lv_timer_create([](lv_timer_t* t){
@@ -113,6 +113,8 @@ void SoldiersMissionPage::createPage()
         }
 
         self->loraModule->syncFrequency(self->fhfModule.get());
+
+        self->gpsModule->updateCoords();
     }, 100, this);
     
 }
@@ -324,10 +326,11 @@ void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRat
       strcpy(timeStr, "00:00:00");
   }
 
-  lv_label_set_text_fmt(sendLabel, "%s - sent coords {%.5f, %.5f}\n", 
+  lv_label_set_text_fmt(sendLabel, "%s - sent coords {%.5f, %.5f}\n with freq %.2f\n", 
                         timeStr,
                         lat, 
-                        lon);
+                        lon,
+                        this->loraModule->getCurrentFreq());
 }
 
 void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
@@ -412,9 +415,24 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
         Serial.println("Finished sendTimerCallback");                    
         self->currentIndex++;
     } else {
+        self->finishTimer = true;
+        lv_timer_del(self->mainLoopTimer);
         lv_timer_del(timer);
-        self->currentIndex = 0;
     }
+}
+
+void SoldiersMissionPage::sendRealGPSTimerCallback(lv_timer_t *timer)
+{
+    auto* self = static_cast<SoldiersMissionPage*>(timer->user_data);
+
+    if(self->commanderSwitchEvent)
+    {
+        return;
+    }
+
+    Serial.println("sendRealGPSTimerCallback");
+
+    self->parseGPSData();
 }
 
 void SoldiersMissionPage::setTransferFunction(std::function<void(std::shared_ptr<LoraModule>, std::shared_ptr<GPSModule>,
@@ -452,7 +470,7 @@ void SoldiersMissionPage::parseGPSData()
     float lon = this->gpsModule->getLon();
 
     if (!isZero(lat) && !isZero(lon)) {
-        sendCoordinate(lat, lon, 100, 1);
+        sendCoordinate(lat, lon, LVGLPage::generateHeartRate(), this->soldierModule->getSoldierNumber());
     }
     else
     {
@@ -473,8 +491,8 @@ void SoldiersMissionPage::parseGPSData()
         uint8_t  second = gpsTime.isValid() ? gpsTime.second() : 0;
         double  meters = gpsAltitude.isValid() ? gpsAltitude.meters() : 0;
         double  kmph = gpsSpeed.isValid() ? gpsSpeed.kmph() : 0;
-        lv_label_set_text_fmt(this->sendLabel, "Sats:%u\nHDOP:%.1f\nLat:%.5f\nLon:%.5f\nDate:%d/%d/%d \nTime:%d/%d/%d\nAlt:%.2f m \nSpeed:%.2f",
-                            satellites, hdop, lat, lon, year, month, day, hour, minute, second, meters, kmph);
+        lv_label_set_text_fmt(this->sendLabel, "Sats:%u\nHDOP:%.1f\nLat:%.5f\nLon:%.5f\nDate:%d/%d/%d \nTime:%d/%d/%d\nAlt:%.2f m \nSpeed:%.2f\n Freq:%.2f",
+                            satellites, hdop, lat, lon, year, month, day, hour, minute, second, meters, kmph, this->loraModule->getCurrentFreq());
     }
 }
 
@@ -513,6 +531,11 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
     {
         this->currentIndex = 100;
         lv_timer_del(this->sendTimer);
+    }
+
+    if(this->sendRealGPSTimer)
+    {
+        lv_timer_del(this->sendRealGPSTimer);
     }
 
     std::unique_ptr<Commander> command = std::make_unique<Commander>(this->soldierModule->getName(),
