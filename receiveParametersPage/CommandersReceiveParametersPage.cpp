@@ -86,7 +86,7 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
   FFatHelper::deleteFile("/encKey.txt");
   FFatHelper::deleteFile("/uploadPayload.txt");
   JsonDocument doc;
-  doc = this->wifiModule->receiveJSONTCP("192.168.213.91", 8743);
+  doc = this->wifiModule->receiveJSONTCP(WEBAPP_IP, 8743);
 
   try {
 

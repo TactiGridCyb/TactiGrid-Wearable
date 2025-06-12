@@ -57,7 +57,7 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
   Serial.println("onSocketOpened");
   // TCP SSL
   JsonDocument doc;
-  doc = this->wifiModule->receiveJSONTCP("192.168.213.91", 8743);
+  doc = this->wifiModule->receiveJSONTCP(WEBAPP_IP, 8743);
 
   try {
 

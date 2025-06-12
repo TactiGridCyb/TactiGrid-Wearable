@@ -1,6 +1,7 @@
 #pragma once
 #include "LVGLPage.h"
 #include "WifiModule.h"
+#include "../env.h"
 #include "lvgl.h"
 #include <string>
 #include <memory>

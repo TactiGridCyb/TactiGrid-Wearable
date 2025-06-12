@@ -12,6 +12,7 @@
 #include <stdexcept>
 #include <functional>
 #include <string>
+#include "../env.h"
 #include "../mainPage/CommandersMainPage.h"
 
 class CommandersReceiveParametersPage : public LVGLPage {

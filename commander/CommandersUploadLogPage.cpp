@@ -122,7 +122,7 @@ void CommandersUploadLogPage::upload_log_event_callback(lv_event_t* e) {
     }
 
     const std::string missionID = logJSON["Mission"].as<std::string>();
-    String url = "http://192.168.213.91:3000/api/logs/upload/" + String(missionID.c_str());
+    String url = "http://" + String(WEBAPP_IP) + ":3000/api/logs/upload/" + String(missionID.c_str());
     Serial.printf("URL IS: %s\n", url.c_str());
     page->wifiModule->sendStringPost(url.c_str(), payload, 8743);
 
