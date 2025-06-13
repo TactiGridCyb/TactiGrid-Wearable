@@ -430,6 +430,20 @@ void SoldiersMissionPage::sendRealGPSTimerCallback(lv_timer_t *timer)
         return;
     }
 
+    for(int i = 0; i < 5; ++i)
+    {
+        if(self->loraModule->cancelReceive())
+        {
+            break;
+        }
+        delay(1);
+    }
+
+    if(!self->loraModule->cancelReceive())
+    {
+        return;
+    }
+
     Serial.println("sendRealGPSTimerCallback");
 
     self->parseGPSData();
