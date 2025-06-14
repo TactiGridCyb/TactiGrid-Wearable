@@ -62,6 +62,8 @@ private:
 
     bool commanderSwitchEvent;
 
+    volatile bool pmuFlag;
+
     uint8_t shamirPartsCollected;
     uint8_t currentShamirRec;
 

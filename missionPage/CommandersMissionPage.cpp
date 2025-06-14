@@ -29,6 +29,8 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         this->tileX = -1;
         this->tileY = -1;
 
+        this->pmuFlag = false;
+
         FFatHelper::deleteFile(this->tileFilePath);
 
         Serial.printf("this->commanderSwitchEvent: %s\n", (this->commanderSwitchEvent ? "true"  : "false"));
@@ -191,6 +193,16 @@ void CommandersMissionPage::createPage() {
 
 
             me->loraModule->syncFrequency(me->fhfModule.get());
+
+            if (me->pmuFlag) {
+                me->pmuFlag = false;
+                uint32_t status = watch.readPMU();
+                if (watch.isPekeyShortPressIrq()) 
+                {
+                    //Do something
+                }
+                watch.clearPMU();
+            }
         }, self);
     }, 100, this);
 
