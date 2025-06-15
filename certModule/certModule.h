@@ -8,6 +8,9 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include "../commander/Soldier.h"
+#include "../commander/Commander.h"
+
 
 struct NameId {
     std::string name;
@@ -19,12 +22,13 @@ public:
     certModule();
     ~certModule();
 
-    bool loadFromConfig(const CommanderConfigModule& config);
+    bool loadFromSoldier(const Soldier& soldier);
+    bool loadFromCommander(const Commander& commander);
 
     bool encryptWithPrivateKey(const uint8_t* input, size_t inputLen,
                                uint8_t* output, size_t& outputLen);
 
-    bool verifyCertificate();
+    //bool verifyCertificate();
     bool loadSingleCertificate(const String& pemCert);
 
     static bool verifyCertificate(mbedtls_x509_crt* certToVerify, mbedtls_x509_crt* caCert);

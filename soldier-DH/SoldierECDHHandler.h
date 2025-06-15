@@ -13,13 +13,19 @@ public:
     void begin();
     void startListening();
     std::vector<uint8_t> getSharedSecret();
+    String getFinalMessage();
     bool hasRespondedToCommander() const;
+    bool hasReceivedSecureMessage() const;
     LoraModule& getLoRa() { return lora; }
     void poll();
 
 
 private:
    static void handleLoRaDataStatic(const uint8_t* data, size_t len);
+   void handleSecureLoRaData(const uint8_t* data, size_t len);
+   static void handleSecureLoRaDataStatic(const uint8_t* buf, size_t len);
+   void awaitSecureMessage();
+
 
     void handleLoRaData(const uint8_t* data, size_t len);
     bool decodeBase64(const String& input, std::vector<uint8_t>& output);
@@ -38,6 +44,11 @@ private:
     ECDHHelper ecdh;
     std::vector<uint8_t> sharedSecret;
     bool hasResponded;
+    bool hasReceiveMessage;
+    String finalMessage;
+
+   bool secureMsgPending = false;
+   std::vector<uint8_t> securePkt;
 };
 
 /*
