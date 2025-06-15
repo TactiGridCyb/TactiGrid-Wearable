@@ -139,8 +139,6 @@ bool CommanderECDHHandler::startECDHExchange(int soldierId) {
 
     String out;
     serializeJson(doc, out);
-    Serial.println(">>> RAW JSON >>>");
-    Serial.println(out);
 
     if (lora.sendFile((const uint8_t*)out.c_str(), out.length(), 180)
             != RADIOLIB_ERR_NONE) {
@@ -157,25 +155,7 @@ bool CommanderECDHHandler::startECDHExchange(int soldierId) {
     lora.setup(/* transmissionMode = */ false);
     lora.readData();
 
-    // // ────────────────────────────────────────────────────────────────────
-    // // And kick off our periodic poll() timer (every 100 ms):
-    // lv_timer_create([](lv_timer_t* t) {
-    //     auto* self = static_cast<CommanderECDHHandler*>(t->user_data);
-    //     self->poll();
-    // }, 100, this);
-
     return true;
-
-//     // switch to receiver mode
-//     fileReceiveTimer = lv_timer_create(
-//     [](lv_timer_t* t) {
-//       auto* self = static_cast<CommanderECDHHandler*>(t->user_data);
-//       self->lora.handleCompletedOperation();
-//       self->lora.readData();  // <-- always re-arm
-//     },
-//     100,
-//     this
-//   );
 }
 
 
@@ -201,19 +181,6 @@ void CommanderECDHHandler::handleLoRaDataStatic(const uint8_t* data, size_t len)
         instance->handleLoRaData(data, len);
     }
 }
-
-
-// void CommanderECDHHandler::handleLoRaDataStatic(const uint8_t* data, size_t len) {
-//   if (!instance) return;
-//   // stash the packet & wake up the next poll()
-//   instance->pendingPacket.assign(data, data + len);
-//   instance->responsePending = true;
-// }
-
-
-
-
-
 
 void CommanderECDHHandler::handleLoRaData(const uint8_t* data, size_t len) {
     // 1) Stop the receive‐timer
@@ -315,9 +282,6 @@ void CommanderECDHHandler::handleLoRaData(const uint8_t* data, size_t len) {
     std::vector<uint8_t> ctEph, derEph;
     certModule::decodeBase64(doc["ephemeral"].as<String>(), ctEph);
     aesCtrDecryptRaw(ctEph, derEph);
-    Serial.printf("🔍 [DEBUG] decrypted eph blob len=%u first byte=0x%02X\n",
-                  (unsigned)derEph.size(),
-                  derEph.empty() ? 0 : derEph[0]);
 
     if (derEph.empty()) {
         Serial.println("❌ derEph is empty – nothing to import!");
@@ -388,12 +352,6 @@ bool CommanderECDHHandler::decodeBase64(const String& input,
   return true;
 }
 
-
-// void CommanderECDHHandler::poll() {
-//   lora.readData();
-//   //lora.cleanUpTransmissions();
-// }
-
 void CommanderECDHHandler::poll() {
     // 1) Service any completed RX/TX interrupt & dispatch callbacks
     lora.handleCompletedOperation();
@@ -446,9 +404,6 @@ bool CommanderECDHHandler::sendSecureMessage(int soldierId, const String& plaint
     doc["msg"] = msgB64;
     String out;
     serializeJson(doc, out);
-
-    Serial.println(">>> SECURE MSG >>>");
-    Serial.println(out);
 
     // 6) Kick off the sendFile()
     if (lora.sendFile((const uint8_t*)out.c_str(), out.length(), 180) != RADIOLIB_ERR_NONE) {

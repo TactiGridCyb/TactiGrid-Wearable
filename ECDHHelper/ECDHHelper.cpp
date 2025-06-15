@@ -38,28 +38,6 @@ std::vector<uint8_t> ECDHHelper::getPublicKeyRaw() const {
     return buf;
 }
 
-// bool ECDHHelper::importPeerPublicKey(const std::vector<uint8_t>& peerKey) {
-//     int ret = mbedtls_ecp_group_load(&ctx.grp, MBEDTLS_ECP_DP_SECP256R1);
-//     if (ret != 0) return false;
-
-//     return mbedtls_ecp_point_read_binary(&ctx.grp, &ctx.Qp, peerKey.data(), peerKey.size()) == 0;
-// }
-
-
-// bool ECDHHelper::deriveSharedSecret(std::vector<uint8_t>& out) {
-//     out.resize(32);  // 256 bits
-//     size_t slen = 0;
-
-//     int ret = mbedtls_ecdh_calc_secret(&ctx, &slen, out.data(), out.size(),
-//                                        mbedtls_ctr_drbg_random, &ctr_drbg);
-//     if (ret != 0) return false;
-
-//     out.resize(slen);
-//     return true;
-// }
-
-
-
 bool ECDHHelper::importPeerPublicKey(const std::vector<uint8_t>& buf) {
     int ret;
 

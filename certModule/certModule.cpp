@@ -100,17 +100,6 @@ bool certModule::loadFromCommander(const Commander& commander){
     return true;
 }
 
-// bool certModule::verifyCertificate() {
-//     uint32_t flags;
-//     int ret = mbedtls_x509_crt_verify(&certificate, &caCertificate, NULL, NULL, &flags, NULL, NULL);
-//     if (ret != 0) {
-//         Serial.printf("❌ Certificate verification failed: -0x%04X, flags: %lu\n", -ret, flags);
-//         return false;
-//     }
-//     Serial.println("✅ Certificate verified successfully.");
-//     return true;
-// }
-
 bool certModule::verifyCertificate(mbedtls_x509_crt* certToVerify, mbedtls_x509_crt* caCert)
 {
     uint32_t flags;

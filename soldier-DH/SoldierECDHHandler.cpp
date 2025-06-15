@@ -159,8 +159,6 @@ if (!ecdh.generateEphemeralKey()) {
 
     // 8) Decode & import commander’s ephemeral public key (DER)
 String ephB64 = doc["ephemeral"].as<String>();
-Serial.println("🔍 [DEBUG] ephemeral B64 payload:");
-Serial.println(ephB64);
 
 // turn it back into bytes
 std::vector<uint8_t> ctEph;
@@ -168,14 +166,10 @@ if (!certModule::decodeBase64(ephB64, ctEph)) {
     Serial.println("❌ decodeBase64(ephemeral) failed!");
     return;
 }
-Serial.printf("🔍 [DEBUG] ctEph.size() = %u\n", (unsigned)ctEph.size());
 
 // now decrypt
 std::vector<uint8_t> derEph;
 aesCtrDecryptRaw(ctEph, derEph);
-Serial.printf("🔍 [DEBUG] decrypted eph blob len=%u first byte=0x%02X\n",
-              (unsigned)derEph.size(),
-              derEph.empty() ? 0 : derEph[0]);
 
 if (derEph.empty()) {
     Serial.println("❌ derEph is empty – nothing to import!");
@@ -323,8 +317,6 @@ void SoldierECDHHandler::sendResponse(int toId) {
 
     String out;
     serializeJson(doc, out);
-    Serial.println(">>> RAW JSON >>>");
-    Serial.println(out);
     if (lora.sendFile((const uint8_t*)out.c_str(), out.length(), 180)
           != RADIOLIB_ERR_NONE) {
         Serial.println("❌ Failed to send soldier response");
@@ -383,14 +375,6 @@ String SoldierECDHHandler::toBase64(const std::vector<uint8_t>& input) {
     outBuf[actualLen] = '\0';
     return String((const char*)outBuf.data());
 }
-
-// void SoldierECDHHandler::poll() {
-//   lora.readData();
-//   //lora.cleanUpTransmissions();
-// }
-
-
-
 
 void SoldierECDHHandler::handleSecureLoRaDataStatic(const uint8_t* buf, size_t len) {
     Serial.printf("📥 handleSecureLoRaDataStatic called! len=%u\n", len);
@@ -482,8 +466,6 @@ void SoldierECDHHandler::awaitSecureMessage() {
     );
     
 }
-
-
 
 
 void SoldierECDHHandler::poll() {
