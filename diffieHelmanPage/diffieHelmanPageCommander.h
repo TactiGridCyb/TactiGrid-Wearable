@@ -4,6 +4,7 @@
 #include <functional>
 #include "../certModule/certModule.h"
 #include "../LoraModule/LoraModule.h"
+#include <map>
 #include "../commander-DH/CommanderECDHHandler.h"
 
 class DiffieHellmanPageCommander : public LVGLPage {
@@ -16,12 +17,18 @@ private:
     certModule certmodule;
     std::function<void()> onStart;
     bool commanderProcessStarted;
+    bool exchangeInProgress;
+    std::vector<SoldierInfo> soldierVector;
+    int currentSoldierIndex = 0;
+
 
 public:
     DiffieHellmanPageCommander(Commander* commander);
     void createPage() override;
     void setStatusText(const char* text);
     void setOnStartCallback(std::function<void()> cb);
+
+    void startExchangeWithNextSoldier();
 
     // Internal methods
     void startProcess();

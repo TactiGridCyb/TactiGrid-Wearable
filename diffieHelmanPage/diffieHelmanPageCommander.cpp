@@ -54,9 +54,7 @@ void DiffieHellmanPageCommander::setOnStartCallback(std::function<void()> cb) {
     onStart = std::move(cb);
 }
 
-
 void DiffieHellmanPageCommander::startProcess() {
-    //TODO: understand where Soldier soldier comes from..?
     setStatusText("starting process...");
 
     setStatusText("Initializing crypto...");
@@ -66,27 +64,68 @@ void DiffieHellmanPageCommander::startProcess() {
     }
 
     setStatusText("Starting DH handler...");
-    //add frequency
     dhHandler = new CommanderECDHHandler(868, commander, certmodule);
     dhHandler->begin();
-    dhHandler->startECDHExchange(1);
-    
+
+    // Extract soldiers to a vector
+    const auto& soldierMap = commander->getSoldiers();
+    if (soldierMap.empty()) {
+        setStatusText("❌ No soldiers to process");
+        return;
+    }
+
+    soldierVector.clear();
+    for (const auto& pair : soldierMap) {
+        soldierVector.push_back(pair.second);
+    }
+
+    currentSoldierIndex = 0;
+    startExchangeWithNextSoldier();
     commanderProcessStarted = true;
-    setStatusText("Waiting for soldier...");
 }
 
+
+
+
+
+void DiffieHellmanPageCommander::startExchangeWithNextSoldier() {
+    if (currentSoldierIndex >= soldierVector.size()) {
+        setStatusText("✅ All exchanges complete");
+        commanderProcessStarted = false;
+        return;
+    }
+
+    const SoldierInfo& soldier = soldierVector[currentSoldierIndex];
+    int soldierId = soldier.soldierNumber;
+
+    setStatusText(("Starting exchange with Soldier #" + String(soldierId)).c_str());
+
+    if (!dhHandler->startECDHExchange(soldierId)) {
+        setStatusText("❌ Failed to start exchange");
+        commanderProcessStarted = false;
+        return;
+    }
+
+    exchangeInProgress = true;
+}
+
+
 void DiffieHellmanPageCommander::poll() {
-    if (!commanderProcessStarted || !commander) return;
+    if (!commanderProcessStarted || !commander || !exchangeInProgress) return;
 
     dhHandler->poll();
+
     if (dhHandler->isExchangeComplete()) {
-        // Build hex string of shared secret
-        setStatusText("extracting shared secret..");
+        setStatusText("extracting shared secret...");
         auto shared = dhHandler->getSharedSecret();
         String b64 = certModule::toBase64(shared);
         Serial.print("Shared secret (Base64): ");
         Serial.println(b64);
 
-        commanderProcessStarted = false;
+        exchangeInProgress = false;
+        currentSoldierIndex++;  // move to next
+
+        delay(500);  // Optional pause before next
+        startExchangeWithNextSoldier();
     }
 }
