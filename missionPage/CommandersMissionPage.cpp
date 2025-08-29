@@ -12,6 +12,7 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         this->commanderModule = std::move(commanderModule);
 
         this->commanderSwitchEvent = commanderChange;
+        this->initialCoordsReceived = false;
 
         Serial.printf("🔍 Checking modules for %d:\n", this->commanderModule->getCommanderNumber());
         Serial.printf("📡 loraModule: %s\n", this->loraModule ? "✅ OK" : "❌ NULL");
@@ -237,7 +238,7 @@ void CommandersMissionPage::createPage() {
     Serial.println("this->missingSoldierTimer");
     this->missingSoldierTimer = lv_timer_create([](lv_timer_t* t){
         auto *self = static_cast<CommandersMissionPage*>(t->user_data);
-        if(self->commanderSwitchEvent)
+        if(self->commanderSwitchEvent || !self->initialCoordsReceived)
         {
             return;
         }
@@ -386,6 +387,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     if(this->markers.empty())
     {
         showMiddleTile();
+        this->initialCoordsReceived = true;
     }
 
     auto [centerLat, centerLon] = tileCenterLatLon(this->tileZoom, this->tileX, this->tileY);

@@ -62,6 +62,8 @@ private:
 
     bool commanderSwitchEvent;
 
+    bool initialCoordsReceived;
+
     volatile bool pmuFlag;
 
     uint8_t shamirPartsCollected;
