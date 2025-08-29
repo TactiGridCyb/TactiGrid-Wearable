@@ -189,13 +189,16 @@ void CommandersMissionPage::createPage() {
             auto *me = static_cast<CommandersMissionPage*>(user_data);
 
             me->loraModule->handleCompletedOperation();
+
+            me->loraModule->syncFrequency(me->fhfModule.get());
+            
             if (!me->loraModule->isBusy()) 
             {
                 me->loraModule->readData();
             }
 
 
-            me->loraModule->syncFrequency(me->fhfModule.get());
+            
 
             if (me->pmuFlag) {
                 me->pmuFlag = false;
