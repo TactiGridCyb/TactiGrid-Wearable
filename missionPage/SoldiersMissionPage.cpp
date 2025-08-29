@@ -283,7 +283,6 @@ void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRat
   Serial.println("sendCoordinate");
   
   this->loraModule->switchToTransmitterMode();
-
   SoldiersSentData coord;
   coord.posLat = lat;
   coord.posLon = lon;
@@ -311,11 +310,26 @@ void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRat
   String msg;
   for (auto b : ct.nonce) appendHex(msg, b);
   msg += "|";
-  for (auto b : ct.data)  appendHex(msg, b);
+  for (auto b : ct.data) appendHex(msg, b);
   msg += "|";
-  for (auto b : ct.tag)   appendHex(msg, b);
+  for (auto b : ct.tag) appendHex(msg, b);
 
-  int16_t transmissionState = loraModule->sendData(msg.c_str());
+  int16_t transmissionState = -1;
+
+  for(int i = 0; i < 5; ++i)
+  {
+    delay(random(0, 15));
+    if(loraModule->canTransmit())
+    {
+        transmissionState = loraModule->sendData(msg.c_str());
+        break;
+    }
+  }
+
+  if(transmissionState == -1)
+  {
+    return;
+  }
 
   struct tm timeInfo;
   char timeStr[9];
