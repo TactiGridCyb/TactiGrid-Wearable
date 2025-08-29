@@ -628,7 +628,7 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
 
     Serial.println("IMPORTANT INFO");
     std::string info("IMPORTANT INFO");
-    crypto::ByteVec salt(16);
+    crypto::ByteVec salt(32);
     randombytes_buf(salt.data(), salt.size());
     const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), millis(), info, salt, this->commanderModule->getCommanders().size());
     Serial.println("newGMK");
