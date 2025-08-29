@@ -14,6 +14,8 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         this->commanderSwitchEvent = commanderChange;
         this->initialCoordsReceived = false;
 
+        this->tileImg = nullptr;
+
         Serial.printf("🔍 Checking modules for %d:\n", this->commanderModule->getCommanderNumber());
         Serial.printf("📡 loraModule: %s\n", this->loraModule ? "✅ OK" : "❌ NULL");
         Serial.printf("🌐 wifiModule: %s\n", this->wifiModule ? "✅ OK" : "❌ NULL");
@@ -464,11 +466,11 @@ void CommandersMissionPage::showMiddleTile()
 {
     Serial.println("showMiddleTile");
 
-    lv_obj_t* img1 = lv_img_create(lv_scr_act());
-    lv_obj_center(img1);
+    this->tileImg = lv_img_create(lv_scr_act());
+    lv_obj_center(this->tileImg);
 
-    lv_img_set_src(img1, "A:/middleTile.png");
-    lv_obj_align(img1, LV_ALIGN_CENTER, 0, 0);
+    lv_img_set_src(this->tileImg, "A:/middleTile.png");
+    lv_obj_align(this->tileImg, LV_ALIGN_CENTER, 0, 0);
 
     Serial.println("Showing middle tile");
 }
@@ -599,25 +601,29 @@ String CommandersMissionPage::getCurrentTimeStamp()
     return timeStr;
 }
 
-std::tuple<int,int> CommandersMissionPage::latlon_to_pixel(double lat, double lon, double centerLat, double centerLon, int zoom)
-{
-    static constexpr double TILE_SIZE = 256.0;
+std::tuple<int,int> CommandersMissionPage::latlon_to_pixel(double lat, double lon,
+                                                           double centerLat, double centerLon,
+                                                           int zoom) {
+    int imgX = lv_obj_get_x(this->tileImg);
+    int imgY = lv_obj_get_y(this->tileImg);
+    int imgW = lv_obj_get_width(this->tileImg);
+    int imgH = lv_obj_get_height(this->tileImg);
 
     auto toGlobal = [&](double la, double lo) {
         double rad = la * M_PI / 180.0;
         double n   = std::pow(2.0, zoom);
-        int xg = (int) std::floor((lo + 180.0) / 360.0 * n * TILE_SIZE);
-        int yg = (int) std::floor((1.0 - std::log(std::tan(rad) + 1.0 / std::cos(rad)) / M_PI) / 2.0 * n * TILE_SIZE);
+        int xg = (int) std::floor((lo + 180.0) / 360.0 * n * 256.0);
+        int yg = (int) std::floor((1.0 - std::log(std::tan(rad) + 1.0 / std::cos(rad)) / M_PI) / 2.0 * n * 256.0);
         return std::make_pair(xg, yg);
     };
 
     auto [markerX, markerY] = toGlobal(lat, lon);
     auto [centerX, centerY] = toGlobal(centerLat, centerLon);
 
-    int localX = markerX - centerX + (LV_HOR_RES_MAX / 2);
-    int localY = markerY - centerY + (LV_VER_RES_MAX / 2);
+    int localX = (markerX - centerX) + (imgX + imgW / 2);
+    int localY = (markerY - centerY) + (imgY + imgH / 2);
 
-    return std::make_tuple(localX, localY);
+    return {localX, localY};
 }
 
 void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t soldiersIDMoveToComp)
