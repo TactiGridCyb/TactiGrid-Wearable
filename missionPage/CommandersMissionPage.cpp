@@ -276,6 +276,9 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         incoming += (char)data[i];
     }
     Serial.println("onDataReceived");
+
+    Serial.printf("-------------------%d % \n------------------------", watch.getBatteryPercent());
+
     int p1 = incoming.indexOf('|');
     int p2 = incoming.indexOf('|', p1 + 1);
     if (p1 < 0 || p2 < 0) {                      

@@ -70,6 +70,8 @@ public:
 private:
     bool tryStartOp(Op desired);
 
+    int64_t lastHopSlot = -1;
+
     void notifyOpFinished();
 
     void printCurrentOP();

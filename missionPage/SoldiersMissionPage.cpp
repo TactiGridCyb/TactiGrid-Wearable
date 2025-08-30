@@ -103,6 +103,8 @@ void SoldiersMissionPage::createPage()
         auto *self = static_cast<SoldiersMissionPage*>(t->user_data);
         self->loraModule->handleCompletedOperation();
 
+        self->loraModule->syncFrequency(self->fhfModule.get());
+
         if(self->finishTimer)
         {
             return;
@@ -112,7 +114,7 @@ void SoldiersMissionPage::createPage()
             self->loraModule->readData();
         }
 
-        self->loraModule->syncFrequency(self->fhfModule.get());
+        
 
         self->gpsModule->updateCoords();
     }, 100, this);
@@ -280,14 +282,17 @@ void SoldiersMissionPage::onGMKSwitchEvent(SwitchGMK payload)
 }
 
 void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRate, uint16_t soldiersID) {
-  Serial.println("sendCoordinate");
-  
-  this->loraModule->switchToTransmitterMode();
-  SoldiersSentData coord;
-  coord.posLat = lat;
-  coord.posLon = lon;
-  coord.heartRate = heartRate;
-  coord.soldiersID = soldiersID;
+    Serial.println("sendCoordinate");
+    
+    Serial.printf("----------------------\nCurrent percentage: %d%\n-----------------------------", watch.getBatteryPercent());
+
+
+    this->loraModule->switchToTransmitterMode();
+    SoldiersSentData coord;
+    coord.posLat = lat;
+    coord.posLon = lon;
+    coord.heartRate = heartRate;
+    coord.soldiersID = soldiersID;
 
   Serial.printf("BEFORE SENDING: %.7f %.7f %.7f %.7f %d\n",coord.tileLat, coord.tileLon, coord.posLat, coord.posLon, coord.heartRate);
   auto [tileLat, tileLon] = getTileCenterLatLon(coord.posLat, coord.posLon, 19, 256);
