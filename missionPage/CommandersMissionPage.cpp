@@ -290,8 +290,12 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
     crypto::ByteVec pt;
 
+    uint32_t start_us, end_us;
+
     try {
+        start_us = micros();
         pt = crypto::CryptoModule::decrypt(this->commanderModule->getGMK(), ct);
+        end_us = micros();
     } catch (const std::exception& e)
     {
         Serial.printf("Decryption failed: %s\n", e.what());
@@ -306,6 +310,12 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         }
         
     }
+
+    uint32_t duration = end_us - start_us;
+
+    Serial.printf(
+        "DECRYPT timing duration: %lu us\n", duration 
+    );
 
     SoldiersSentData* newG = reinterpret_cast<SoldiersSentData*>(pt.data());
     String plainStr;

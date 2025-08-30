@@ -114,6 +114,7 @@ int16_t LoraModule::setup(bool transmissionMode_)
 
 int16_t LoraModule::sendData(const char* data, bool interrupt)
 {
+  
   Serial.println("sendData");
   if (!tryStartOp(Op::Transmit)) 
   {
@@ -122,7 +123,7 @@ int16_t LoraModule::sendData(const char* data, bool interrupt)
 
 
   Serial.println("moved in sendData");
-
+  Serial.printf("Sending data in %lu\n", micros());
   int16_t status = interrupt
       ? loraDevice.startTransmit(data)
       : loraDevice.transmit(data);
@@ -418,6 +419,7 @@ void LoraModule::handleCompletedOperation()
     uint8_t buf[512];
     size_t len = sizeof(buf);
     if (loraDevice.readData(buf, len) == RADIOLIB_ERR_NONE) {
+      Serial.printf("Received data in %lu\n", micros());
       size_t pktLen = loraDevice.getPacketLength();
       if(pktLen > 0)
       {

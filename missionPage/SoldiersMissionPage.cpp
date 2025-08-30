@@ -280,71 +280,83 @@ void SoldiersMissionPage::onGMKSwitchEvent(SwitchGMK payload)
 }
 
 void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRate, uint16_t soldiersID) {
-  Serial.println("sendCoordinate");
-  
-  this->loraModule->switchToTransmitterMode();
-  SoldiersSentData coord;
-  coord.posLat = lat;
-  coord.posLon = lon;
-  coord.heartRate = heartRate;
-  coord.soldiersID = soldiersID;
+    Serial.println("sendCoordinate");
+    
+    this->loraModule->switchToTransmitterMode();
+    SoldiersSentData coord;
+    coord.posLat = lat;
+    coord.posLon = lon;
+    coord.heartRate = heartRate;
+    coord.soldiersID = soldiersID;
 
-  Serial.printf("BEFORE SENDING: %.7f %.7f %.7f %.7f %d\n",coord.tileLat, coord.tileLon, coord.posLat, coord.posLon, coord.heartRate);
-  auto [tileLat, tileLon] = getTileCenterLatLon(coord.posLat, coord.posLon, 19, 256);
+    Serial.printf("BEFORE SENDING: %.7f %.7f %.7f %.7f %d\n",coord.tileLat, coord.tileLon, coord.posLat, coord.posLon, coord.heartRate);
+    auto [tileLat, tileLon] = getTileCenterLatLon(coord.posLat, coord.posLon, 19, 256);
 
-  coord.tileLat = tileLat;
-  coord.tileLon = tileLon;
-  Serial.printf("SENDING: %.7f %.7f %.7f %.7f %d\n",coord.tileLat, coord.tileLon, coord.posLat, coord.posLon, coord.heartRate);
-  
-  crypto::ByteVec payload;
-  payload.resize(sizeof(SoldiersSentData));
-  std::memcpy(payload.data(), &coord, sizeof(SoldiersSentData));
-  
-  crypto::Ciphertext ct = crypto::CryptoModule::encrypt(this->soldierModule->getGMK(), payload);
+    coord.tileLat = tileLat;
+    coord.tileLon = tileLon;
+    Serial.printf("SENDING: %.7f %.7f %.7f %.7f %d\n",coord.tileLat, coord.tileLon, coord.posLat, coord.posLon, coord.heartRate);
+    
+    crypto::ByteVec payload;
+    payload.resize(sizeof(SoldiersSentData));
+    std::memcpy(payload.data(), &coord, sizeof(SoldiersSentData));
 
-  auto appendHex = [](String& s, uint8_t b) {
-    if (b < 0x10) s += "0";
-    s += String(b, HEX);
-  };
+    crypto::Ciphertext ct;
 
-  String msg;
-  for (auto b : ct.nonce) appendHex(msg, b);
-  msg += "|";
-  for (auto b : ct.data) appendHex(msg, b);
-  msg += "|";
-  for (auto b : ct.tag) appendHex(msg, b);
+    uint32_t start_us = micros();
 
-  int16_t transmissionState = -1;
+    ct = crypto::CryptoModule::encrypt(this->soldierModule->getGMK(), payload);
+    uint32_t end_us = micros();
 
-  for(int i = 0; i < 5; ++i)
-  {
-    delay(random(0, 15));
-    if(loraModule->canTransmit())
+    uint32_t duration = end_us - start_us;
+
+    Serial.printf(
+        "ENCRYPT timing duration: %lu us\n", duration 
+    );
+
+
+    auto appendHex = [](String& s, uint8_t b) {
+        if (b < 0x10) s += "0";
+        s += String(b, HEX);
+    };
+
+    String msg;
+    for (auto b : ct.nonce) appendHex(msg, b);
+    msg += "|";
+    for (auto b : ct.data) appendHex(msg, b);
+    msg += "|";
+    for (auto b : ct.tag) appendHex(msg, b);
+
+    int16_t transmissionState = -1;
+
+    for(int i = 0; i < 5; ++i)
     {
-        transmissionState = loraModule->sendData(msg.c_str());
-        break;
+        delay(random(0, 15));
+        if(loraModule->canTransmit())
+        {
+            transmissionState = loraModule->sendData(msg.c_str());
+            break;
+        }
     }
-  }
 
-  if(transmissionState == -1)
-  {
-    return;
-  }
+    if(transmissionState == -1)
+    {
+        return;
+    }
 
-  struct tm timeInfo;
-  char timeStr[9];
+    struct tm timeInfo;
+    char timeStr[9];
 
-  if(getLocalTime(&timeInfo)) {
-      strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeInfo);
-  } else {
-      strcpy(timeStr, "00:00:00");
-  }
+    if(getLocalTime(&timeInfo)) {
+        strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeInfo);
+    } else {
+        strcpy(timeStr, "00:00:00");
+    }
 
-  lv_label_set_text_fmt(sendLabel, "%s - sent coords {%.5f, %.5f}\n with freq %.2f\n", 
-                        timeStr,
-                        lat, 
-                        lon,
-                        this->loraModule->getCurrentFreq());
+    lv_label_set_text_fmt(sendLabel, "%s - sent coords {%.5f, %.5f}\n with freq %.2f\n", 
+                            timeStr,
+                            lat, 
+                            lon,
+                            this->loraModule->getCurrentFreq());
 }
 
 void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
