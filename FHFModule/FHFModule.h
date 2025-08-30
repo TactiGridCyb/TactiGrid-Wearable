@@ -14,11 +14,12 @@ public:
 
     float currentFrequency() const;
 
+    int64_t currentHopSlot() const;
+
 private:
     std::vector<float> frequencies;
     uint16_t hopInterval;
 
     static constexpr time_t EPOCH_START = 1747785600;
 
-    int64_t currentHopSlot() const;
 };

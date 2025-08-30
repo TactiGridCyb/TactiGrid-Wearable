@@ -18,6 +18,7 @@ FHFModule::FHFModule(const std::vector<float>& freqs, uint16_t hopIntervalSecond
     Serial.printf("[FHFModule] Epoch now: %lld | EPOCH_START: %lld | Δ: %llds\n",
                   static_cast<int64_t>(now), static_cast<int64_t>(EPOCH_START),
                   static_cast<int64_t>(now) - static_cast<int64_t>(EPOCH_START));
+
 }
 
 int64_t FHFModule::currentHopSlot() const
