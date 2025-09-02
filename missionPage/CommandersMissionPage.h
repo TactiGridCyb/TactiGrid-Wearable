@@ -37,7 +37,7 @@ public:
     void create_fading_circle(double markerLat, double markerLon, double centerLat, double centerLon, uint16_t soldiersID, int zoom,
      lv_color_t* ballColor, lv_obj_t*& marker, lv_obj_t*& label);
     
-    static std::tuple<int,int> latlon_to_pixel(double lat, double lon, double centerLat, double centerLon, int zoom);
+    std::tuple<int,int> latlon_to_pixel(double lat, double lon, double centerLat, double centerLon, int zoom);
 
 
     void setTransferFunction(std::function<void(std::shared_ptr<LoraModule>, std::unique_ptr<WifiModule>,
@@ -58,12 +58,22 @@ private:
     std::vector<String> shamirPaths;
     std::vector<uint8_t> didntSendShamir;
 
+    lv_obj_t* tileImg;
+
     bool fakeGPS;
 
     bool commanderSwitchEvent;
 
+    bool initialCoordsReceived;
+
+    volatile bool pmuFlag;
+
     uint8_t shamirPartsCollected;
     uint8_t currentShamirRec;
+
+    uint8_t tileZoom;
+    int tileX;
+    int tileY;
     
     lv_obj_t* infoBox;
 
@@ -72,6 +82,7 @@ private:
     lv_timer_t* missingSoldierTimer;
     lv_timer_t* regularLoopTimer;
     lv_timer_t* shamirTimeoutTimer;
+    lv_timer_t* selfLogTimer;
 
     std::unordered_map<uint16_t, lv_color_t> ballColors;
     std::unordered_map<uint16_t, lv_obj_t*> labels;

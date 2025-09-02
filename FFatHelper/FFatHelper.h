@@ -3,6 +3,15 @@
 
 #include <FFat.h>
 #include <ArduinoJson.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+
+
+#define LOCK_FFAT() \
+    if (FFatHelper::fileMutex) xSemaphoreTake(FFatHelper::fileMutex, portMAX_DELAY)
+
+#define UNLOCK_FFAT() \
+    if (FFatHelper::fileMutex) xSemaphoreGive(FFatHelper::fileMutex)
 
 class FFatHelper
 {
@@ -18,5 +27,11 @@ class FFatHelper
     static void removeFilesStartingWith(const char* prefix);
     static bool initializeLogFile(const char* path, float intervalMS, String missionID);
     static bool appendJSONEvent(const char* filePath, JsonDocument& event);
+
+    static void begin();
+
+    private:
+    static SemaphoreHandle_t fileMutex;
+    static bool isInitialized;
 
 };

@@ -1,15 +1,30 @@
 #include "FFatHelper.h"
 
-bool FFatHelper::saveFile(const uint8_t* data, size_t len, const char* filePath)
+SemaphoreHandle_t FFatHelper::fileMutex = nullptr;
+bool FFatHelper::isInitialized = false;
+
+void FFatHelper::begin()
 {
+    if (!FFatHelper::isInitialized) 
+    {
+        FFatHelper::fileMutex = xSemaphoreCreateMutex();
+        FFatHelper::isInitialized = true;
+    }
+}
+
+bool FFatHelper::saveFile(const uint8_t* data, size_t len, const char* filePath)
+{   
+    LOCK_FFAT();
     File file = FFat.open(filePath, FILE_WRITE);
     
     if (!file) {
+        UNLOCK_FFAT();
         return false;
     }
     
     file.write(data, len);
     file.close();
+    UNLOCK_FFAT();
 
     return true;
 }
@@ -31,18 +46,23 @@ bool FFatHelper::deleteFile(const char* filePath)
 
 bool FFatHelper::writeToFile(const char* filePath, const char* content)
 {
+    LOCK_FFAT();
     File file = FFat.open(filePath, FILE_APPEND);
 
-    if (!file) {
+    if (!file) 
+    {
         Serial.println("Failed to open file for writing!");
+        UNLOCK_FFAT();
         return false;
-    } else {
-        Serial.println("File existing");
-        file.println(content);
-        Serial.println("Closing file");
-        file.close();
-        return true;
     }
+
+    Serial.println("File existing");
+    file.println(content);
+    Serial.println("Closing file");
+    file.close();
+    UNLOCK_FFAT();
+    return true;
+
 }
 
 bool FFatHelper::isFileExisting(const char* filePath)
@@ -59,10 +79,11 @@ bool FFatHelper::appendRegularJsonObjectToFile(const char* filePath, JsonDocumen
         return false;
     }
     
-
+    LOCK_FFAT();
     File file = FFat.open(filePath, "r+");
     if (!file) 
     {
+        UNLOCK_FFAT();
         Serial.println("Failed to open existing JSON file for append!");
         return false;
     }
@@ -72,12 +93,14 @@ bool FFatHelper::appendRegularJsonObjectToFile(const char* filePath, JsonDocumen
     {
         Serial.println("JSON file is unexpectedly small—refusing to append.");
         file.close();
+        UNLOCK_FFAT();
         return false;
     }
     else if (fileSize > 16384) 
     {
         Serial.println("File too large to handle in memory.");
         file.close();
+        UNLOCK_FFAT();
         return false;
     }
 
@@ -91,6 +114,7 @@ bool FFatHelper::appendRegularJsonObjectToFile(const char* filePath, JsonDocumen
     if (error) 
     {
         Serial.println("Failed to parse existing JSON file.");
+        UNLOCK_FFAT();
         return false;
     }
 
@@ -98,6 +122,7 @@ bool FFatHelper::appendRegularJsonObjectToFile(const char* filePath, JsonDocumen
     if (!dataArray) 
     {
         Serial.println("Data array not found.");
+        UNLOCK_FFAT();
         return false;
     }
 
@@ -107,12 +132,14 @@ bool FFatHelper::appendRegularJsonObjectToFile(const char* filePath, JsonDocumen
     if (!file) 
     {
         Serial.println("Failed to reopen file for writing.");
+        UNLOCK_FFAT();
         return false;
     }
 
     serializeJson(fullDoc, file);
 
     file.close();
+    UNLOCK_FFAT();
     return true;
 }
 
@@ -124,10 +151,12 @@ bool FFatHelper::appendJSONEvent(const char* filePath, JsonDocument& event)
         return false;
     }
 
+    LOCK_FFAT();
     File file = FFat.open(filePath, FILE_READ);
     if (!file) 
     {
         Serial.println("Failed to open log file.");
+        UNLOCK_FFAT();
         return false;
     }
 
@@ -136,6 +165,7 @@ bool FFatHelper::appendJSONEvent(const char* filePath, JsonDocument& event)
     {
         Serial.println("File too large to parse safely.");
         file.close();
+        UNLOCK_FFAT();
         return false;
     }
 
@@ -149,12 +179,14 @@ bool FFatHelper::appendJSONEvent(const char* filePath, JsonDocument& event)
     if (err) 
     {
         Serial.println("Failed to parse JSON log file.");
+        UNLOCK_FFAT();
         return false;
     }
 
     JsonArray events = doc["Events"].as<JsonArray>();
     if (!events) {
         Serial.println("Missing 'Events' array.");
+        UNLOCK_FFAT();
         return false;
     }
 
@@ -164,6 +196,7 @@ bool FFatHelper::appendJSONEvent(const char* filePath, JsonDocument& event)
     if (!file) 
     {
         Serial.println("Failed to open file for writing.");
+        UNLOCK_FFAT();
         return false;
     }
 
@@ -171,6 +204,7 @@ bool FFatHelper::appendJSONEvent(const char* filePath, JsonDocument& event)
     file.close();
 
     Serial.println("Event successfully appended.");
+    UNLOCK_FFAT();
     return true;
 }
 
@@ -271,11 +305,13 @@ bool FFatHelper::initializeLogFile(const char* path, float intervalMS, String mi
         Serial.println("Log file already exists. Skipping initialization.");
         return false;
     }
+    LOCK_FFAT();
     Serial.println("OPENING FILE");
     File file = FFat.open(path, FILE_WRITE);
     if (!file) 
     {
         Serial.println("Failed to create log file.");
+        UNLOCK_FFAT();
         return false;
     }
 
@@ -290,6 +326,7 @@ bool FFatHelper::initializeLogFile(const char* path, float intervalMS, String mi
     serializeJson(doc, file);
 
     file.close();
+    UNLOCK_FFAT();
 
     return true;
 }

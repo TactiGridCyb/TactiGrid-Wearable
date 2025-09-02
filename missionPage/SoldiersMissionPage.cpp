@@ -40,6 +40,10 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
 
     this->coordCount = 5;
 
+    this->tileX = -1;
+    this->tileY = -1;
+    this->tileZoom = 0;
+
     this->finishTimer = false;
 
     if(this->commanderSwitchEvent)
@@ -88,16 +92,18 @@ void SoldiersMissionPage::createPage()
 
     if(this->fakeGPS)
     {
-        this->sendTimer = lv_timer_create(SoldiersMissionPage::sendTimerCallback, 7000, this);
+        this->sendTimer = lv_timer_create(SoldiersMissionPage::sendTimerCallback, 10000, this);
     }
     else
     {
-
+        this->sendRealGPSTimer = lv_timer_create(SoldiersMissionPage::sendRealGPSTimerCallback, 10000, this);
     }
 
     this->mainLoopTimer = lv_timer_create([](lv_timer_t* t){
         auto *self = static_cast<SoldiersMissionPage*>(t->user_data);
         self->loraModule->handleCompletedOperation();
+
+        self->loraModule->syncFrequency(self->fhfModule.get());
 
         if(self->finishTimer)
         {
@@ -108,7 +114,9 @@ void SoldiersMissionPage::createPage()
             self->loraModule->readData();
         }
 
-        self->loraModule->syncFrequency(self->fhfModule.get());
+        
+
+        self->gpsModule->updateCoords();
     }, 100, this);
     
 }
@@ -274,15 +282,17 @@ void SoldiersMissionPage::onGMKSwitchEvent(SwitchGMK payload)
 }
 
 void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRate, uint16_t soldiersID) {
-  Serial.println("sendCoordinate");
-  
-  this->loraModule->switchToTransmitterMode();
+    Serial.println("sendCoordinate");
+    
+    Serial.printf("----------------------\nCurrent percentage: %d%\n-----------------------------", watch.getBatteryPercent());
 
-  SoldiersSentData coord;
-  coord.posLat = lat;
-  coord.posLon = lon;
-  coord.heartRate = heartRate;
-  coord.soldiersID = soldiersID;
+
+    this->loraModule->switchToTransmitterMode();
+    SoldiersSentData coord;
+    coord.posLat = lat;
+    coord.posLon = lon;
+    coord.heartRate = heartRate;
+    coord.soldiersID = soldiersID;
 
   Serial.printf("BEFORE SENDING: %.7f %.7f %.7f %.7f %d\n",coord.tileLat, coord.tileLon, coord.posLat, coord.posLon, coord.heartRate);
   auto [tileLat, tileLon] = getTileCenterLatLon(coord.posLat, coord.posLon, 19, 256);
@@ -305,11 +315,26 @@ void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRat
   String msg;
   for (auto b : ct.nonce) appendHex(msg, b);
   msg += "|";
-  for (auto b : ct.data)  appendHex(msg, b);
+  for (auto b : ct.data) appendHex(msg, b);
   msg += "|";
-  for (auto b : ct.tag)   appendHex(msg, b);
+  for (auto b : ct.tag) appendHex(msg, b);
 
-  int16_t transmissionState = loraModule->sendData(msg.c_str());
+  int16_t transmissionState = -1;
+
+  for(int i = 0; i < 5; ++i)
+  {
+    delay(random(0, 15));
+    if(loraModule->canTransmit())
+    {
+        transmissionState = loraModule->sendData(msg.c_str());
+        break;
+    }
+  }
+
+  if(transmissionState == -1)
+  {
+    return;
+  }
 
   struct tm timeInfo;
   char timeStr[9];
@@ -320,10 +345,11 @@ void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRat
       strcpy(timeStr, "00:00:00");
   }
 
-  lv_label_set_text_fmt(sendLabel, "%s - sent coords {%.5f, %.5f}\n", 
+  lv_label_set_text_fmt(sendLabel, "%s - sent coords {%.5f, %.5f}\n with freq %.2f\n", 
                         timeStr,
                         lat, 
-                        lon);
+                        lon,
+                        this->loraModule->getCurrentFreq());
 }
 
 void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
@@ -359,6 +385,22 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
             self->delaySendFakeGPS = false;
         }
 
+        if(self->tileZoom == 0)
+        {
+            std::pair<float, float> tileLatLon = getTileCenterLatLon(self->coords[0].posLat,
+                 self->coords[0].posLon, 19, 256);
+
+            std::tuple<int,int,int> tileLocation = SoldiersMissionPage::positionToTile(std::get<0>(tileLatLon),
+             std::get<1>(tileLatLon), 19);
+            
+            self->tileZoom = std::get<0>(tileLocation);
+            self->tileX = std::get<1>(tileLocation);
+            self->tileY = std::get<2>(tileLocation);
+            
+            Serial.printf("First time setting coords! %d %d %d\n", self->tileX, self->tileY, self->tileZoom);
+            
+        }
+
         struct tm timeInfo;
         char timeStr[9];
         Serial.println("timeStr");
@@ -372,11 +414,11 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
         Serial.println("getLocalTime");
 
         float currentLat, currentLon;
-        uint8_t currentHeartRate = SoldiersMissionPage::generateHeartRate();
+        uint8_t currentHeartRate = LVGLPage::generateHeartRate();
         uint8_t ID = self->soldierModule->getSoldierNumber();
 
-        SoldiersMissionPage::generateNearbyCoordinates(self->coords[0].posLat, self->coords[0].posLon,
-             20, currentLat, currentLon);
+        LVGLPage::generateNearbyCoordinatesFromTile(self->tileX, self->tileY,
+             self->tileZoom, currentLat, currentLon);
 
             
 
@@ -386,15 +428,44 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
         
         lv_label_set_text_fmt(self->sendLabel, "%s%s - sent coords {%.5f, %.5f}\n", 
                             current_text, timeStr, 
-                            self->coords[self->currentIndex % self->coordCount].posLat, 
-                            self->coords[self->currentIndex % self->coordCount].posLon);
+                            currentLat, 
+                            currentLon);
         
         Serial.println("Finished sendTimerCallback");                    
         self->currentIndex++;
     } else {
+        self->finishTimer = true;
+        lv_timer_del(self->mainLoopTimer);
         lv_timer_del(timer);
-        self->currentIndex = 0;
     }
+}
+
+void SoldiersMissionPage::sendRealGPSTimerCallback(lv_timer_t *timer)
+{
+    auto* self = static_cast<SoldiersMissionPage*>(timer->user_data);
+
+    if(self->commanderSwitchEvent)
+    {
+        return;
+    }
+
+    for(int i = 0; i < 5; ++i)
+    {
+        if(self->loraModule->cancelReceive())
+        {
+            break;
+        }
+        delay(1);
+    }
+
+    if(!self->loraModule->cancelReceive())
+    {
+        return;
+    }
+
+    Serial.println("sendRealGPSTimerCallback");
+
+    self->parseGPSData();
 }
 
 void SoldiersMissionPage::setTransferFunction(std::function<void(std::shared_ptr<LoraModule>, std::shared_ptr<GPSModule>,
@@ -432,7 +503,7 @@ void SoldiersMissionPage::parseGPSData()
     float lon = this->gpsModule->getLon();
 
     if (!isZero(lat) && !isZero(lon)) {
-        sendCoordinate(lat, lon, 100, 1);
+        sendCoordinate(lat, lon, LVGLPage::generateHeartRate(), this->soldierModule->getSoldierNumber());
     }
     else
     {
@@ -453,8 +524,8 @@ void SoldiersMissionPage::parseGPSData()
         uint8_t  second = gpsTime.isValid() ? gpsTime.second() : 0;
         double  meters = gpsAltitude.isValid() ? gpsAltitude.meters() : 0;
         double  kmph = gpsSpeed.isValid() ? gpsSpeed.kmph() : 0;
-        lv_label_set_text_fmt(this->sendLabel, "Sats:%u\nHDOP:%.1f\nLat:%.5f\nLon:%.5f\nDate:%d/%d/%d \nTime:%d/%d/%d\nAlt:%.2f m \nSpeed:%.2f",
-                            satellites, hdop, lat, lon, year, month, day, hour, minute, second, meters, kmph);
+        lv_label_set_text_fmt(this->sendLabel, "Sats:%u\nHDOP:%.1f\nLat:%.5f\nLon:%.5f\nDate:%d/%d/%d \nTime:%d/%d/%d\nAlt:%.2f m \nSpeed:%.2f\n Freq:%.2f",
+                            satellites, hdop, lat, lon, year, month, day, hour, minute, second, meters, kmph, this->loraModule->getCurrentFreq());
     }
 }
 
@@ -493,6 +564,11 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
     {
         this->currentIndex = 100;
         lv_timer_del(this->sendTimer);
+    }
+
+    if(this->sendRealGPSTimer)
+    {
+        lv_timer_del(this->sendRealGPSTimer);
     }
 
     std::unique_ptr<Commander> command = std::make_unique<Commander>(this->soldierModule->getName(),
@@ -629,20 +705,13 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
 }
 
 
-void SoldiersMissionPage::generateNearbyCoordinates(float centerLat, float centerLon, float radiusMeters,
-                               float& outLat, float& outLon) {
-
-    float distance = static_cast<float>(rand()) / RAND_MAX * radiusMeters;
-    float angle = static_cast<float>(rand()) / RAND_MAX * 2.0f * M_PI;
-
-    float deltaLat = distance * std::cos(angle) / SoldiersMissionPage::ONE_DEG_LAT_IN_METERS;
-    float deltaLon = distance * std::sin(angle) /
-                     (SoldiersMissionPage::ONE_DEG_LAT_IN_METERS * std::cos(centerLat * M_PI / 180.0f));
-
-    outLat = centerLat + deltaLat;
-    outLon = centerLon + deltaLon;
-}
-
-uint8_t SoldiersMissionPage::generateHeartRate() {
-    return rand() % 101 + 50;
+std::tuple<int, int, int> SoldiersMissionPage::positionToTile(float lat, float lon, int zoom)
+{
+    float lat_rad = radians(lat);
+    float n = pow(2.0, zoom);
+    
+    int x_tile = floor((lon + 180.0) / 360.0 * n);
+    int y_tile = floor((1.0 - log(tan(lat_rad) + 1.0 / cos(lat_rad)) / PI) / 2.0 * n);
+    
+    return std::make_tuple(zoom, x_tile, y_tile);
 }

@@ -42,7 +42,7 @@ public:
     int16_t sendData(const char* data, bool interrupt = false);
     int16_t readData();
     int16_t sendFile(const uint8_t* data, size_t length, size_t chunkSize = 200);
-    int16_t setFrequency(float newFreq);
+    float setFrequency(float newFreq);
 
     void switchToTransmitterMode();
     void switchToReceiverMode();
@@ -65,8 +65,12 @@ public:
 
     void setupD1O();
 
+    float getCurrentFreq() const;
+
 private:
     bool tryStartOp(Op desired);
+
+    int64_t lastHopSlot = -1;
 
     void notifyOpFinished();
 

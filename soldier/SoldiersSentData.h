@@ -15,7 +15,7 @@ inline lv_color_t getColorFromHeartRate(uint16_t hr) {
     if (hr <= 0) return lv_color_black();
 
     const int min_hr = 40;
-    const int max_hr = 140;
+    const int max_hr = 170;
 
     if (hr < min_hr)
     {

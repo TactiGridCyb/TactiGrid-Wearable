@@ -22,6 +22,10 @@ class SoldiersMissionPage : public LVGLPage
     std::unique_ptr<FHFModule> fhfModule;
     std::unique_ptr<Soldier> soldierModule;
 
+    int tileX;
+    int tileY;
+    uint8_t tileZoom;
+
     lv_obj_t* mainPage;
     lv_obj_t* sendLabel;
 
@@ -30,6 +34,7 @@ class SoldiersMissionPage : public LVGLPage
 
     lv_timer_t* sendTimer;
     lv_timer_t* mainLoopTimer;
+    lv_timer_t* sendRealGPSTimer;
 
     std::function<void(std::shared_ptr<LoraModule>, std::shared_ptr<GPSModule>, 
         std::unique_ptr<FHFModule>, std::unique_ptr<Commander>)> transferFunction;
@@ -50,6 +55,7 @@ class SoldiersMissionPage : public LVGLPage
     };
 
     static void sendTimerCallback(lv_timer_t *);
+    static void sendRealGPSTimerCallback(lv_timer_t *);
 
     void sendCoordinate(float, float, uint16_t, uint16_t);
 
@@ -67,7 +73,7 @@ class SoldiersMissionPage : public LVGLPage
 
     public:
     SoldiersMissionPage(std::shared_ptr<LoraModule>,
-         std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Soldier>, bool = false, bool = true);
+        std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Soldier>, bool = false, bool = true);
     void createPage();
 
     static std::pair<float, float> getTileCenterLatLon(float lat, float lon, int zoomLevel, float tileSize);
@@ -77,13 +83,10 @@ class SoldiersMissionPage : public LVGLPage
     void setTransferFunction(std::function<void(std::shared_ptr<LoraModule>, std::shared_ptr<GPSModule>, 
         std::unique_ptr<FHFModule>, std::unique_ptr<Commander>)> cb);
 
-    static const float EARTH_RADIUS_METERS = 6378137.0f;
-    static const float ONE_DEG_LAT_IN_METERS = 111320.0f;
+    static constexpr float EARTH_RADIUS_METERS = 6378137.0f;
+    static constexpr float ONE_DEG_LAT_IN_METERS = 111320.0f;
 
-    static void generateNearbyCoordinates(float centerLat, float centerLon, float radiusMeters,
-                               float& outLat, float& outLon);
-
-    static uint8_t generateHeartRate();
+    static std::tuple<int, int, int> positionToTile(float lat, float lon, int zoom);
 
     static inline bool isZero(float);
 };

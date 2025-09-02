@@ -33,14 +33,12 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
      std::shared_ptr<GPSModule> newGPSModule, std::unique_ptr<FHFModule> newFhfModule,
      std::unique_ptr<Soldier> soldiersModule)
 {
-    
-    
     Serial.println("transferFromMissionCommanderToMissionSoldier");
 
     wifiModule = std::move(newWifiModule);
 
     soldiersMissionPage = std::make_unique<SoldiersMissionPage>(newLoraModule,
-     newGPSModule, std::move(newFhfModule), std::move(soldiersModule), true);
+     newGPSModule, std::move(newFhfModule), std::move(soldiersModule), true, false);
 
     Serial.println("std::make_unique<SoldiersMissionPage>");
 
@@ -82,7 +80,8 @@ void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiMod
 
     wifiModule = std::move(currentWifiModule);
 
-    soldiersMissionPage = std::make_unique<SoldiersMissionPage>(loraModule, gpsModule, std::move(fhfModule), std::move(soldiersModule));
+    soldiersMissionPage = std::make_unique<SoldiersMissionPage>(loraModule, gpsModule,
+         std::move(fhfModule), std::move(soldiersModule), false, false);
     
     soldiersMissionPage->createPage();
 
@@ -110,6 +109,7 @@ void setup()
     beginLvglHelper();
     lv_png_init();
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    randomSeed(millis());
     
     crypto::CryptoModule::init();
 
@@ -154,6 +154,8 @@ void setup()
     receiveParametersPage = std::make_unique<SoldiersReceiveParametersPage>(std::move(wifiModule));
     receiveParametersPage->createPage();
     receiveParametersPage->setOnTransferPage(transferFromReceiveParametersToMainPage);
+
+    FFatHelper::begin();
 
 }
 

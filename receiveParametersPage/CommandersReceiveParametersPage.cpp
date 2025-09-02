@@ -80,8 +80,13 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
   // TCP SSL
 
   FFatHelper::deleteFile(this->logFilePath.c_str());
+  FFatHelper::deleteFile("/cert.txt");
+  FFatHelper::deleteFile("/encLog.txt");
+  FFatHelper::deleteFile("/CAcert.txt");
+  FFatHelper::deleteFile("/encKey.txt");
+  FFatHelper::deleteFile("/uploadPayload.txt");
   JsonDocument doc;
-  doc = this->wifiModule->receiveJSONTCP("192.168.213.105", 8743);
+  doc = this->wifiModule->receiveJSONTCP(WEBAPP_IP, 8743);
 
   try {
 
@@ -122,7 +127,7 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     updateLabel(2);
     
-    const std::string missionID = doc["mission"].as<std::string>();
+    const std::string missionID = doc["Mission"].as<std::string>();
     
     std::vector<float> freqs;
     for (auto v : doc["frequencies"].as<JsonArray>())

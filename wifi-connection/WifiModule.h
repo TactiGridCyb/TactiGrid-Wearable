@@ -31,5 +31,7 @@ class WifiModule {
 
     bool downloadFile(const char* downloadLink, const char* fileName);
 
+    bool sendStringPost(const char* site, const String& data, uint16_t destinationPort);
+
     JsonDocument receiveJSONTCP(const char* serverIP, uint16_t serverPort, uint32_t timeoutMs = 10000);
 };

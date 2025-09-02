@@ -12,6 +12,9 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         this->commanderModule = std::move(commanderModule);
 
         this->commanderSwitchEvent = commanderChange;
+        this->initialCoordsReceived = false;
+
+        this->tileImg = nullptr;
 
         Serial.printf("🔍 Checking modules for %d:\n", this->commanderModule->getCommanderNumber());
         Serial.printf("📡 loraModule: %s\n", this->loraModule ? "✅ OK" : "❌ NULL");
@@ -24,6 +27,12 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
 
         this->mainPage = lv_scr_act();
         this->infoBox = LVGLPage::createInfoBox();
+        
+        this->tileZoom = 0;
+        this->tileX = -1;
+        this->tileY = -1;
+
+        this->pmuFlag = false;
 
         FFatHelper::deleteFile(this->tileFilePath);
 
@@ -169,7 +178,7 @@ void CommandersMissionPage::createPage() {
 
     lv_obj_t* waitingLabel = lv_label_create(mainPage);
     lv_obj_center(waitingLabel);
-    lv_label_set_text(waitingLabel, "Waiting For Initial Coords");
+    lv_label_set_text_fmt(waitingLabel, "Waiting For Initial Coords with freq %.2f", this->loraModule->getCurrentFreq());
     lv_obj_set_style_text_color(waitingLabel, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
 
     Serial.println("this->regularLoopTimer");
@@ -180,26 +189,67 @@ void CommandersMissionPage::createPage() {
             auto *me = static_cast<CommandersMissionPage*>(user_data);
 
             me->loraModule->handleCompletedOperation();
+
+            me->loraModule->syncFrequency(me->fhfModule.get());
+            
             if (!me->loraModule->isBusy()) 
             {
                 me->loraModule->readData();
             }
 
 
-            me->loraModule->syncFrequency(me->fhfModule.get());
+            
+
+            if (me->pmuFlag) {
+                me->pmuFlag = false;
+                uint32_t status = watch.readPMU();
+                if (watch.isPekeyShortPressIrq()) 
+                {
+                    //Do something
+                }
+                watch.clearPMU();
+            }
         }, self);
     }, 100, this);
+
+    this->selfLogTimer = lv_timer_create([](lv_timer_t* t){
+        auto *self = static_cast<CommandersMissionPage*>(t->user_data);
+        lv_async_call([](void* user_data) 
+        {
+            auto *me = static_cast<CommandersMissionPage*>(user_data);
+            if(me->tileZoom == 0)
+            {
+                return;
+            }
+
+            JsonDocument currentCommandersEvent;
+            currentCommandersEvent["time_sent"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
+            float commandersLat, commandersLon;
+
+            LVGLPage::generateNearbyCoordinatesFromTile(me->tileX, me->tileY, me->tileZoom, commandersLat, commandersLon);
+
+
+            currentCommandersEvent["latitude"] = commandersLat;
+            currentCommandersEvent["longitude"] = commandersLon;
+            currentCommandersEvent["heartRate"] = LVGLPage::generateHeartRate();
+            currentCommandersEvent["soldierId"] = me->commanderModule->getName();
+
+            FFatHelper::appendRegularJsonObjectToFile(me->logFilePath.c_str(), currentCommandersEvent);
+
+        }, self);
+
+    }, 10000, this);
 
     Serial.println("this->missingSoldierTimer");
     this->missingSoldierTimer = lv_timer_create([](lv_timer_t* t){
         auto *self = static_cast<CommandersMissionPage*>(t->user_data);
-        if(self->commanderSwitchEvent)
+        if(self->commanderSwitchEvent || !self->initialCoordsReceived)
         {
             return;
         }
         for (const auto& commander : self->commanderModule->getCommanders()) 
         {
-            if(millis() - commander.second.lastTimeReceivedData >= 60000)
+            if(commander.first != self->commanderModule->getCommanderNumber() && millis() - commander.second.lastTimeReceivedData >= 60000)
             {
                 self->missingSoldierEvent(commander.first, true);
                 return;
@@ -226,6 +276,9 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         incoming += (char)data[i];
     }
     Serial.println("onDataReceived");
+
+    Serial.printf("-------------------%d % \n------------------------", watch.getBatteryPercent());
+
     int p1 = incoming.indexOf('|');
     int p2 = incoming.indexOf('|', p1 + 1);
     if (p1 < 0 || p2 < 0) {                      
@@ -287,9 +340,19 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     currentEvent["latitude"] = marker_lat;
     currentEvent["longitude"] = marker_lon;
     currentEvent["heartRate"] = newG->heartRate;
+    
+    String name;
 
-    String jsonStr;
-    serializeJson(currentEvent, jsonStr);
+    if(this->commanderModule->getCommanders().find(newG->soldiersID) != this->commanderModule->getCommanders().end())
+    {
+        name = String(this->commanderModule->getCommanders().at(newG->soldiersID).name.c_str());
+    }
+    else
+    {
+        name = String(this->commanderModule->getSoldiers().at(newG->soldiersID).name.c_str());
+    }
+
+    currentEvent["soldierId"] = name;
 
     bool writeResult = FFatHelper::appendRegularJsonObjectToFile(this->logFilePath.c_str(), currentEvent);
     Serial.print("writeToFile result: ");
@@ -297,17 +360,26 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
     Serial.println(this->logFilePath.c_str());
 
-    std::tuple<int,int,int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
+    if(this->tileZoom == 0)
+    {
+        Serial.println("positionToTile");
 
-    Serial.println("positionToTile");
+        std::tuple<int,int,int> tileLocation = positionToTile(tile_lat, tile_lon, 19);
 
-    std::string middleTile = this->tileUrlInitial +
-        std::to_string(std::get<0>(tileLocation)) + "/" +
-        std::to_string(std::get<1>(tileLocation)) + "/" +
-        std::to_string(std::get<2>(tileLocation)) + ".png";
+        this->tileZoom = std::get<0>(tileLocation);
+        this->tileX = std::get<1>(tileLocation);
+        this->tileY = std::get<2>(tileLocation);
+    }
+    
 
     if(!FFatHelper::isFileExisting(this->tileFilePath))
     {
+        std::string middleTile = this->tileUrlInitial +
+        std::to_string(this->tileZoom) + "/" +
+        std::to_string(this->tileX) + "/" +
+        std::to_string(this->tileY) + ".png";
+
+
         Serial.println(middleTile.c_str());
         this->wifiModule->downloadFile(middleTile.c_str(), this->tileFilePath);
     }
@@ -323,10 +395,10 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     if(this->markers.empty())
     {
         showMiddleTile();
+        this->initialCoordsReceived = true;
     }
 
-    auto [zoom, x_tile, y_tile] = tileLocation;
-    auto [centerLat, centerLon] = tileCenterLatLon(zoom, x_tile, y_tile);
+    auto [centerLat, centerLon] = tileCenterLatLon(this->tileZoom, this->tileX, this->tileY);
 
     int heartRate = newG->heartRate;
     lv_color_t color = getColorFromHeartRate(heartRate);
@@ -400,11 +472,11 @@ void CommandersMissionPage::showMiddleTile()
 {
     Serial.println("showMiddleTile");
 
-    lv_obj_t* img1 = lv_img_create(lv_scr_act());
-    lv_obj_center(img1);
+    this->tileImg = lv_img_create(lv_scr_act());
+    lv_obj_center(this->tileImg);
 
-    lv_img_set_src(img1, "A:/middleTile.png");
-    lv_obj_align(img1, LV_ALIGN_CENTER, 0, 0);
+    lv_img_set_src(this->tileImg, "A:/middleTile.png");
+    lv_obj_align(this->tileImg, LV_ALIGN_CENTER, 0, 0);
 
     Serial.println("Showing middle tile");
 }
@@ -456,8 +528,9 @@ void CommandersMissionPage::create_fading_circle(double markerLat, double marker
     lv_anim_set_exec_cb(&a, [](void * obj, int32_t value) {
         lv_obj_set_style_opa((lv_obj_t *)obj, value, 0);
     });
-    lv_anim_start(&a);
 
+    lv_anim_start(&a);
+    Serial.printf("Set animation for %d, in %d %d\n", soldiersID, pixel_x, pixel_y);
 
     if(!label)
     {
@@ -534,25 +607,29 @@ String CommandersMissionPage::getCurrentTimeStamp()
     return timeStr;
 }
 
-std::tuple<int,int> CommandersMissionPage::latlon_to_pixel(double lat, double lon, double centerLat, double centerLon, int zoom)
-{
-    static constexpr double TILE_SIZE = 256.0;
+std::tuple<int,int> CommandersMissionPage::latlon_to_pixel(double lat, double lon,
+                                                           double centerLat, double centerLon,
+                                                           int zoom) {
+    int imgX = lv_obj_get_x(this->tileImg);
+    int imgY = lv_obj_get_y(this->tileImg);
+    int imgW = lv_obj_get_width(this->tileImg);
+    int imgH = lv_obj_get_height(this->tileImg);
 
     auto toGlobal = [&](double la, double lo) {
         double rad = la * M_PI / 180.0;
         double n   = std::pow(2.0, zoom);
-        int xg = (int) std::floor((lo + 180.0) / 360.0 * n * TILE_SIZE);
-        int yg = (int) std::floor((1.0 - std::log(std::tan(rad) + 1.0 / std::cos(rad)) / M_PI) / 2.0 * n * TILE_SIZE);
+        int xg = (int) std::floor((lo + 180.0) / 360.0 * n * 256.0);
+        int yg = (int) std::floor((1.0 - std::log(std::tan(rad) + 1.0 / std::cos(rad)) / M_PI) / 2.0 * n * 256.0);
         return std::make_pair(xg, yg);
     };
 
     auto [markerX, markerY] = toGlobal(lat, lon);
     auto [centerX, centerY] = toGlobal(centerLat, centerLon);
 
-    int localX = markerX - centerX + (LV_HOR_RES_MAX / 2);
-    int localY = markerY - centerY + (LV_VER_RES_MAX / 2);
+    int localX = (markerX - centerX) + (imgX + imgW / 2);
+    int localY = (markerY - centerY) + (imgY + imgH / 2);
 
-    return std::make_tuple(localX, localY);
+    return {localX, localY};
 }
 
 void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t soldiersIDMoveToComp)
@@ -565,7 +642,7 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
 
     Serial.println("IMPORTANT INFO");
     std::string info("IMPORTANT INFO");
-    crypto::ByteVec salt(16);
+    crypto::ByteVec salt(32);
     randombytes_buf(salt.data(), salt.size());
     const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), millis(), info, salt, this->commanderModule->getCommanders().size());
     Serial.println("newGMK");
@@ -608,16 +685,19 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID, bool isComma
     Serial.printf("missingSoldierEvent for %d\n", soldiersID);
 
     std::string newEventText;
+    String missingName = "";
 
     if(isCommander)
     {
-        newEventText = "Missing Soldier Event - " + this->commanderModule->getCommanders().at(soldiersID).name;
+        missingName = String(this->commanderModule->getCommanders().at(soldiersID).name.c_str());
     }
     else
     {
-        newEventText = "Missing Soldier Event - " + this->commanderModule->getSoldiers().at(soldiersID).name;
+        missingName = String(this->commanderModule->getSoldiers().at(soldiersID).name.c_str());
+        
     }
 
+    newEventText = "Missing Soldier Event - " + std::string(missingName.c_str());
     Serial.println("PRE PREMOVE");
 
     this->commanderModule->setMissing(soldiersID);
@@ -627,9 +707,9 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID, bool isComma
     JsonDocument doc;
     doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
     doc["eventName"] = "missingSoldier";
-    doc["missingID"] = soldiersID;
+    doc["missingID"] = missingName;
 
-    //FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
+    FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 }
 
 void CommandersMissionPage::switchCommanderEvent()
@@ -642,22 +722,25 @@ void CommandersMissionPage::switchCommanderEvent()
     std::vector<String> sharePaths;
 
     lv_timer_del(this->missingSoldierTimer);
+    lv_timer_del(this->selfLogTimer);
 
     
     this->loraModule->setOnReadData(nullptr);
     
     uint8_t nextID = -1;
+    String newCommandersName = "";
     if(this->commanderModule->getCommandersInsertionOrder().size() > 1)
     {
         nextID = this->commanderModule->getCommandersInsertionOrder().at(1);
+        newCommandersName = String(this->commanderModule->getCommanders().at(nextID).name.c_str());
     }
 
     JsonDocument doc;
     doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
     doc["eventName"] = "commanderSwitch";
-    doc["newCommanderID"] = nextID;
+    doc["newCommanderID"] = newCommandersName;
 
-    //FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
+    FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 
     uint8_t index = 0;
 

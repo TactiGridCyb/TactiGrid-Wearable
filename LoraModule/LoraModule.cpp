@@ -84,8 +84,10 @@ void LoraModule::printCurrentOP()
 
 int16_t LoraModule::setup(bool transmissionMode_)
 {
+  Serial.println("SETUP");
   int16_t state = loraDevice.begin();
-  if (state != RADIOLIB_ERR_NONE) {
+  if (state != RADIOLIB_ERR_NONE) 
+  {
     return state;
   }
 
@@ -106,6 +108,7 @@ int16_t LoraModule::setup(bool transmissionMode_)
   transmissionMode = transmissionMode_;
 
   this->lastFrequencyCheck = millis();
+  Serial.println(this->lastFrequencyCheck);
   return RADIOLIB_ERR_NONE;
 }
 
@@ -116,6 +119,7 @@ int16_t LoraModule::sendData(const char* data, bool interrupt)
   {
     return RADIOLIB_ERR_CHANNEL_BUSY;
   }
+  
   Serial.println("moved in sendData");
 
   int16_t status = interrupt
@@ -316,13 +320,9 @@ void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
     }
 }
 
-int16_t LoraModule::setFrequency(float newFreq)
+float LoraModule::setFrequency(float newFreq)
 {
-  if (isBusy()) {
-    return freq;
-  }
-
-  freq = newFreq;
+  this->freq = newFreq;
   loraDevice.setFrequency(freq);
   return freq;
 }
@@ -441,24 +441,40 @@ void LoraModule::handleCompletedOperation()
 
 void LoraModule::syncFrequency(const FHFModule* module)
 {
-  uint64_t currentFreqCheck = millis();
+  const uint32_t kMinCheckMs = 100;
+  uint32_t now = millis();
+  if (now - this->lastFrequencyCheck < kMinCheckMs) return;
+  this->lastFrequencyCheck = now;
 
-  if(currentFreqCheck - this->lastFrequencyCheck >= 1000 && !isBusy())
-  {
-    Serial.println("check syncFrequency");
-    float currentFreq = module->currentFrequency();
+  int64_t slot = module->currentHopSlot();
 
-    if(std::fabs(currentFreq - this->lastFrequencyCheck) > 1e-9)
-    {
-      this->setFrequency(currentFreq);
-      this->lastFrequencyCheck = currentFreqCheck;
-    }
-
-    Serial.println("post check syncFrequency");
+  if (this->lastHopSlot < 0) {
+    this->lastHopSlot = slot;
+    return;
   }
+
+  if (slot == this->lastHopSlot) return;
+
+  Op op = currentOp.load(std::memory_order_acquire);
+  if (op == Op::Receive || op == Op::FileRx || op == Op::FileTx || op == Op::Transmit) {
+    return;
+  }
+
+  float target = module->currentFrequency();
+  if (fabsf(target - this->freq) > 1e-6f) {
+    this->setFrequency(target);
+    Serial.printf("Switched to %.2fMHZ\n", target);
+  }
+
+  this->lastHopSlot = slot;
 }
 
 const std::function<void(const uint8_t* data, size_t len)>& LoraModule::getOnFileReceived()
 {
   return this->onFileReceived;
+}
+
+float LoraModule::getCurrentFreq() const
+{
+  return this->freq;
 }

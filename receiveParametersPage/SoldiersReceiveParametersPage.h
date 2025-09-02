@@ -11,6 +11,7 @@
 #include "mbedtls/oid.h"
 #include <stdexcept>
 #include <string>
+#include "../env.h"
 #include "../mainPage/SoldiersMainPage.h"
 
 class SoldiersReceiveParametersPage : public LVGLPage {

@@ -6,7 +6,7 @@ GPSModule::GPSModule(float readInterval)
     this->lastCheck = millis();
 
     this->currentLat = 0.0f;
-    this->currentLat = 0.0f;
+    this->currentLon = 0.0f;
 }
 
 void GPSModule::readGPSData()
@@ -53,15 +53,12 @@ void GPSModule::updateCoords()
         return;
     }
 
-    this->lastCheck = currentTime;
+    this->lastCheck = currentTime;    
 
-    float lat = this->gpsInstance.location.isValid() ? this->gpsInstance.location.lat() : 0.0f;
-    float lng = this->gpsInstance.location.isValid() ? this->gpsInstance.location.lng() : 0.0f;
-
-    if(lat > 0.0f && lng > 0.0f)
+    if(this->gpsInstance.location.isValid() && this->gpsInstance.location.isUpdated())
     {
-        this->currentLat = lat;
-        this->currentLon = lng;
+        this->currentLat = this->gpsInstance.location.lat();
+        this->currentLon = this->gpsInstance.location.lng();
     }
 }
 
@@ -80,7 +77,7 @@ TinyGPSSpeed GPSModule::getGPSSpeed()
     return this->gpsInstance.speed;
 }
 
-inline GPSCoordTuple GPSModule::parseCoordinates(const String &message)
+GPSCoordTuple GPSModule::parseCoordinates(const String &message)
 {
     float lat1 = 0, lon1 = 0, lat2 = 0, lon2 = 0;
     sscanf(message.c_str(), "%f,%f;%f,%f", &lat1, &lon1, &lat2, &lon2);

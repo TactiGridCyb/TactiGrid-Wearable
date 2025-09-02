@@ -17,25 +17,37 @@ JsonDocument WifiModule::receiveJSONTCP(const char* serverIP, uint16_t serverPor
         return JsonDocument();
     }
 
+    client.setTimeout(timeoutMs / 1000.0);
+
     JsonDocument doc;
 
-    client.setTimeout(timeoutMs / 100);
+    uint32_t start = millis();
+    while (client.connected() && !client.available()) {
+        if (millis() - start > timeoutMs) {
+            Serial.println("❌ Timeout waiting for server response");
+            client.stop();
+            return JsonDocument();
+        }
+        delay(10);
+    }
 
-    Serial.println("setTimeout");
     DeserializationError error = deserializeJson(doc, client);
     if (error) {
         Serial.print("❌ JSON parse failed: ");
         Serial.println(error.c_str());
 
+        while (client.available()) {
+            Serial.write(client.read());
+        }
+
+        client.stop();
         return JsonDocument();
     }
 
     serializeJsonPretty(doc, Serial);
     Serial.println();
 
-
     client.stop();
-
     return doc;
 }
 
@@ -112,6 +124,34 @@ bool WifiModule::sendString(const String& data,
     client.flush();
     client.stop();
     Serial.println("  ✓ sent");
+    return true;
+}
+
+bool WifiModule::sendStringPost(const char* site, const String& data, uint16_t destinationPort)
+{
+    HTTPClient http;
+    WiFiClient client;
+
+    String url = String(site);
+    Serial.printf("REAL URL SENDING TO: %s\n", url.c_str());
+    http.begin(client, url);
+    http.addHeader("Content-Type", "application/json");
+
+    int httpCode = http.POST(data);
+
+    if (httpCode > 0) 
+    {
+        Serial.printf("✓ POST sent to %s — HTTP code: %d\n", url.c_str(), httpCode);
+        String response = http.getString();
+        Serial.println("Response:");
+        Serial.println(response);
+    } else 
+    {
+        Serial.printf("✗ POST request failed — error: %s\n", http.errorToString(httpCode).c_str());
+        return false;
+    }
+
+    http.end();
     return true;
 }
 
