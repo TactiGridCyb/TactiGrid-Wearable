@@ -16,6 +16,8 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
 
         this->tileImg = nullptr;
 
+        this->fakeGPS = fakeGPS;
+        
         Serial.printf("🔍 Checking modules for %d:\n", this->commanderModule->getCommanderNumber());
         Serial.printf("📡 loraModule: %s\n", this->loraModule ? "✅ OK" : "❌ NULL");
         Serial.printf("🌐 wifiModule: %s\n", this->wifiModule ? "✅ OK" : "❌ NULL");
@@ -198,8 +200,6 @@ void CommandersMissionPage::createPage() {
             }
 
 
-            
-
             if (me->pmuFlag) {
                 me->pmuFlag = false;
                 uint32_t status = watch.readPMU();
@@ -209,6 +209,9 @@ void CommandersMissionPage::createPage() {
                 }
                 watch.clearPMU();
             }
+
+            me->gpsModule->updateCoords();
+
         }, self);
     }, 100, this);
 
@@ -223,14 +226,23 @@ void CommandersMissionPage::createPage() {
             }
 
             JsonDocument currentCommandersEvent;
+            float lat, lon;
+            if(me->fakeGPS)
+            {
+                LVGLPage::generateNearbyCoordinatesFromTile(me->tileX, me->tileY, me->tileZoom, lat, lon);
+            }
+            else
+            {
+                lat = me->gpsModule->getLat();
+                lon = me->gpsModule->getLon();
+            }
+            
+            
+
             currentCommandersEvent["time_sent"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
-            float commandersLat, commandersLon;
 
-            LVGLPage::generateNearbyCoordinatesFromTile(me->tileX, me->tileY, me->tileZoom, commandersLat, commandersLon);
-
-
-            currentCommandersEvent["latitude"] = commandersLat;
-            currentCommandersEvent["longitude"] = commandersLon;
+            currentCommandersEvent["latitude"] = lat;
+            currentCommandersEvent["longitude"] = lon;
             currentCommandersEvent["heartRate"] = LVGLPage::generateHeartRate();
             currentCommandersEvent["soldierId"] = me->commanderModule->getName();
 
