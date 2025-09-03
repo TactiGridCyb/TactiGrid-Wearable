@@ -2,6 +2,7 @@
 #include <Commander.h>
 #include <cstring>
 #include <algorithm>
+#include "../certModule/certModule.h"
 
 inline bool SoldiersMissionPage::isZero(float x)
 {

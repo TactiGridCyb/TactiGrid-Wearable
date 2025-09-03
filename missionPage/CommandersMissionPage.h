@@ -6,13 +6,14 @@
 #include <GPSModule.h>
 #include <string>
 #include <memory>
-#include <CryptoModule.h>
+#include <../encryption/CryptoModule.h>
 #include <FFatHelper.h>
 #include <Commander.h>
 #include <SoldiersSentData.h>
 #include "../commander/Soldier.h"
 #include <ShamirHelper.h>
 #include <FHFModule.h>
+#include "../certModule/certModule.h"
 
 
 class CommandersMissionPage : public LVGLPage {

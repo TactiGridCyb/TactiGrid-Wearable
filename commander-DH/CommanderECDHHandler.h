@@ -17,6 +17,7 @@ public:
     bool isExchangeComplete();
     LoraModule& getLoRa() { return lora; }
     void poll();
+    bool sendSecureMessage(int soldierId, const String& plaintext);
 
 
 private:
@@ -41,6 +42,9 @@ private:
     bool hasHandled;
     unsigned long startWait;
     const unsigned long TIMEOUT_MS = 15000;
+
+    bool           responsePending  = false;
+  std::vector<uint8_t> pendingPacket;
 };
 
 /*

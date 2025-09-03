@@ -1,4 +1,5 @@
 #include "CommandersMissionPage.h"
+#include "../certModule/certModule.h"
 
 CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraModule, std::unique_ptr<WifiModule> wifiModule,
      std::shared_ptr<GPSModule> gpsModule, std::unique_ptr<FHFModule> fhfModule,

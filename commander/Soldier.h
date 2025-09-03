@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include "mbedtls/x509_crt.h"
-#include "CryptoModule.h"
+#include "../encryption/CryptoModule.h"
 #include "mbedtls/pk.h"
 #include "PersonBase.h"
 

@@ -17,6 +17,17 @@ certModule::certModule() {
     mbedtls_ctr_drbg_init(&ctr_drbg);
     mbedtls_entropy_init(&entropy);
     mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, NULL, 0);
+
+    int ret = mbedtls_ctr_drbg_seed(&ctr_drbg,
+                                    mbedtls_entropy_func,
+                                    &entropy,
+                                    nullptr, 0);
+
+    if (ret != 0) {
+        char errbuf[128];
+        mbedtls_strerror(ret, errbuf, sizeof(errbuf));
+        Serial.printf("❌ CTR_DRBG seed failed in ctor: %s\n", errbuf);
+    }
 }
 
 certModule::~certModule() {
@@ -27,15 +38,65 @@ certModule::~certModule() {
     mbedtls_entropy_free(&entropy);
 }
 
+bool certModule::loadFromSoldier(const Soldier& soldier){
+    // 0) Initialize all contexts
+    mbedtls_pk_init(&privateKey);
+    mbedtls_x509_crt_init(&certificate);
+    mbedtls_x509_crt_init(&caCertificate);
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+    mbedtls_entropy_init(&entropy);
 
-bool certModule::verifyCertificate() {
-    uint32_t flags;
-    int ret = mbedtls_x509_crt_verify(&certificate, &caCertificate, NULL, NULL, &flags, NULL, NULL);
+    // 1) Seed the DRBG
+    int ret = mbedtls_ctr_drbg_seed(
+        &ctr_drbg,
+        mbedtls_entropy_func,
+        &entropy,
+        nullptr, 0
+    );
     if (ret != 0) {
-        Serial.printf("❌ Certificate verification failed: -0x%04X, flags: %lu\n", -ret, flags);
+        char err[100];
+        mbedtls_strerror(ret, err, sizeof(err));
+        Serial.printf("❌ CTR_DRBG seed failed: -0x%04X (%s)\n", -ret, err);
         return false;
     }
-    Serial.println("✅ Certificate verified successfully.");
+
+    // load all necessary parameters
+    this->privateKey = soldier.getPrivateKey();
+    this->certificate = soldier.getPublicCert();
+    this->caCertificate = soldier.getCAPublicCert();
+
+    Serial.println("✅ Successfully loaded private key, certificate, and CA cert from soldier");
+    return true;
+}
+
+bool certModule::loadFromCommander(const Commander& commander){
+    // 0) Initialize all contexts
+    mbedtls_pk_init(&privateKey);
+    mbedtls_x509_crt_init(&certificate);
+    mbedtls_x509_crt_init(&caCertificate);
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+    mbedtls_entropy_init(&entropy);
+
+    // 1) Seed the DRBG
+    int ret = mbedtls_ctr_drbg_seed(
+        &ctr_drbg,
+        mbedtls_entropy_func,
+        &entropy,
+        nullptr, 0
+    );
+    if (ret != 0) {
+        char err[100];
+        mbedtls_strerror(ret, err, sizeof(err));
+        Serial.printf("❌ CTR_DRBG seed failed: -0x%04X (%s)\n", -ret, err);
+        return false;
+    }
+
+    // load all necessary parameters
+    this->privateKey = commander.getPrivateKey();
+    this->certificate = commander.getPublicCert();
+    this->caCertificate = commander.getCAPublicCert();
+
+    Serial.println("✅ Successfully loaded private key, certificate, and CA cert from commander");
     return true;
 }
 
