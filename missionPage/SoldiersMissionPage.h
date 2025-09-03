@@ -72,7 +72,7 @@ class SoldiersMissionPage : public LVGLPage
 
     void receiveShamirRequest(const uint8_t* data, size_t len);
 
-    void canBeCommander(SwitchCommander&);
+    bool canBeCommander(SwitchCommander&);
 
     void onCommanderSwitchDataReceived(const uint8_t*, size_t, SwitchCommander&);
 

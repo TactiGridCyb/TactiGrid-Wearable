@@ -267,21 +267,22 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         Serial.println("this->soldierModule->removeFirstCommanderFromInsertionOrder()");
 
         std::vector<uint8_t> commandersInsertionOrder = this->soldierModule->getCommandersInsertionOrder();
+        bool canBeCommander = false;
 
         if(!commandersInsertionOrder.empty() && commandersInsertionOrder.at(0) == this->soldierModule->getSoldierNumber())
         {
-            this->canBeCommander(scPayload);
-            this->onSoldierTurnToCommanderEvent(scPayload);
-            
+            canBeCommander = this->canBeCommander(scPayload);
         }
-        else
+        
+
+        if(!canBeCommander)
         {
             Serial.println("Im not supposed to be the next commander! waiting for shamirReq!");
             this->finishTimer = false;
             this->commanderSwitchEvent = true;
 
-            this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
-                this->receiveShamirRequest(data, len);
+            this->loraModule->setOnFileReceived([this, &scPayload](const uint8_t* data, size_t len) {
+                this->onCommanderSwitchDataReceived(data, len, scPayload);
             });
             
             this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
@@ -684,23 +685,35 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
 
         this->soldierModule->removeFirstCommanderFromInsertionOrder();
 
+        bool canBeCommander = false;
+
         if(!this->soldierModule->getCommandersInsertionOrder().empty() && this->soldierModule->getCommandersInsertionOrder().at(0))
         {
             Serial.println("I should be commander now after the previous skipped!");
 
-            this->canBeCommander(scPayload);
+            canBeCommander = this->canBeCommander(scPayload);
         }
 
     }
+    else if(payload.msgID == 0x04 && payload.commandersID == this->soldierModule->getSoldierNumber())
+    {
+        Serial.println("After someone skipped commandership, a new commander was found!");
+
+        this->receiveShamirRequest(data, len);
+    }
+    else
+    {
+        Serial.printf("Something strange! these are the parameters: %d %d\n", payload.msgID, payload.commandersID);
+    }
 }
 
-void SoldiersMissionPage::canBeCommander(SwitchCommander& payload)
+bool SoldiersMissionPage::canBeCommander(SwitchCommander& payload)
 {
     Serial.println("CanBeCommander");
     if(!this->soldierModule->areCoordsValid(this->soldierModule->getSoldierNumber(), true))
     {
         this->transmitSkipCommanderMessage();
-        return;
+        return false;
         //Cannot be commander -> pass
     }
 
@@ -719,9 +732,13 @@ void SoldiersMissionPage::canBeCommander(SwitchCommander& payload)
     if(score < 0.5)
     {
         this->transmitSkipCommanderMessage();
-        return;
+        return false;
         // Cannot be commander -> pass
     }
+
+    this->onSoldierTurnToCommanderEvent(payload);
+
+    return true;
 
 
 }
