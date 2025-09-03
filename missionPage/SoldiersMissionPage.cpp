@@ -13,7 +13,7 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
      std::unique_ptr<Soldier> soldierModule, bool commanderChange, bool fakeGPS)
 {
     Serial.println("SoldiersMissionPage::SoldiersMissionPage");
-
+    
     this->loraModule = std::move(loraModule);
     this->gpsModule = std::move(gpsModule);
     this->fhfModule = std::move(fhfModule);
@@ -212,6 +212,14 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         index += missingSoldiersLen;
         scPayload.missingSoldiersLength = missingSoldiersLen;
 
+        uint8_t soldiersCoordsLen = decodedData[index++];
+
+        scPayload.soldiersCoords.assign(decodedData.begin() + index,
+        decodedData.begin() + index + soldiersCoordsLen);
+        index += soldiersCoordsLen;
+        scPayload.soldiersCoordsLength = soldiersCoordsLen;
+
+
         Serial.printf("Important vars: %d %d %d\n", shamirLen, compromisedSoldiersLen, missingSoldiersLen);
         this->onCommanderSwitchEvent(scPayload);
 
@@ -244,6 +252,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
         if(!commandersInsertionOrder.empty() && commandersInsertionOrder.at(0) == this->soldierModule->getSoldierNumber())
         {
+            
             this->onSoldierTurnToCommanderEvent(scPayload);
             
         }

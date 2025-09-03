@@ -834,6 +834,9 @@ void CommandersMissionPage::switchCommanderEvent()
         payload.missingSoldiers = this->commanderModule->getMissing();
         payload.missingSoldiersLength = payload.missingSoldiers.size();
 
+        payload.soldiersCoords = soldiersCoords;
+        payload.soldiersCoordsLength = soldiersCoords.size();
+
         File currentShamir = FFat.open(sharePaths[index].c_str(), FILE_READ);
         if (!currentShamir) 
         {
