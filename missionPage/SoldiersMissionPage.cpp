@@ -159,7 +159,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     sgPayload.msgID = static_cast<uint8_t>(decodedData[index++]);
     sgPayload.soldiersID = static_cast<uint8_t>(decodedData[index++]);
 
-    if(sgPayload.soldiersID != this->soldierModule->getSoldierNumber())
+    if(sgPayload.msgID != 0x05 && sgPayload.soldiersID != this->soldierModule->getSoldierNumber())
     {
         Serial.println("Message wasn't for me!");
         return;
@@ -270,7 +270,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
         if(!commandersInsertionOrder.empty() && commandersInsertionOrder.at(0) == this->soldierModule->getSoldierNumber())
         {
-
+            this->canBeCommander(scPayload);
             this->onSoldierTurnToCommanderEvent(scPayload);
             
         }
@@ -632,12 +632,78 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
     this->transferFunction(this->loraModule, this->gpsModule, std::move(this->fhfModule), std::move(command));
 }
 
+void SoldiersMissionPage::transmitSkipCommanderMessage()
+{
+    Serial.println("transmitSkipCommanderMessage");
+    SkipCommander payload;
+
+    payload.msgID = 0x05;
+    payload.commandersID = this->soldierModule->getSoldierNumber();
+
+    std::string buffer;
+    buffer += static_cast<char>(payload.msgID);
+    buffer += static_cast<char>(payload.commandersID);
+
+    std::string base64Payload = crypto::CryptoModule::base64Encode(reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
+
+    this->loraModule->cancelReceive();
+    this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+
+
+
+}
+
+void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, size_t len, SwitchCommander& scPayload)
+{
+    Serial.println("onCommanderSwitchDataReceived");
+
+    std::string base64Str(reinterpret_cast<const char*>(data), len);
+    std::vector<uint8_t> decodedData;
+
+    try {
+        decodedData = crypto::CryptoModule::base64Decode(base64Str);
+        
+    } catch (const std::exception& e) {
+        Serial.printf("Base64 decode failed: %s\n", e.what());
+        return;
+    }
+
+    SkipCommander payload;
+
+    payload.msgID = static_cast<uint8_t>(decodedData[0]);
+    payload.commandersID = static_cast<uint8_t>(decodedData[1]);
+
+    if(payload.msgID == 0x05)
+    {
+        Serial.printf("Received SkipCommander! %d %d\n", payload.msgID, payload.commandersID);
+        if(this->soldierModule->getCommandersInsertionOrder().at(0) != payload.commandersID)
+        {
+            Serial.println("Problematic! Skipped commander is somehow not first in line!");
+            return;
+        }
+
+        this->soldierModule->removeFirstCommanderFromInsertionOrder();
+
+        if(!this->soldierModule->getCommandersInsertionOrder().empty() && this->soldierModule->getCommandersInsertionOrder().at(0))
+        {
+            Serial.println("I should be commander now after the previous skipped!");
+
+            this->canBeCommander(scPayload);
+        }
+
+    }
+}
+
 void SoldiersMissionPage::canBeCommander(SwitchCommander& payload)
 {
+    Serial.println("CanBeCommander");
     if(!this->soldierModule->areCoordsValid(this->soldierModule->getSoldierNumber(), true))
     {
+        this->transmitSkipCommanderMessage();
+        return;
         //Cannot be commander -> pass
     }
+
     std::pair<float,float> selfCoord;
 
     for (uint8_t i = 0; i < payload.soldiersCoordsIDS.size(); ++i) 
@@ -649,13 +715,15 @@ void SoldiersMissionPage::canBeCommander(SwitchCommander& payload)
     }
 
     float score = this->leadershipEvaluator.calculateScore(payload.soldiersCoords, selfCoord);
-
+    Serial.printf("Score is: %.5f\n", score);
     if(score < 0.5)
     {
+        this->transmitSkipCommanderMessage();
+        return;
         // Cannot be commander -> pass
     }
 
-    
+
 }
 
 void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)

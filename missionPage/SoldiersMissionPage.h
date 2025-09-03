@@ -74,6 +74,10 @@ class SoldiersMissionPage : public LVGLPage
 
     void canBeCommander(SwitchCommander&);
 
+    void onCommanderSwitchDataReceived(const uint8_t*, size_t, SwitchCommander&);
+
+    void transmitSkipCommanderMessage();
+
     
 
     public:
