@@ -25,8 +25,10 @@ struct SwitchCommander{
     std::vector<uint8_t> compromisedSoldiers;
     uint8_t missingSoldiersLength;
     std::vector<uint8_t> missingSoldiers;
+    uint8_t soldiersCoordsIDSLength;
+    std::vector<uint8_t> soldiersCoordsIDS;
     uint8_t soldiersCoordsLength;
-    std::vector<std::tuple<float,float>> soldiersCoords;
+    std::vector<std::pair<float,float>> soldiersCoords;
 };
 
 struct requestShamir{

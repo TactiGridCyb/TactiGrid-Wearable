@@ -19,6 +19,8 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
     this->fhfModule = std::move(fhfModule);
     this->soldierModule = std::move(soldierModule);
 
+    this->leadershipEvaluator = LeadershipEvaluator();
+
     Serial.printf("🔍 Checking modules for %d:\n", this->soldierModule->getSoldierNumber());
     Serial.printf("📡 loraModule: %s\n", this->loraModule ? "✅ OK" : "❌ NULL");
     Serial.printf("📍 gpsModule: %s\n", this->gpsModule ? "✅ OK" : "❌ NULL");
@@ -212,12 +214,22 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         index += missingSoldiersLen;
         scPayload.missingSoldiersLength = missingSoldiersLen;
 
+        uint8_t soldiersCoordsIDSLen = decodedData[index++];
+
+        scPayload.soldiersCoordsIDS.assign(decodedData.begin() + index,
+        decodedData.begin() + index + soldiersCoordsIDSLen);
+        index += soldiersCoordsIDSLen;
+        scPayload.soldiersCoordsIDSLength = soldiersCoordsIDSLen;
+
         uint8_t soldiersCoordsLen = decodedData[index++];
 
-        scPayload.soldiersCoords.assign(decodedData.begin() + index,
-        decodedData.begin() + index + soldiersCoordsLen);
-        index += soldiersCoordsLen;
-        scPayload.soldiersCoordsLength = soldiersCoordsLen;
+        for (uint8_t i = 0; i < soldiersCoordsLen; ++i) 
+        {
+            float lat, lon;
+            std::memcpy(&lat, &decodedData[index], 4); index += 4;
+            std::memcpy(&lon, &decodedData[index], 4); index += 4;
+            scPayload.soldiersCoords.emplace_back(lat, lon);
+        }
 
 
         Serial.printf("Important vars: %d %d %d\n", shamirLen, compromisedSoldiersLen, missingSoldiersLen);
@@ -241,6 +253,12 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
             Serial.println(missingSoldier);
         }
 
+        Serial.printf("Length of IDS and not IDS: %d %d\n", scPayload.soldiersCoordsIDSLength, scPayload.soldiersCoordsLength);
+        for(uint8_t idx = 0; idx < scPayload.soldiersCoordsIDSLength; ++idx)
+        {
+            Serial.printf("ID and coord soldier -> %d { %.3f %.3f }\n", scPayload.soldiersCoordsIDS.at(idx), scPayload.soldiersCoords.at(idx).first, scPayload.soldiersCoords.at(idx).second);
+        }
+
         if(!this->soldierModule->getCommandersInsertionOrder().empty())
         {
             this->soldierModule->removeFirstCommanderFromInsertionOrder();
@@ -252,7 +270,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
         if(!commandersInsertionOrder.empty() && commandersInsertionOrder.at(0) == this->soldierModule->getSoldierNumber())
         {
-            
+
             this->onSoldierTurnToCommanderEvent(scPayload);
             
         }
@@ -429,9 +447,9 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
         LVGLPage::generateNearbyCoordinatesFromTile(self->tileX, self->tileY,
              self->tileZoom, currentLat, currentLon);
 
-            
-
         self->sendCoordinate(currentLat, currentLon, currentHeartRate, ID);
+
+        self->soldierModule->updateLocation(self->soldierModule->getSoldierNumber(), currentLat, currentLon, true);
         
         const char *current_text = lv_label_get_text(self->sendLabel);
         
@@ -511,8 +529,11 @@ void SoldiersMissionPage::parseGPSData()
     float lat = this->gpsModule->getLat();
     float lon = this->gpsModule->getLon();
 
+    
     if (!isZero(lat) && !isZero(lon)) {
         sendCoordinate(lat, lon, LVGLPage::generateHeartRate(), this->soldierModule->getSoldierNumber());
+
+        this->soldierModule->updateLocation(this->soldierModule->getSoldierNumber(), lat, lon, true);
     }
     else
     {
@@ -609,6 +630,32 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
 
     
     this->transferFunction(this->loraModule, this->gpsModule, std::move(this->fhfModule), std::move(command));
+}
+
+void SoldiersMissionPage::canBeCommander(SwitchCommander& payload)
+{
+    if(!this->soldierModule->areCoordsValid(this->soldierModule->getSoldierNumber(), true))
+    {
+        //Cannot be commander -> pass
+    }
+    std::pair<float,float> selfCoord;
+
+    for (uint8_t i = 0; i < payload.soldiersCoordsIDS.size(); ++i) 
+    {
+        if (payload.soldiersCoordsIDS[i] == this->soldierModule->getSoldierNumber()) 
+        {
+            selfCoord = payload.soldiersCoords.at(i);
+        }
+    }
+
+    float score = this->leadershipEvaluator.calculateScore(payload.soldiersCoords, selfCoord);
+
+    if(score < 0.5)
+    {
+        // Cannot be commander -> pass
+    }
+
+    
 }
 
 void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)

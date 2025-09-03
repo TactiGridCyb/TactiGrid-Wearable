@@ -130,6 +130,21 @@ public:
         }
     }
 
+    void updateLocation(uint8_t id, float lat, float lon, bool isSoldier)
+    {
+        if(isSoldier)
+        {
+            this->soldiers.at(id).lat = lat;
+            this->soldiers.at(id).lon = lon;
+
+            return;
+        }
+
+        this->commanders.at(id).lat = lat;
+        this->commanders.at(id).lon = lon;
+        
+    }
+
     void resetAllData()
     {
         for(const auto& kv : this->commanders)

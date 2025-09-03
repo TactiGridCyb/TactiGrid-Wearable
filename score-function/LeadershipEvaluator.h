@@ -14,13 +14,19 @@ public:
         return watch.getBatteryPercent();
     }
 
-    float calculateScore(const std::vector<std::pair<float, float>>& links, const std::pair<float,float>& selfDist) const {
-        if (links.empty()) return 0.0f;
-
+    float calculateScore(const std::vector<std::pair<float,float>>& coords, const std::pair<float,float>& selfCoord) const {
+        if (coords.empty()) return 0.0f;
+        
+        Serial.printf("Self link: {%.3f, %.3f}\n", selfCoord.first, selfCoord.second);
+        
         float totalDist = 0.0f;
-        for (const auto& c : links) totalDist += haversineDistance(selfDist, c);
+        for (const auto& c : coords)
+        {
+            Serial.printf("Current link: {%.3f, %.3f}\n", c.first, c.second);
+            totalDist += haversineDistance(c, selfCoord);
+        }
 
-        float avgDist = totalDist / links.size();
+        float avgDist = totalDist / (coords.size() - 1);
         float normDist = min(avgDist, _maxDist) / _maxDist;
         float battScore = getBatteryPct() / 100.0f;
 

@@ -13,6 +13,7 @@
 #include <Commander.h>
 #include <ShamirHelper.h>
 #include <LVGLPage.h>
+#include "../score-function/LeadershipEvaluator.h"
 
 class SoldiersMissionPage : public LVGLPage
 {
@@ -35,6 +36,8 @@ class SoldiersMissionPage : public LVGLPage
     lv_timer_t* sendTimer;
     lv_timer_t* mainLoopTimer;
     lv_timer_t* sendRealGPSTimer;
+
+    LeadershipEvaluator leadershipEvaluator;
 
     std::function<void(std::shared_ptr<LoraModule>, std::shared_ptr<GPSModule>, 
         std::unique_ptr<FHFModule>, std::unique_ptr<Commander>)> transferFunction;
@@ -68,6 +71,8 @@ class SoldiersMissionPage : public LVGLPage
     void onSoldierTurnToCommanderEvent(SwitchCommander&);
 
     void receiveShamirRequest(const uint8_t* data, size_t len);
+
+    void canBeCommander(SwitchCommander&);
 
     
 

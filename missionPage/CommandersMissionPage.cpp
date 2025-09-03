@@ -759,7 +759,8 @@ void CommandersMissionPage::switchCommanderEvent()
     std::vector<uint8_t> allSoldiers;
     allSoldiers.reserve(this->commanderModule->getCommanders().size() + this->commanderModule->getSoldiers().size());
 
-    std::vector<std::tuple<float,float>> soldiersCoords;
+    std::vector<std::pair<float,float>> soldiersCoords;
+    std::vector<uint8_t> soldiersCoordsIDS;
 
     for (const auto& [k, v] : this->commanderModule->getCommanders()) 
     {
@@ -771,6 +772,7 @@ void CommandersMissionPage::switchCommanderEvent()
         if(this->commanderModule->areCoordsValid(k, false))
         {
             soldiersCoords.emplace_back(this->commanderModule->getLocation(k, false));
+            soldiersCoordsIDS.emplace_back(k);
         }
         
     }
@@ -786,7 +788,13 @@ void CommandersMissionPage::switchCommanderEvent()
         if(this->commanderModule->areCoordsValid(k, true))
         {
             soldiersCoords.emplace_back(this->commanderModule->getLocation(k, true));
+            soldiersCoordsIDS.emplace_back(k);
         }
+    }
+
+    for(uint8_t idx = 0; idx < soldiersCoords.size(); ++idx)
+    {
+        Serial.printf("ID and coord commander -> %d { %.3f %.3f }\n", soldiersCoordsIDS.at(idx), soldiersCoords.at(idx).first, soldiersCoords.at(idx).second);
     }
 
     Serial.println("allSoldiers:");
@@ -826,6 +834,7 @@ void CommandersMissionPage::switchCommanderEvent()
         payload.shamirPart.clear();
         payload.compromisedSoldiers.clear();
         payload.missingSoldiers.clear();
+        payload.soldiersCoordsIDS.clear();
         payload.soldiersCoords.clear();
 
         payload.compromisedSoldiers = this->commanderModule->getComp();
@@ -833,6 +842,9 @@ void CommandersMissionPage::switchCommanderEvent()
 
         payload.missingSoldiers = this->commanderModule->getMissing();
         payload.missingSoldiersLength = payload.missingSoldiers.size();
+
+        payload.soldiersCoordsIDS = soldiersCoordsIDS;
+        payload.soldiersCoordsIDSLength = soldiersCoordsIDS.size();
 
         payload.soldiersCoords = soldiersCoords;
         payload.soldiersCoordsLength = soldiersCoords.size();
@@ -879,6 +891,11 @@ void CommandersMissionPage::switchCommanderEvent()
         buffer.append(reinterpret_cast<const char*>(payload.compromisedSoldiers.data()), payload.compromisedSoldiers.size());
         buffer += static_cast<char>(payload.missingSoldiersLength);
         buffer.append(reinterpret_cast<const char*>(payload.missingSoldiers.data()), payload.missingSoldiers.size());
+
+        buffer += static_cast<char>(payload.soldiersCoordsIDSLength);
+        buffer.append(reinterpret_cast<const char*>(payload.soldiersCoordsIDS.data()), payload.soldiersCoordsIDS.size());
+        buffer += static_cast<char>(payload.soldiersCoordsLength);
+        buffer.append(reinterpret_cast<const char*>(payload.soldiersCoords.data()), payload.soldiersCoords.size() * sizeof(std::pair<float,float>));
 
         std::string base64Payload = crypto::CryptoModule::base64Encode(
             reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
