@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <LilyGoLib.h>
+#include <optional>
 #include "mbedtls/x509_crt.h"
 
 
@@ -21,6 +22,8 @@ struct CommanderInfo {
     uint16_t commanderNumber;
     mbedtls_x509_crt cert;
     time_t lastTimeReceivedData;
+    std::optional<float> lat;
+    std::optional<float> lon;
     enum SoldiersStatus status;
 };
 
@@ -29,6 +32,8 @@ struct SoldierInfo {
     uint16_t soldierNumber;
     mbedtls_x509_crt cert;
     time_t lastTimeReceivedData;
+    std::optional<float> lat;
+    std::optional<float> lon;
     enum SoldiersStatus status;
 };
 
@@ -85,16 +90,43 @@ public:
         return commanders;
     }
 
-    void updateReceivedData(uint8_t id)
+    bool areCoordsValid(uint8_t id, bool isSoldier)
+    {
+        if(isSoldier)
+        {
+            return this->soldiers.at(id).lat && this->soldiers.at(id).lon;
+        }
+
+        return this->commanders.at(id).lat && this->commanders.at(id).lon;
+
+    }
+
+    std::pair<float,float> getLocation(uint8_t id, bool isSoldier)
+    {
+        if(isSoldier)
+        {
+            return {*this->soldiers.at(id).lat, *this->soldiers.at(id).lon};
+        }
+
+
+        return {*this->commanders.at(id).lat, *this->commanders.at(id).lon};
+    }
+
+    void updateReceivedData(uint8_t id, float lat, float lon)
     {
         if(this->soldiers.find(id) != this->soldiers.end())
         {
             this->soldiers.at(id).lastTimeReceivedData = millis();
+            this->soldiers.at(id).lat = lat;
+            this->soldiers.at(id).lon = lon;
+
             return;
         }
         else if(this->commanders.find(id) != this->commanders.end())
         {
             this->commanders.at(id).lastTimeReceivedData = millis();
+            this->commanders.at(id).lat = lat;
+            this->commanders.at(id).lon = lon;
         }
     }
 

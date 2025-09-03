@@ -237,7 +237,7 @@ void CommandersMissionPage::createPage() {
                 lon = me->gpsModule->getLon();
             }
             
-            
+            me->commanderModule->updateReceivedData(me->commanderModule->getCommanderNumber(), lat, lon);
 
             currentCommandersEvent["time_sent"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
 
@@ -430,7 +430,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
     create_fading_circle(marker_lat, marker_lon, centerLat, centerLon, newG->soldiersID, 19, &ballColors[newG->soldiersID], marker, label);
 
-    this->commanderModule->updateReceivedData(newG->soldiersID);
+    this->commanderModule->updateReceivedData(newG->soldiersID, marker_lat, marker_lon);
     const std::vector<uint8_t>& comp = this->commanderModule->getComp();
 
     if(newG->heartRate == 0 && std::find(comp.begin(), comp.end(), newG->soldiersID) == comp.end())
@@ -758,11 +758,19 @@ void CommandersMissionPage::switchCommanderEvent()
 
     std::vector<uint8_t> allSoldiers;
     allSoldiers.reserve(this->commanderModule->getCommanders().size() + this->commanderModule->getSoldiers().size());
+
+    std::vector<std::tuple<float,float>> soldiersCoords;
+
     for (const auto& [k, v] : this->commanderModule->getCommanders()) 
     {
         if(!this->commanderModule->isComp(k))
         {
             allSoldiers.push_back(k);
+        }
+
+        if(this->commanderModule->areCoordsValid(k, false))
+        {
+            soldiersCoords.emplace_back(this->commanderModule->getLocation(k, false));
         }
         
     }
@@ -772,6 +780,12 @@ void CommandersMissionPage::switchCommanderEvent()
         if(!this->commanderModule->isComp(k))
         {
             allSoldiers.push_back(k);
+        }
+
+
+        if(this->commanderModule->areCoordsValid(k, true))
+        {
+            soldiersCoords.emplace_back(this->commanderModule->getLocation(k, true));
         }
     }
 
@@ -797,7 +811,7 @@ void CommandersMissionPage::switchCommanderEvent()
     {
         LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, "Sending Shamir!");
     }
-    
+
 
     for (const auto& soldier : allSoldiers) 
     {
@@ -812,6 +826,7 @@ void CommandersMissionPage::switchCommanderEvent()
         payload.shamirPart.clear();
         payload.compromisedSoldiers.clear();
         payload.missingSoldiers.clear();
+        payload.soldiersCoords.clear();
 
         payload.compromisedSoldiers = this->commanderModule->getComp();
         payload.compromisedSoldiersLength = payload.compromisedSoldiers.size();

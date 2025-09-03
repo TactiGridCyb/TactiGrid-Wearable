@@ -25,6 +25,8 @@ struct SwitchCommander{
     std::vector<uint8_t> compromisedSoldiers;
     uint8_t missingSoldiersLength;
     std::vector<uint8_t> missingSoldiers;
+    uint8_t soldiersCoordsLength;
+    std::vector<std::tuple<float,float>> soldiersCoords;
 };
 
 struct requestShamir{
@@ -36,6 +38,12 @@ struct sendShamir{
     uint8_t msgID;
     uint8_t soldiersID;
     std::vector<std::pair<uint8_t,uint8_t>> shamirPart;
+};
+
+struct SkipCommander{
+    uint8_t msgID;
+    uint8_t commandersID;
+    
 };
 
 class Commander : public PersonBase
