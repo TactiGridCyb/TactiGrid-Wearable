@@ -6,6 +6,7 @@
 #include <GPSModule.h>
 #include <FHFModule.h>
 #include "../env.h"
+#include "../diffieHelmanPage/diffieHelmanPageSoldier.h"
 
 const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASS;
@@ -18,6 +19,7 @@ std::unique_ptr<SoldiersReceiveParametersPage> receiveParametersPage;
 std::unique_ptr<SoldiersMainPage> soldiersMainPage;
 std::unique_ptr<SoldiersMissionPage> soldiersMissionPage;
 std::unique_ptr<CommandersMissionPage> commandersMissionPage;
+std::unique_ptr<DiffieHellmanPageSoldier> dhPage;
 
 std::unique_ptr<WifiModule> wifiModule;
 std::shared_ptr<LoraModule> loraModule;
@@ -88,15 +90,41 @@ void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiMod
     soldiersMissionPage->setTransferFunction(transferFromSendCoordsToReceiveCoordsPage);
 }
 
-void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Soldier> soldierModule)
+// void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Soldier> soldierModule)
+// {
+//     Serial.println("transferFromReceiveParametersToMainPage");
+//     soldiersMainPage = std::make_unique<SoldiersMainPage>(std::move(currentWifiModule));
+//     soldiersMainPage->createPage();
+
+//     soldiersMainPage->setOnTransferPage(transferFromMainToSendCoordsPage);
+
+//     soldiersModule = std::move(soldierModule);
+// }
+
+void transferFromDhToMainPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Soldier> soldierModule)
 {
-    Serial.println("transferFromReceiveParametersToMainPage");
+    Serial.println("transferFromDhToMainPage");
+
     soldiersMainPage = std::make_unique<SoldiersMainPage>(std::move(currentWifiModule));
     soldiersMainPage->createPage();
 
     soldiersMainPage->setOnTransferPage(transferFromMainToSendCoordsPage);
 
     soldiersModule = std::move(soldierModule);
+}
+
+void transferFromReceiveParametersToDhPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Soldier> soldierModule)
+{
+    Serial.println("transferFromReceiveParametersToDhPage");
+
+    wifiModule = std::move(currentWifiModule);
+
+    dhPage = std::make_unique<DiffieHellmanPageSoldier>(std::move(wifiModule), std::move(soldierModule), soldierModule.get());
+    dhPage->createPage();
+
+    dhPage->setOnTransferMainPage(transferFromDhToMainPage);
+
+    //soldiersModule = std::move(soldierModule);
 }
 
 
@@ -153,7 +181,7 @@ void setup()
 
     receiveParametersPage = std::make_unique<SoldiersReceiveParametersPage>(std::move(wifiModule));
     receiveParametersPage->createPage();
-    receiveParametersPage->setOnTransferPage(transferFromReceiveParametersToMainPage);
+    receiveParametersPage->setOnTransferPage(transferFromReceiveParametersToDhPage);
 
     FFatHelper::begin();
 

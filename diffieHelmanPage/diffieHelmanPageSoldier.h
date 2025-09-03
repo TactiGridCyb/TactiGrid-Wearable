@@ -5,6 +5,10 @@
 #include "../certModule/certModule.h"
 #include "../LoraModule/LoraModule.h"
 #include "../soldier-DH/SoldierECDHHandler.h"
+#include <LilyGoLib.h>
+#include <LoraModule.h>
+#include <WifiModule.h>
+#include <GPSModule.h>
 
 class DiffieHellmanPageSoldier : public LVGLPage {
 private:
@@ -15,10 +19,14 @@ private:
     SoldierECDHHandler* dhHandler = nullptr;
     certModule certmodule;
     std::function<void()> onStart;
-    bool soldierProcessStarted;
+    bool soldierProcessStarted;    
+    std::unique_ptr<WifiModule> wifiModule;
+    std::unique_ptr<Soldier> soldierPtr;
+
+    std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Soldier>)> onTransferMainPage;
 
 public:
-    DiffieHellmanPageSoldier(Soldier* soldier);
+    DiffieHellmanPageSoldier(std::unique_ptr<WifiModule> wifiModule, std::unique_ptr<Soldier> soldierPtr, Soldier* soldier);
     void createPage() override;
     void setStatusText(const char* text);
     void setOnStartCallback(std::function<void()> cb);
@@ -32,6 +40,8 @@ public:
         auto* self = static_cast<DiffieHellmanPageSoldier*>(lv_event_get_user_data(e));
         self->onButtonPressed();
     }
+
+    void setOnTransferMainPage(std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Soldier>)> cb);
 
 protected:
     // after pressing the button check if the process is ok to start

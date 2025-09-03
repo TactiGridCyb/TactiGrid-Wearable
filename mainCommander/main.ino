@@ -10,6 +10,7 @@
 #include "../env.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "../diffieHelmanPage/diffieHelmanPageCommander.h"
 
 const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASS;
@@ -19,6 +20,7 @@ std::unique_ptr<CommandersMainPage> commandersMainPage;
 std::unique_ptr<CommandersMissionPage> commandersMissionPage;
 std::unique_ptr<CommandersUploadLogPage> commandersUploadLogPage;
 std::unique_ptr<SoldiersMissionPage> soldiersMissionPage;
+std::unique_ptr<DiffieHellmanPageCommander> dhPage;
 
 std::unique_ptr<WifiModule> wifiModule;
 std::shared_ptr<LoraModule> loraModule;
@@ -95,9 +97,25 @@ void transferFromMainToUploadLogsPage(std::unique_ptr<WifiModule> currentWifiMod
     commandersReceiveParametersPage.reset();
 }
 
-void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Commander> commanderModule)
+// void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Commander> commanderModule)
+// {
+//     Serial.println("transferFromReceiveParametersToMainPage");
+
+//     wifiModule = std::move(currentWifiModule);
+
+//     commandersMainPage = std::make_unique<CommandersMainPage>();
+//     commandersMainPage->createPage();
+
+//     commandersMainPage->setOnTransferReceiveCoordsPage(transferFromMainToReceiveCoordsPage);
+
+//     commandersModule = std::move(commanderModule);
+// }
+
+
+//commander-current
+void transferFromDhToMainPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Commander> commanderModule)
 {
-    Serial.println("transferFromReceiveParametersToMainPage");
+    Serial.println("transferFromDhToMainPage");
 
     wifiModule = std::move(currentWifiModule);
 
@@ -109,6 +127,20 @@ void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> current
     commandersModule = std::move(commanderModule);
 }
 
+//commander-current
+void transferFromReceiveParametersToDhPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Commander> commanderModule)
+{
+    Serial.println("transferFromReceiveParametersToDhPage");
+
+    wifiModule = std::move(currentWifiModule);
+
+    dhPage = std::make_unique<DiffieHellmanPageCommander>(std::move(wifiModule), std::move(commanderModule), commanderModule.get());
+    dhPage->createPage();
+
+    dhPage->setOnTransferMainPage(transferFromDhToMainPage);
+
+    //commandersModule = std::move(commanderModule);
+}
 
 
 void setup()
@@ -162,10 +194,10 @@ void setup()
         delay(500);
     }
     
-
+//TODO:
     commandersReceiveParametersPage = std::make_unique<CommandersReceiveParametersPage>(std::move(wifiModule));
     commandersReceiveParametersPage->createPage();
-    commandersReceiveParametersPage->setOnReceiveParams(transferFromReceiveParametersToMainPage);
+    commandersReceiveParametersPage->setOnReceiveParams(transferFromReceiveParametersToDhPage);
     commandersReceiveParametersPage->setOnUploadLogs(transferFromMainToUploadLogsPage);
 
     FFatHelper::begin();

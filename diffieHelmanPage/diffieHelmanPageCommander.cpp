@@ -4,8 +4,10 @@
 #include <Arduino.h>
 
 
-DiffieHellmanPageCommander::DiffieHellmanPageCommander(Commander* commander)
+DiffieHellmanPageCommander::DiffieHellmanPageCommander(std::unique_ptr<WifiModule> wifiModule, std::unique_ptr<Commander> commanderPtr, Commander* commander)
     : page(nullptr), statusLabel(nullptr), startBtn(nullptr), onStart(nullptr), commanderProcessStarted(false), commander(commander) {
+    this->commanderPtr = std::move(commanderPtr);
+    this->wifiModule = std::move(wifiModule);
     }
 
 // create page function
@@ -92,13 +94,15 @@ void DiffieHellmanPageCommander::startExchangeWithNextSoldier() {
     if (currentSoldierIndex >= soldierVector.size()) {
         setStatusText("✅ All exchanges complete");
         commanderProcessStarted = false;
+        this->destroyPage();
+        onTransferMainPage(std::move(this->wifiModule), std::move(this->commanderPtr));
         return;
     }
 
     const SoldierInfo& soldier = soldierVector[currentSoldierIndex];
     int soldierId = soldier.soldierNumber;
 
-    setStatusText(("Starting exchange with Soldier #" + String(soldierId)).c_str());
+    setStatusText(("Exchange with Soldier #" + String(soldierId)).c_str());
 
     if (!dhHandler->startECDHExchange(soldierId)) {
         setStatusText("❌ Failed to start exchange");
@@ -128,4 +132,9 @@ void DiffieHellmanPageCommander::poll() {
         delay(500);  // Optional pause before next
         startExchangeWithNextSoldier();
     }
+}
+
+
+void DiffieHellmanPageCommander::setOnTransferMainPage(std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Commander>)> cb) {
+    this->onTransferMainPage = std::move(cb);
 }

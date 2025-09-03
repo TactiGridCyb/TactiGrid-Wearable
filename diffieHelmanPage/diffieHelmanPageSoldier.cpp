@@ -4,8 +4,8 @@
 #include <Arduino.h>
 
 
-DiffieHellmanPageSoldier::DiffieHellmanPageSoldier(Soldier* soldier)
-    : page(nullptr), statusLabel(nullptr), startBtn(nullptr), onStart(nullptr), soldierProcessStarted(false), soldier(soldier) {
+DiffieHellmanPageSoldier::DiffieHellmanPageSoldier(std::unique_ptr<WifiModule> wifiModule, std::unique_ptr<Soldier> soldierPtr, Soldier* soldier)
+    : page(nullptr), statusLabel(nullptr), startBtn(nullptr), onStart(nullptr), soldierProcessStarted(false), soldierPtr(std::move(soldierPtr)), wifiModule(std::move(wifiModule)), soldier(soldier) {
     }
 
 // create page function
@@ -63,7 +63,6 @@ void DiffieHellmanPageSoldier::startProcess() {
     }
 
     setStatusText("Starting DH handler...");
-    // allocate *your* member, not a new local
     dhHandler = new SoldierECDHHandler(868, soldier, certmodule);
     dhHandler->begin();
     dhHandler->startListening();
@@ -87,5 +86,11 @@ void DiffieHellmanPageSoldier::poll() {
         Serial.print("Final message (String): ");
         Serial.println(dhHandler->getFinalMessage());
         soldierProcessStarted = false;
+        this->destroyPage();
+        onTransferMainPage(std::move(wifiModule), std::move(soldierPtr));
   }
+}
+
+void DiffieHellmanPageSoldier::setOnTransferMainPage(std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Soldier>)> cb) {
+    this->onTransferMainPage = std::move(cb);
 }
