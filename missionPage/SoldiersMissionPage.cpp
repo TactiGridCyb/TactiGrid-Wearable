@@ -72,6 +72,12 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
      // Serial.println("this->wifiModule->isConnected()"); // Removed because wifiModule is not a member of SoldiersMissionPage
 }
 
+SoldiersMissionPage::~SoldiersMissionPage()
+{
+    Serial.printf("INSIDE THE DESTRUCTOR OF SoldiersMissionPage");
+
+}
+
 void SoldiersMissionPage::createPage()
 {
     Serial.println("SoldiersMissionPage::createPage");
@@ -295,7 +301,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
             this->finishTimer = false;
             this->commanderSwitchEvent = true;
 
-            this->loraModule->setOnFileReceived([this, &scPayload](const uint8_t* data, size_t len) {
+            this->loraModule->setOnFileReceived([this, scPayload](const uint8_t* data, size_t len) mutable {
                 this->onCommanderSwitchDataReceived(data, len, scPayload);
             });
             
@@ -458,7 +464,7 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
         float currentLat, currentLon;
         uint8_t currentHeartRate;
         uint8_t ID = self->soldierModule->getSoldierNumber();
-        if(self->currentIndex == 4)
+        if(self->currentIndex == 2)
         {
             currentHeartRate = 0;
         }
@@ -612,6 +618,7 @@ void SoldiersMissionPage::onCommanderSwitchEvent(SwitchCommander& payload)
 
 void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload)
 {
+
     Serial.println("onSoldierTurnToCommanderEvent");
     if(this->sendTimer)
     {
@@ -622,6 +629,37 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
     if(this->sendRealGPSTimer)
     {
         lv_timer_del(this->sendRealGPSTimer);
+    }
+
+    Serial.println("post timer deletions");
+    if(this->soldierModule->getName().data())
+    {
+        Serial.println("Has Name!");
+    }
+
+    if(this->soldierModule->getPublicCert().raw.len > 0)
+    {
+        Serial.println("Has getPublicCert!");
+    }
+
+    if(this->soldierModule->getPrivateKey().pk_info != NULL)
+    {
+        Serial.println("Has getPrivateKey!");
+    }
+
+    if(this->soldierModule->getCAPublicCert().raw.len > 0)
+    {
+        Serial.println("Has getCAPublicCert!");
+    }
+
+    if(this->soldierModule->getSoldierNumber() > 0)
+    {
+        Serial.printf("Has getSoldierNumber! %d\n", this->soldierModule->getSoldierNumber());
+    }
+
+    if(this->soldierModule->getIntervalMS() > 0)
+    {
+        Serial.printf("Has getIntervalMS! %d\n", this->soldierModule->getIntervalMS());
     }
 
     std::unique_ptr<Commander> command = std::make_unique<Commander>(this->soldierModule->getName(),

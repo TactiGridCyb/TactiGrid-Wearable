@@ -423,6 +423,8 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     {
         showMiddleTile();
         this->initialCoordsReceived = true;
+        this->commanderModule->resetAllData();
+
     }
 
     auto [centerLat, centerLon] = tileCenterLatLon(this->tileZoom, this->tileX, this->tileY);
@@ -749,7 +751,6 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID, bool isComma
 void CommandersMissionPage::switchCommanderEvent()
 {
     this->loraModule->setOnReadData(nullptr);
-    this->finishMainTimer = true;
 
     Serial.println("switchCommanderEvent");
     SwitchCommander payload;
@@ -760,12 +761,6 @@ void CommandersMissionPage::switchCommanderEvent()
     lv_timer_del(this->missingSoldierTimer);
     lv_timer_del(this->selfLogTimer);
     
-    if(this->regularLoopTimer)
-    {
-        lv_timer_del(this->regularLoopTimer);
-        this->regularLoopTimer = nullptr;
-    }
-
     this->missingSoldierTimer = nullptr;
     this->selfLogTimer = nullptr;
     
@@ -945,6 +940,14 @@ void CommandersMissionPage::switchCommanderEvent()
         ++index;
 
         delay(2000);
+    }
+
+    this->finishMainTimer = true;
+
+    if(this->regularLoopTimer)
+    {
+        lv_timer_del(this->regularLoopTimer);
+        this->regularLoopTimer = nullptr;
     }
 
     Serial.println("finished loop");

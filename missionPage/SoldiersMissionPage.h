@@ -98,4 +98,6 @@ class SoldiersMissionPage : public LVGLPage
     static std::tuple<int, int, int> positionToTile(float lat, float lon, int zoom);
 
     static inline bool isZero(float);
+
+    ~SoldiersMissionPage();
 };
