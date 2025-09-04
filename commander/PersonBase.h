@@ -54,6 +54,11 @@ public:
         uint16_t id = infoNumber(info);
         auto [it, inserted] = soldiers.emplace(id, info);
 
+        if(!inserted)
+        {
+            Serial.printf("Soldier %d was not inserted!\n", id);
+        }
+
         Serial.printf("addSoldier for %d\n", id);
     }
 

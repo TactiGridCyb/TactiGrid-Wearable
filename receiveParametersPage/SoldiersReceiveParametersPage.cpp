@@ -115,7 +115,7 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
       throw std::runtime_error("Failed to parse private key");
 
     NameId ownNi = certModule::parseNameIdFromCertPem(ownCertPem);
-
+    
     this->soldierModule = std::make_unique<Soldier>(
         ownNi.name,
         ownCert,
@@ -127,8 +127,22 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     this->soldierModule->appendFrequencies(freqs);
 
+    SoldierInfo ownInfo;
+    mbedtls_x509_crt_init(&ownInfo.cert);
+    if (mbedtls_x509_crt_parse(&ownInfo.cert, reinterpret_cast<const unsigned char*>(ownCertPem.c_str()), ownCertPem.size() + 1) != 0)
+    {
+        mbedtls_x509_crt_free(&ownInfo.cert);
+    }
+    ownInfo.name = std::move(ownNi.name);
+    ownInfo.soldierNumber = ownNi.id;
+    ownInfo.status = SoldiersStatus::REGULAR;
+    ownInfo.lastTimeReceivedData = millis();
+
+    this->soldierModule->addSoldier(std::move(ownInfo));
+
     for (auto v : doc["soldiers"].as<JsonArray>()) {
         const std::string pem = v.as<std::string>();
+
 
         SoldierInfo soldInfo;
         mbedtls_x509_crt_init(&soldInfo.cert);
@@ -146,6 +160,7 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
             soldInfo.lastTimeReceivedData = millis();
         }
         catch (...) {
+          Serial.println("CATCH!");
             mbedtls_x509_crt_free(&soldInfo.cert);
             continue;
         }
