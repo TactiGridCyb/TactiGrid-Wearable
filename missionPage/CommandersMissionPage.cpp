@@ -18,6 +18,8 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
 
         this->fakeGPS = fakeGPS;
         this->finishMainTimer = false;
+
+        this->initialShamirReceived = false;
         
         Serial.printf("🔍 Checking modules for %d:\n", this->commanderModule->getCommanderNumber());
         Serial.printf("📡 loraModule: %s\n", this->loraModule ? "✅ OK" : "❌ NULL");
@@ -1177,8 +1179,10 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
         return;
     } 
 
-    if (this->shamirPartsCollected == 1 && !this->loraModule->getOnFileReceived())
+    if (this->shamirPartsCollected == 1 && !this->initialShamirReceived)
     {
+        this->initialShamirReceived = true;
+
         Serial.println("!this->loraModule->getOnFileReceived()");
         this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
             this->onShamirPartReceived(data, len);
@@ -1187,6 +1191,8 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
         this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
             this->loraModule->onLoraFileDataReceived(data, len);
         });
+
+        
     }
 
     this->sendNextShamirRequest();

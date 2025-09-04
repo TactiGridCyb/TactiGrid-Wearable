@@ -49,6 +49,8 @@ class SoldiersMissionPage : public LVGLPage
 
     bool syncFreq;
 
+    const char* certPath = "/cert.txt";
+
     bool finishTimer;
 
     static constexpr SoldiersSentData coords[5] = {

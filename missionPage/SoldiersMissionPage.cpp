@@ -50,6 +50,24 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
 
     this->finishTimer = false;
 
+    String ownCert;
+
+    FFatHelper::readFile(this->certPath, ownCert);
+
+    SoldierInfo ownInfo;
+    mbedtls_x509_crt_init(&ownInfo.cert);
+    if (mbedtls_x509_crt_parse(&ownInfo.cert, reinterpret_cast<const unsigned char*>(ownCert.c_str()), ownCert.length() + 1) != 0)
+    {
+        mbedtls_x509_crt_free(&ownInfo.cert);
+    }
+
+    ownInfo.name = std::move(this->soldierModule->getName());
+    ownInfo.soldierNumber = this->soldierModule->getSoldierNumber();
+    ownInfo.status = SoldiersStatus::REGULAR;
+    ownInfo.lastTimeReceivedData = millis();
+
+    this->soldierModule->addSoldier(std::move(ownInfo));
+
     if(this->commanderSwitchEvent)
     {
         this->syncFreq = false;

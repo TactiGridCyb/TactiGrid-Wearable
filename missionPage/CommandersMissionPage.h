@@ -68,6 +68,8 @@ private:
 
     bool initialCoordsReceived;
 
+    bool initialShamirReceived;
+
     volatile bool pmuFlag;
 
     uint8_t shamirPartsCollected;
