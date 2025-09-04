@@ -620,13 +620,12 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
 {
 
     Serial.println("onSoldierTurnToCommanderEvent");
-    if(this->sendTimer)
+    if(this->fakeGPS && this->sendTimer)
     {
         this->currentIndex = 100;
         lv_timer_del(this->sendTimer);
     }
-
-    if(this->sendRealGPSTimer)
+    else if(!this->fakeGPS && this->sendRealGPSTimer)
     {
         lv_timer_del(this->sendRealGPSTimer);
     }
