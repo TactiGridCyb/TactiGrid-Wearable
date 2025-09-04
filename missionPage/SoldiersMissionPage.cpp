@@ -105,12 +105,13 @@ void SoldiersMissionPage::createPage()
         auto *self = static_cast<SoldiersMissionPage*>(t->user_data);
         self->loraModule->handleCompletedOperation();
 
-        self->loraModule->syncFrequency(self->fhfModule.get());
-
         if(self->finishTimer)
         {
             return;
         }
+
+        self->loraModule->syncFrequency(self->fhfModule.get());
+
 
         if (!self->loraModule->isBusy()) {
             self->loraModule->readData();
@@ -231,6 +232,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
             scPayload.soldiersCoords.emplace_back(lat, lon);
         }
 
+        scPayload.soldiersCoordsLength = soldiersCoordsLen;
 
         Serial.printf("Important vars: %d %d %d\n", shamirLen, compromisedSoldiersLen, missingSoldiersLen);
         this->onCommanderSwitchEvent(scPayload);
@@ -251,6 +253,18 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         for(const auto& missingSoldier: scPayload.missingSoldiers)
         {
             Serial.println(missingSoldier);
+        }
+
+        Serial.println("scPayload.soldiersCoordsIDS");
+        for(const auto& soldiersIDS: scPayload.soldiersCoordsIDS)
+        {
+            Serial.println(soldiersIDS);
+        }
+
+        Serial.println("scPayload.soldiersCoords");
+        for(const auto& soldiersCoords: scPayload.soldiersCoords)
+        {
+            Serial.printf("%.5f %.5f\n", soldiersCoords.first, soldiersCoords.second);
         }
 
         Serial.printf("Length of IDS and not IDS: %d %d\n", scPayload.soldiersCoordsIDSLength, scPayload.soldiersCoordsLength);
@@ -442,8 +456,16 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
         Serial.println("getLocalTime");
 
         float currentLat, currentLon;
-        uint8_t currentHeartRate = LVGLPage::generateHeartRate();
+        uint8_t currentHeartRate;
         uint8_t ID = self->soldierModule->getSoldierNumber();
+        if(self->currentIndex == 4)
+        {
+            currentHeartRate = 0;
+        }
+        else
+        {
+            currentHeartRate = LVGLPage::generateHeartRate();
+        }
 
         LVGLPage::generateNearbyCoordinatesFromTile(self->tileX, self->tileY,
              self->tileZoom, currentLat, currentLon);

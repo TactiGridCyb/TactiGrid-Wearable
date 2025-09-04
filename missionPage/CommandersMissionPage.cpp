@@ -353,6 +353,8 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     currentEvent["longitude"] = marker_lon;
     currentEvent["heartRate"] = newG->heartRate;
     
+    Serial.printf("Current Event: %d\n", newG->heartRate);
+    Serial.printf("Current id: %d\n", newG->soldiersID);
     String name;
 
     if(this->commanderModule->getCommanders().find(newG->soldiersID) != this->commanderModule->getCommanders().end())
@@ -364,6 +366,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         name = String(this->commanderModule->getSoldiers().at(newG->soldiersID).name.c_str());
     }
 
+    Serial.printf("Name is: %s\n", name);
     currentEvent["soldierId"] = name;
 
     bool writeResult = FFatHelper::appendRegularJsonObjectToFile(this->logFilePath.c_str(), currentEvent);
@@ -773,6 +776,8 @@ void CommandersMissionPage::switchCommanderEvent()
         {
             soldiersCoords.emplace_back(this->commanderModule->getLocation(k, false));
             soldiersCoordsIDS.emplace_back(k);
+
+            Serial.printf("Pushing back {%.5f %.5f} %d\n", this->commanderModule->getLocation(k, false).first, this->commanderModule->getLocation(k, false).second, k);
         }
         
     }
@@ -789,6 +794,8 @@ void CommandersMissionPage::switchCommanderEvent()
         {
             soldiersCoords.emplace_back(this->commanderModule->getLocation(k, true));
             soldiersCoordsIDS.emplace_back(k);
+
+            Serial.printf("Pushing back {%.5f %.5f} %d\n", this->commanderModule->getLocation(k, true).first, this->commanderModule->getLocation(k, true).second, k);
         }
     }
 
@@ -900,7 +907,7 @@ void CommandersMissionPage::switchCommanderEvent()
         std::string base64Payload = crypto::CryptoModule::base64Encode(
             reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
 
-        Serial.printf("PAYLOAD SENT (base64): %d %d %d\n", shamirPartsLen, payload.compromisedSoldiersLength, payload.missingSoldiersLength);
+        Serial.printf("PAYLOAD SENT (base64): %d %d %d %d %d\n", shamirPartsLen, payload.compromisedSoldiersLength, payload.missingSoldiersLength, payload.soldiersCoordsIDSLength, payload.soldiersCoordsLength);
         Serial.println(base64Payload.c_str());
         Serial.println("SENDING base64Payload");
         this->loraModule->cancelReceive();
