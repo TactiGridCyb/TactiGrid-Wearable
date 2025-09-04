@@ -48,6 +48,14 @@ struct SkipCommander{
     
 };
 
+struct CommanderIntialized{
+    uint8_t msgID;
+};
+
+struct FinishedSplittingShamir{
+    uint8_t msgID;
+};
+
 class Commander : public PersonBase
 {
 public:

@@ -47,6 +47,8 @@ class SoldiersMissionPage : public LVGLPage
 
     bool commanderSwitchEvent;
 
+    bool syncFreq;
+
     bool finishTimer;
 
     static constexpr SoldiersSentData coords[5] = {
@@ -74,7 +76,7 @@ class SoldiersMissionPage : public LVGLPage
 
     bool canBeCommander(SwitchCommander&);
 
-    void onCommanderSwitchDataReceived(const uint8_t*, size_t, SwitchCommander&);
+    void onCommanderSwitchDataReceived(const uint8_t*, size_t, SwitchCommander*);
 
     void transmitSkipCommanderMessage();
 

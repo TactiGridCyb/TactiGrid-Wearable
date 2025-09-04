@@ -40,6 +40,8 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
     this->commanderSwitchEvent = commanderChange;
     this->currentIndex = 0;
 
+    this->syncFreq = true;
+
     this->coordCount = 5;
 
     this->tileX = -1;
@@ -50,8 +52,10 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
 
     if(this->commanderSwitchEvent)
     {
+        this->syncFreq = false;
+
         this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
-            this->receiveShamirRequest(data, len);
+            this->onCommanderSwitchDataReceived(data, len, nullptr);
         });
 
         this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
@@ -116,7 +120,10 @@ void SoldiersMissionPage::createPage()
             return;
         }
 
-        self->loraModule->syncFrequency(self->fhfModule.get());
+        if(self->syncFreq)
+        {
+            self->loraModule->syncFrequency(self->fhfModule.get());
+        }
 
 
         if (!self->loraModule->isBusy()) {
@@ -181,6 +188,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     }
     else if(sgPayload.msgID == 0x02)
     {
+        this->syncFreq = false;
         this->loraModule->setOnReadData(nullptr);
         this->loraModule->setOnFileReceived(nullptr);
         this->finishTimer = true;
@@ -302,7 +310,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
             this->commanderSwitchEvent = true;
 
             this->loraModule->setOnFileReceived([this, scPayload](const uint8_t* data, size_t len) mutable {
-                this->onCommanderSwitchDataReceived(data, len, scPayload);
+                this->onCommanderSwitchDataReceived(data, len, &scPayload);
             });
             
             this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
@@ -667,6 +675,10 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
     this->soldierModule->getSoldierNumber(), this->soldierModule->getIntervalMS());
 
     Serial.println("command");
+
+    //Because of the initial duplicate
+    this->soldierModule->removeSoldier(this->soldierModule->getSoldierNumber());
+
     command->setComp(payload.compromisedSoldiers);
     command->setSoldiers(this->soldierModule->getSoldiers());
     command->setCommanders(this->soldierModule->getCommanders());
@@ -706,6 +718,8 @@ void SoldiersMissionPage::transmitSkipCommanderMessage()
 
     std::string base64Payload = crypto::CryptoModule::base64Encode(reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
 
+    delay(1000);
+
     this->loraModule->cancelReceive();
     this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
 
@@ -713,7 +727,7 @@ void SoldiersMissionPage::transmitSkipCommanderMessage()
 
 }
 
-void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, size_t len, SwitchCommander& scPayload)
+void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, size_t len, SwitchCommander* scPayload)
 {
     Serial.println("onCommanderSwitchDataReceived");
 
@@ -731,6 +745,30 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
     SkipCommander payload;
 
     payload.msgID = static_cast<uint8_t>(decodedData[0]);
+
+    if(payload.msgID == 0x06)
+    {
+        Serial.println("Commander Found!!!");
+
+        delay(3000);
+
+        this->syncFreq = true;
+        this->commanderSwitchEvent = false;
+
+        this->currentIndex = 0;
+
+        this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) 
+        {
+            this->onDataReceived(data, len);
+        });
+
+        return;
+    }
+    else if(payload.msgID == 0x07)
+    {
+        return;
+    }
+
     payload.commandersID = static_cast<uint8_t>(decodedData[1]);
 
     if(payload.msgID == 0x05)
@@ -750,13 +788,13 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
         {
             Serial.println("I should be commander now after the previous skipped!");
 
-            canBeCommander = this->canBeCommander(scPayload);
+            canBeCommander = this->canBeCommander(*scPayload);
         }
 
     }
     else if(payload.msgID == 0x04 && payload.commandersID == this->soldierModule->getSoldierNumber())
     {
-        Serial.println("After someone skipped commandership, a new commander was found!");
+        Serial.println("After someone skipped or not skipped commandership, a new commander was found!");
 
         this->receiveShamirRequest(data, len);
     }
@@ -896,6 +934,8 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
 
     delay(10000);
     this->commanderSwitchEvent = false;
+    this->syncFreq = true;
+
     this->currentIndex = 0;
 
     this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) 

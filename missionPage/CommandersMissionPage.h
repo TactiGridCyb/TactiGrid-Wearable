@@ -94,6 +94,7 @@ private:
          std::shared_ptr<GPSModule>, std::unique_ptr<FHFModule>, std::unique_ptr<Soldier>)> transferFunction;
 
     void onDataReceived(const uint8_t* data, size_t len);
+    void onFinishedSplittingShamirReceived(const uint8_t* data, size_t len);
     void onShamirPartReceived(const uint8_t* data, size_t len);
     void showMiddleTile();
 

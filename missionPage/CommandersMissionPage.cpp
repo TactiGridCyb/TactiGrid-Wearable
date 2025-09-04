@@ -104,62 +104,13 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
                 Serial.println(k);
             }
 
-            lv_timer_create([](lv_timer_t* t){
-                delay(15000);
-                auto *self = static_cast<CommandersMissionPage*>(t->user_data);
-                sendShamir payload;
-                payload.msgID = 0x03;
-                payload.soldiersID = self->commanderModule->getCommanderNumber();
+            this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
+                this->onFinishedSplittingShamirReceived(data, len);
+            });
 
-                char sharePath[25];
-                snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", payload.soldiersID);
-                Serial.println(sharePath);
-
-                File currentShamir = FFat.open(sharePath, FILE_READ);
-                if (!currentShamir) 
-                {
-                    Serial.print("❌ Failed to open share file: ");
-                    Serial.println(sharePath);
-                    lv_timer_del(t);
-
-                    return;
-                }
-
-                while (currentShamir.available()) 
-                {
-                    String line = currentShamir.readStringUntil('\n');
-                    int comma = line.indexOf(',');
-                    if (comma < 1) continue;
-
-                    uint8_t x = (uint8_t)line.substring(0, comma).toInt();
-                    uint8_t y = (uint8_t)line.substring(comma + 1).toInt();
-                    payload.shamirPart.emplace_back(x, y);
-                }
-
-                currentShamir.close();
-
-                FFatHelper::deleteFile(sharePath);
-
-                std::string buffer;
-                buffer.reserve(2 + payload.shamirPart.size() * 2);
-
-                buffer += static_cast<char>(payload.msgID);
-                buffer += static_cast<char>(payload.soldiersID);
-
-                for(auto &pt : payload.shamirPart) 
-                {
-                    buffer.push_back((char)pt.first);
-                    buffer.push_back((char)pt.second);
-                }
-
-                std::string base64Payload = crypto::CryptoModule::base64Encode(
-                reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
-                    
-
-                Serial.printf("ALL LENGTHS: %d %d %d\n", payload.shamirPart.size(), buffer.size(), base64Payload.length());
-                self->onShamirPartReceived(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
-                lv_timer_del(t);
-            }, 100, this);
+            this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
+                this->loraModule->onLoraFileDataReceived(data, len);
+            });
 
             
         }
@@ -194,8 +145,10 @@ void CommandersMissionPage::createPage() {
             auto *me = static_cast<CommandersMissionPage*>(timer->user_data);
 
             me->loraModule->handleCompletedOperation();
-
-            me->loraModule->syncFrequency(me->fhfModule.get());
+            if(!me->commanderSwitchEvent)
+            {
+                me->loraModule->syncFrequency(me->fhfModule.get());
+            }
 
             if(me->finishMainTimer)
             {
@@ -750,6 +703,7 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID, bool isComma
 
 void CommandersMissionPage::switchCommanderEvent()
 {
+    this->commanderSwitchEvent = true;
     this->loraModule->setOnReadData(nullptr);
 
     Serial.println("switchCommanderEvent");
@@ -763,7 +717,6 @@ void CommandersMissionPage::switchCommanderEvent()
     
     this->missingSoldierTimer = nullptr;
     this->selfLogTimer = nullptr;
-    
 
     
     uint8_t nextID = -1;
@@ -934,13 +887,30 @@ void CommandersMissionPage::switchCommanderEvent()
         Serial.printf("PAYLOAD SENT (base64): %d %d %d %d %d\n", shamirPartsLen, payload.compromisedSoldiersLength, payload.missingSoldiersLength, payload.soldiersCoordsIDSLength, payload.soldiersCoordsLength);
         Serial.println(base64Payload.c_str());
         Serial.println("SENDING base64Payload");
+
         this->loraModule->cancelReceive();
         this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
     
         ++index;
 
-        delay(2000);
+        delay(3000);
     }
+
+    delay(5000);
+
+    FinishedSplittingShamir ans;
+    ans.msgID = 0x07;
+
+    std::string buffer;
+    buffer += static_cast<char>(ans.msgID);
+
+    std::string base64Payload = crypto::CryptoModule::base64Encode(
+    reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
+        
+    this->loraModule->cancelReceive();
+    this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+
+    delay(1000);
 
     this->finishMainTimer = true;
 
@@ -981,6 +951,87 @@ void CommandersMissionPage::switchCommanderEvent()
      this->gpsModule, std::move(this->fhfModule), std::move(sold));
 }
 
+void CommandersMissionPage::onFinishedSplittingShamirReceived(const uint8_t* data, size_t len)
+{
+    Serial.println("onFinishedSplittingShamirReceived");
+
+    std::string base64Str(reinterpret_cast<const char*>(data), len);
+    Serial.printf("DECODED DATA: %s %d\n", base64Str.c_str(), len);
+
+    std::vector<uint8_t> decodedData;
+    Serial.println("-----------------------------");
+
+    try {
+        decodedData = crypto::CryptoModule::base64Decode(base64Str);
+        
+    } catch (const std::exception& e) {
+        Serial.printf("Base64 decode failed: %s\n", e.what());
+        return;
+    }
+
+    FinishedSplittingShamir fshPayload;
+
+    fshPayload.msgID = static_cast<uint8_t>(decodedData[0]);
+
+    if(fshPayload.msgID != 0x07)
+    {
+        Serial.printf("ID is not 0x07! %d\n", fshPayload.msgID);
+        return;
+    }
+
+    sendShamir payload;
+    payload.msgID = 0x03;
+    payload.soldiersID = this->commanderModule->getCommanderNumber();
+
+    char sharePath[25];
+    snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", payload.soldiersID);
+    Serial.println(sharePath);
+
+    File currentShamir = FFat.open(sharePath, FILE_READ);
+    if (!currentShamir) 
+    {
+        Serial.print("❌ Failed to open share file: ");
+        Serial.println(sharePath);
+
+        return;
+    }
+
+    while (currentShamir.available()) 
+    {
+        String line = currentShamir.readStringUntil('\n');
+        int comma = line.indexOf(',');
+        if (comma < 1) continue;
+
+        uint8_t x = (uint8_t)line.substring(0, comma).toInt();
+        uint8_t y = (uint8_t)line.substring(comma + 1).toInt();
+        payload.shamirPart.emplace_back(x, y);
+    }
+
+    currentShamir.close();
+
+    FFatHelper::deleteFile(sharePath);
+
+    std::string buffer;
+    buffer.reserve(2 + payload.shamirPart.size() * 2);
+
+    buffer += static_cast<char>(payload.msgID);
+    buffer += static_cast<char>(payload.soldiersID);
+
+    for(auto &pt : payload.shamirPart) 
+    {
+        buffer.push_back((char)pt.first);
+        buffer.push_back((char)pt.second);
+    }
+
+    std::string base64Payload = crypto::CryptoModule::base64Encode(
+    reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
+        
+    Serial.printf("ALL LENGTHS: %d %d %d\n", payload.shamirPart.size(), buffer.size(), base64Payload.length());
+
+    delay(5000);
+
+    this->onShamirPartReceived(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+}
 
 void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len)
 {
@@ -1031,7 +1082,7 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
         payload.shamirPart.emplace_back(x,y);
     }
 
-    Serial.printf("Deserialized SwitchGMK: msgID=%d, soldiersID=%d, shamirPart size=%zu\n",
+    Serial.printf("Deserialized sendShamir: msgID=%d, soldiersID=%d, shamirPart size=%zu\n",
                   payload.msgID, payload.soldiersID, payload.shamirPart.size());
 
     if(payload.shamirPart.size() == 0)
@@ -1097,6 +1148,20 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
 
         FFatHelper::removeFilesIncludeWords("share", "txt");
         
+        CommanderIntialized ans;
+        ans.msgID = 0x06;
+
+        std::string buffer;
+        buffer += static_cast<char>(ans.msgID);
+
+        std::string base64Payload = crypto::CryptoModule::base64Encode(
+        reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
+            
+        this->loraModule->cancelReceive();
+        this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+        
+        delay(2000);
+
         this->commanderSwitchEvent = false;
 
         this->commanderModule->resetAllData();

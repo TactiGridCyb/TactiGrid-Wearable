@@ -74,6 +74,8 @@ public:
     {
         Serial.println("removeCommander");
 
+        mbedtls_x509_crt_free(&this->commanders.at(id).cert);
+
         this->commanders.erase(id);
 
         auto it = std::find(this->commandersInsertionOrder.begin(), this->commandersInsertionOrder.end(), id);
@@ -87,6 +89,9 @@ public:
     void removeSoldier(uint8_t id)
     {
         Serial.println("removeSoldier");
+
+        mbedtls_x509_crt_free(&this->soldiers.at(id).cert);
+
         this->soldiers.erase(id);
     }
 
