@@ -17,6 +17,7 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         this->tileImg = nullptr;
 
         this->fakeGPS = fakeGPS;
+        this->finishMainTimer = false;
         
         Serial.printf("🔍 Checking modules for %d:\n", this->commanderModule->getCommanderNumber());
         Serial.printf("📡 loraModule: %s\n", this->loraModule ? "✅ OK" : "❌ NULL");
@@ -185,14 +186,25 @@ void CommandersMissionPage::createPage() {
 
     Serial.println("this->regularLoopTimer");
     this->regularLoopTimer = lv_timer_create([](lv_timer_t* t){
-        auto *self = static_cast<CommandersMissionPage*>(t->user_data);
+
         lv_async_call([](void* user_data) 
         {
-            auto *me = static_cast<CommandersMissionPage*>(user_data);
+            lv_timer_t* timer = static_cast<lv_timer_t*>(user_data);
+
+            auto *me = static_cast<CommandersMissionPage*>(timer->user_data);
 
             me->loraModule->handleCompletedOperation();
 
             me->loraModule->syncFrequency(me->fhfModule.get());
+
+            if(me->finishMainTimer)
+            {
+                me->loraModule->cancelReceive();
+                lv_timer_del(timer);
+                Serial.println("Removed Main Timer!");
+                me->regularLoopTimer = nullptr;
+                return;
+            }
             
             if (!me->loraModule->isBusy()) 
             {
@@ -212,7 +224,7 @@ void CommandersMissionPage::createPage() {
 
             me->gpsModule->updateCoords();
 
-        }, self);
+        }, t);
     }, 100, this);
 
     this->selfLogTimer = lv_timer_create([](lv_timer_t* t){
@@ -452,7 +464,13 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
         // FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 
-        this->switchCommanderEvent();
+        lv_async_call([](void* user_data) {
+            auto* me = static_cast<CommandersMissionPage*>(user_data);
+            me->switchCommanderEvent();
+
+        }, this);
+
+        return;
     }
 
 }
@@ -597,6 +615,7 @@ void CommandersMissionPage::setTransferFunction(std::function<void(std::shared_p
     this->transferFunction = cb;
 }
 
+
 String CommandersMissionPage::getCurrentTimeStamp()
 {
     struct tm timeInfo;
@@ -729,6 +748,8 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID, bool isComma
 
 void CommandersMissionPage::switchCommanderEvent()
 {
+    this->loraModule->setOnReadData(nullptr);
+    this->finishMainTimer = true;
 
     Serial.println("switchCommanderEvent");
     SwitchCommander payload;
@@ -738,9 +759,17 @@ void CommandersMissionPage::switchCommanderEvent()
 
     lv_timer_del(this->missingSoldierTimer);
     lv_timer_del(this->selfLogTimer);
-
     
-    this->loraModule->setOnReadData(nullptr);
+    if(this->regularLoopTimer)
+    {
+        lv_timer_del(this->regularLoopTimer);
+        this->regularLoopTimer = nullptr;
+    }
+
+    this->missingSoldierTimer = nullptr;
+    this->selfLogTimer = nullptr;
+    
+
     
     uint8_t nextID = -1;
     String newCommandersName = "";
@@ -919,8 +948,6 @@ void CommandersMissionPage::switchCommanderEvent()
     }
 
     Serial.println("finished loop");
-
-    lv_timer_del(this->regularLoopTimer);
 
     Serial.println("deleted timer");
 

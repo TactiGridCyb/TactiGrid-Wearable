@@ -67,6 +67,12 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
     Serial.printf("[🧠 STACK] - Stack high water mark: %u words (~%u bytes)\n", 
                   highWaterMark, highWaterMark * sizeof(uint32_t));
 
+    lv_async_call([](void * user_data) {
+        auto* commandersPtr = static_cast<std::unique_ptr<CommandersMissionPage>*>(user_data);
+        commandersPtr->reset();
+
+    }, &commandersMissionPage);
+
     // soldiersMissionPage->setTransferFunction(transferFromSendCoordsToReceiveCoordsPage);
 }
 

@@ -62,6 +62,8 @@ private:
 
     bool fakeGPS;
 
+    bool finishMainTimer;
+
     bool commanderSwitchEvent;
 
     bool initialCoordsReceived;
