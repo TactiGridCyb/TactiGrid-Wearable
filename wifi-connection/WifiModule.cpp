@@ -17,7 +17,7 @@ JsonDocument WifiModule::receiveJSONTCP(const char* serverIP, uint16_t serverPor
         return JsonDocument();
     }
 
-    client.setTimeout(timeoutMs / 1000.0);
+    client.setTimeout(timeoutMs / 500.0);
 
     JsonDocument doc;
 
