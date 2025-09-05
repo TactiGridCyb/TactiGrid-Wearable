@@ -8,6 +8,9 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include "../commander/Soldier.h"
+#include "../commander/Commander.h"
+
 
 struct NameId {
     std::string name;
@@ -19,12 +22,13 @@ public:
     certModule();
     ~certModule();
 
-    bool loadFromConfig(const CommanderConfigModule& config);
+    bool loadFromSoldier(const Soldier& soldier);
+    bool loadFromCommander(const Commander& commander);
 
     bool encryptWithPrivateKey(const uint8_t* input, size_t inputLen,
                                uint8_t* output, size_t& outputLen);
 
-    bool verifyCertificate();
+    //bool verifyCertificate();
     bool loadSingleCertificate(const String& pemCert);
 
     static bool verifyCertificate(mbedtls_x509_crt* certToVerify, mbedtls_x509_crt* caCert);
@@ -48,6 +52,14 @@ public:
     static bool encryptWithPublicKeyPem(const std::string& pemCert,
                              const std::string& data,
                              std::vector<uint8_t>& output);
+
+    inline mbedtls_ctr_drbg_context& getDrbg() { return ctr_drbg; }
+    inline mbedtls_pk_context* getPrivateKey() { return &privateKey; }
+    inline mbedtls_x509_crt* getCertificateCtx() { return &certificate; }
+
+    //handling base64 functions
+    static bool decodeBase64(const String& input, std::vector<uint8_t>& output);
+    static String toBase64(const std::vector<uint8_t>& input);
 
 private:
     mbedtls_pk_context privateKey;

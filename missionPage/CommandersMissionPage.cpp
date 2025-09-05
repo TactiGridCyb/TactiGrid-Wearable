@@ -1,4 +1,5 @@
 #include "CommandersMissionPage.h"
+#include "../certModule/certModule.h"
 
 CommandersMissionPage* CommandersMissionPage::c_pmuOwner = nullptr;
 

@@ -11,8 +11,8 @@
 #define THRESHOLD 2
 #define PRIME 257
 
-const char* ssid = "peretz1";
-const char* password = "box17box";
+const char* ssid = "********";
+const char* password = "********";
 const char* udp_ip = "192.168.1.71";
 const int udp_port = 5555;
 

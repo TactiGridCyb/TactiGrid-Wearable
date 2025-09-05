@@ -3,34 +3,48 @@
 #include <ArduinoJson.h>
 #include "../LoraModule/LoraModule.h"
 #include "../commander-config/commander-config.h"
-#include "certModule.h"
+#include "../commander/Commander.h"
+#include "../certModule/certModule.h"
 #include "ECDHHelper.h"
 #include <vector>
 
 class CommanderECDHHandler {
 public:
-    CommanderECDHHandler(float freq, CommanderConfigModule* cfg);
+    CommanderECDHHandler(float freq, Commander* cmdr, certModule& crypt);
     void begin();
     bool startECDHExchange(int soldierId);
     std::vector<uint8_t> getSharedSecret();
     bool isExchangeComplete();
+    LoraModule& getLoRa() { return lora; }
+    void poll();
+    bool sendSecureMessage(int soldierId, const String& plaintext);
+
 
 private:
-    static void handleLoRaData(const uint8_t* data, size_t len);
+    static void handleLoRaDataStatic(const uint8_t* data, size_t len);
+
+    void handleLoRaData(const uint8_t* data, size_t len);
     static bool decodeBase64(const String& input, std::vector<uint8_t>& output);
     static String toBase64(const std::vector<uint8_t>& input);
 
     static CommanderECDHHandler* instance; // For static callback access
 
+    //modify the code to match
+    String getPeerPublicKeyPEM(int soldierId);
+    String getCertificatePEM();
+
     LoraModule lora;
-    CommanderConfigModule* config;
-    certModule crypto;
+    Commander* commander;
+    certModule& crypto;
     ECDHHelper ecdh;
     std::vector<uint8_t> sharedSecret;
     bool waitingResponse;
     bool hasHandled;
     unsigned long startWait;
     const unsigned long TIMEOUT_MS = 15000;
+
+    bool           responsePending  = false;
+  std::vector<uint8_t> pendingPacket;
 };
 
 /*

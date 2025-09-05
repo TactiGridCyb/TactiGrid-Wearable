@@ -2,6 +2,7 @@
 #include <Commander.h>
 #include <cstring>
 #include <algorithm>
+#include "../certModule/certModule.h"
 
 SoldiersMissionPage* SoldiersMissionPage::s_pmuOwner = nullptr;
 

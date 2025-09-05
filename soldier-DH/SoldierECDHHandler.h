@@ -2,33 +2,53 @@
 #pragma once
 #include <ArduinoJson.h>
 #include "../LoraModule/LoraModule.h"
-#include "../commander-config/commander-config.h"
-#include "certModule.h"
+#include "../certModule/certModule.h"
+#include "../commander/Soldier.h"
 #include "ECDHHelper.h"
 #include <vector>
 
 class SoldierECDHHandler {
 public:
-    SoldierECDHHandler(float freq, CommanderConfigModule* cfg);
+    SoldierECDHHandler(float freq, Soldier* soldier, certModule& crypto);
     void begin();
     void startListening();
     std::vector<uint8_t> getSharedSecret();
+    String getFinalMessage();
     bool hasRespondedToCommander() const;
+    bool hasReceivedSecureMessage() const;
+    LoraModule& getLoRa() { return lora; }
+    void poll();
+
 
 private:
-    static void handleLoRaData(const uint8_t* data, size_t len);
-    static bool decodeBase64(const String& input, std::vector<uint8_t>& output);
-    static String toBase64(const std::vector<uint8_t>& input);
-    static void sendResponse(int toId);
+   static void handleLoRaDataStatic(const uint8_t* data, size_t len);
+   void handleSecureLoRaData(const uint8_t* data, size_t len);
+   static void handleSecureLoRaDataStatic(const uint8_t* buf, size_t len);
+   void awaitSecureMessage();
+
+
+    void handleLoRaData(const uint8_t* data, size_t len);
+    bool decodeBase64(const String& input, std::vector<uint8_t>& output);
+    String toBase64(const std::vector<uint8_t>& input);
+    void sendResponse(int toId);
 
     static SoldierECDHHandler* instance; // For static callback access
 
+    //modify the code to match
+    String getCommanderPubKey(int commanderId);
+    String getCertificatePEM();
+
     LoraModule lora;
-    CommanderConfigModule* config;
-    certModule crypto;
+    Soldier* soldier;
+    certModule& crypto;
     ECDHHelper ecdh;
     std::vector<uint8_t> sharedSecret;
     bool hasResponded;
+    bool hasReceiveMessage;
+    String finalMessage;
+
+   bool secureMsgPending = false;
+   std::vector<uint8_t> securePkt;
 };
 
 /*
