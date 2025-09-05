@@ -648,6 +648,28 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
 {
     Serial.println("switchGMKEvent");
 
+    FocusOnMessage ans;
+    ans.msgID = 0x08;
+
+    std::string ansBuffer;
+    ansBuffer += static_cast<char>(ans.msgID);
+
+    std::string base64Payload = crypto::CryptoModule::base64Encode(
+    reinterpret_cast<const uint8_t*>(ansBuffer.data()), ansBuffer.size());
+    
+    for(uint8_t i = 0; i < 3; ++i)
+    {
+        this->loraModule->cancelReceive();
+        this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+
+        delay(100);
+    }
+
+    bool prevCommanderSwitchEvent = this->commanderSwitchEvent;
+
+    this->commanderSwitchEvent = true;
+    
+
     SwitchGMK payload;
     payload.msgID = 0x01;
     payload.soldiersID = soldiersIDMoveToComp;
@@ -658,22 +680,56 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     randombytes_buf(salt.data(), salt.size());
     const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), millis(), info, salt, this->commanderModule->getCommanders().size());
     Serial.println("newGMK");
-    for (const auto& soldier : this->commanderModule->getCommanders()) 
+
+    std::unordered_map<uint8_t, bool> allSoldiers;
+
+
+    for (const auto& [k, v] : this->commanderModule->getCommanders()) 
     {
+        if(!this->commanderModule->isComp(k) || k == soldiersIDMoveToComp)
+        {
+            allSoldiers[k] = false;
+        }
+    }
+
+    for (const auto& [k, v] : this->commanderModule->getSoldiers()) 
+    {
+        if(!this->commanderModule->isComp(k) || k == soldiersIDMoveToComp)
+        {
+            allSoldiers[k] = true;
+        }
+    }
+
+    for (const auto& soldier : allSoldiers) 
+    {
+        if(soldier.first == this->commanderModule->getCommanderNumber())
+        {
+            continue;
+        }
+        
         const crypto::Key256& keyRef = (soldier.first == soldiersIDMoveToComp ? this->commanderModule->getCompGMK() : newGMK);
         
         payload.encryptedGMK.clear();
         payload.soldiersID = soldier.first;
         Serial.printf("%d\n", payload.soldiersID);
-        certModule::encryptWithPublicKey(this->commanderModule->getCommanders().at(payload.soldiersID).cert,
-        crypto::CryptoModule::key256ToAsciiString(keyRef), payload.encryptedGMK);
+
+        if(soldier.second)
+        {
+            certModule::encryptWithPublicKey(this->commanderModule->getSoldiers().at(payload.soldiersID).cert,
+            crypto::CryptoModule::key256ToAsciiString(keyRef), payload.encryptedGMK);
+        }
+        else
+        {
+            certModule::encryptWithPublicKey(this->commanderModule->getCommanders().at(payload.soldiersID).cert,
+            crypto::CryptoModule::key256ToAsciiString(keyRef), payload.encryptedGMK);
+        }
+        
         Serial.println("crypto::CryptoModule::key256ToAsciiString");
         std::string buffer;
         buffer += static_cast<char>(payload.msgID);
         buffer += static_cast<char>(payload.soldiersID);
         buffer.append(reinterpret_cast<const char*>(payload.encryptedGMK.data()), payload.encryptedGMK.size());
 
-        Serial.printf("CERT: %s\n", certModule::certToString(this->commanderModule->getCommanders().at(soldier.first).cert).c_str());
         Serial.printf("GMK SENT: %s\n", crypto::CryptoModule::key256ToAsciiString(keyRef).c_str());
 
         std::string base64Payload = crypto::CryptoModule::base64Encode(
@@ -688,6 +744,7 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
         delay(500);
     }
     
+    this->commanderSwitchEvent = prevCommanderSwitchEvent;
     this->commanderModule->setGMK(newGMK);
     LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, infoBoxText);
 }
@@ -892,9 +949,9 @@ void CommandersMissionPage::switchCommanderEvent()
         for (auto &pt : payload.shamirPart) 
         {
             buffer.push_back((char)((pt.first >> 8) & 0xFF));
-            buffer.push_back((char)( pt.first & 0xFF));
+            buffer.push_back((char)(pt.first & 0xFF));
             buffer.push_back((char)((pt.second >> 8) & 0xFF));
-            buffer.push_back((char)( pt.second & 0xFF));
+            buffer.push_back((char)(pt.second & 0xFF));
         }
         
         buffer += static_cast<char>(payload.compromisedSoldiersLength);

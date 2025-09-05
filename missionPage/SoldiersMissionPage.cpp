@@ -63,6 +63,8 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
 
     this->fakeGPS = fakeGPS;
     this->commanderSwitchEvent = commanderChange;
+    this->prevCommanderSwitchEvent = commanderSwitchEvent;
+
     this->currentIndex = 0;
 
     this->syncFreq = true;
@@ -197,7 +199,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
     size_t index = 0;
 
-    if (len < 4) {
+    if (len == 0) {
         Serial.println("Received data too short for any struct with length prefix");
         return;
     }
@@ -216,30 +218,47 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         return;
     }
 
-    if (decodedData.size() < 2) {
+
+    if(decodedData[0] == 0x08)
+    {
+        if(this->commanderSwitchEvent == this->prevCommanderSwitchEvent)
+        {
+            this->prevCommanderSwitchEvent = this->commanderSwitchEvent;
+            this->commanderSwitchEvent = true;
+        }
+
+        return;
+        
+    }
+
+    if (decodedData.size() < 2) 
+    {
         Serial.println("Decoded data too short for any struct with length prefix");
         return;
     }
 
-    Serial.printf("PAYLOAD LEN: %d %u %u\n", base64Str.length(), 
-     static_cast<uint8_t>(decodedData[0]), static_cast<uint8_t>(decodedData[1]));
-
     SwitchGMK sgPayload;
     sgPayload.msgID = static_cast<uint8_t>(decodedData[index++]);
     sgPayload.soldiersID = static_cast<uint8_t>(decodedData[index++]);
-
-    if(sgPayload.msgID != 0x05 && sgPayload.soldiersID != this->soldierModule->getSoldierNumber())
+    
+    Serial.printf("PAYLOAD LEN: %d %u %u\n", base64Str.length(), 
+     static_cast<uint8_t>(decodedData[0]), static_cast<uint8_t>(decodedData[1]));
+    
+     if(sgPayload.msgID != 0x05 && sgPayload.soldiersID != this->soldierModule->getSoldierNumber())
     {
         Serial.println("Message wasn't for me!");
         return;
     }
     else if(sgPayload.msgID == 0x01)
     {
+        this->simulateZero = false;
         sgPayload.encryptedGMK.assign(decodedData.begin() + 2, decodedData.end());
         this->onGMKSwitchEvent(sgPayload);
 
         Serial.printf("Deserialized SwitchGMK: msgID=%d, soldiersID=%d, encryptedGMK size=%zu\n",
                   sgPayload.msgID, sgPayload.soldiersID, sgPayload.encryptedGMK.size());
+
+        this->commanderSwitchEvent = this->prevCommanderSwitchEvent;
     }
     else if(sgPayload.msgID == 0x02)
     {

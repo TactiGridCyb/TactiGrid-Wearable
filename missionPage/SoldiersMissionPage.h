@@ -47,6 +47,7 @@ class SoldiersMissionPage : public LVGLPage
     bool delaySendFakeGPS;
 
     bool commanderSwitchEvent;
+    bool prevCommanderSwitchEvent;
 
     bool syncFreq;
 

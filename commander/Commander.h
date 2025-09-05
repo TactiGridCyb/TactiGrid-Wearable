@@ -56,6 +56,10 @@ struct FinishedSplittingShamir{
     uint8_t msgID;
 };
 
+struct FocusOnMessage{
+    uint8_t msgID;
+};
+
 class Commander : public PersonBase
 {
 public:
