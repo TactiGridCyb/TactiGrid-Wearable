@@ -204,7 +204,7 @@ int16_t LoraModule::sendFile(const uint8_t* data, size_t length, size_t chunkSiz
       break;
     }
 
-    delay(400);
+    delay(300);
   }
 
   Serial.println("RESETTING ACTION");

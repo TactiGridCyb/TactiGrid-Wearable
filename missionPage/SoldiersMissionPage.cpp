@@ -3,6 +3,16 @@
 #include <cstring>
 #include <algorithm>
 
+SoldiersMissionPage* SoldiersMissionPage::s_pmuOwner = nullptr;
+
+void SoldiersMissionPage::pmuISR()
+{
+    if (s_pmuOwner) 
+    {
+        s_pmuOwner->pmuFlag = true;
+    }
+}
+
 inline bool SoldiersMissionPage::isZero(float x)
 {
     return std::fabs(x) < 1e-9f;
@@ -14,6 +24,21 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
 {
     Serial.println("SoldiersMissionPage::SoldiersMissionPage");
     
+    this->pmuFlag = false;
+    s_pmuOwner = this;
+
+    watch.attachPMU(&SoldiersMissionPage::pmuISR);
+
+    watch.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
+    watch.clearPMU();
+    watch.enableIRQ(
+        XPOWERS_AXP2101_BAT_INSERT_IRQ   | XPOWERS_AXP2101_BAT_REMOVE_IRQ   |
+        XPOWERS_AXP2101_VBUS_INSERT_IRQ  | XPOWERS_AXP2101_VBUS_REMOVE_IRQ  |
+        XPOWERS_AXP2101_PKEY_SHORT_IRQ   | XPOWERS_AXP2101_PKEY_LONG_IRQ    |
+        XPOWERS_AXP2101_BAT_CHG_DONE_IRQ | XPOWERS_AXP2101_BAT_CHG_START_IRQ
+    );
+
+
     this->loraModule = std::move(loraModule);
     this->gpsModule = std::move(gpsModule);
     this->fhfModule = std::move(fhfModule);
@@ -148,7 +173,19 @@ void SoldiersMissionPage::createPage()
             self->loraModule->readData();
         }
 
-        
+        if (self->pmuFlag) {
+            self->pmuFlag = false;
+            uint32_t status = watch.readPMU();
+            if (watch.isPekeyShortPressIrq()) 
+            {
+                lv_async_call([](void* user_data) {
+                    auto* me = static_cast<SoldiersMissionPage*>(user_data);
+                    me->simulateZero = true;
+
+                }, self);
+            }
+            watch.clearPMU();
+        }
 
         self->gpsModule->updateCoords();
     }, 100, this);
@@ -403,7 +440,7 @@ void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRat
 
   for(int i = 0; i < 5; ++i)
   {
-    delay(random(0, 15));
+    delay(random(0, 100));
     if(loraModule->canTransmit())
     {
         transmissionState = loraModule->sendData(msg.c_str());
@@ -496,14 +533,7 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
         float currentLat, currentLon;
         uint8_t currentHeartRate;
         uint8_t ID = self->soldierModule->getSoldierNumber();
-        if(self->currentIndex == 2)
-        {
-            currentHeartRate = 0;
-        }
-        else
-        {
-            currentHeartRate = LVGLPage::generateHeartRate();
-        }
+        currentHeartRate = self->generateHeartRate();
 
         LVGLPage::generateNearbyCoordinatesFromTile(self->tileX, self->tileY,
              self->tileZoom, currentLat, currentLon);
@@ -724,7 +754,15 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
 
     Serial.printf("📦 Address of std::function cb variable: %p\n", (void*)&this->loraModule->getOnFileReceived());
 
+    if (s_pmuOwner == this)
+    {
+         s_pmuOwner = nullptr;
+    }
     
+    watch.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
+    watch.clearPMU();
+
+
     this->transferFunction(this->loraModule, this->gpsModule, std::move(this->fhfModule), std::move(command));
 }
 

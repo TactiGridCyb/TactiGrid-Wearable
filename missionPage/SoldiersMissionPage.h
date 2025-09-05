@@ -15,6 +15,7 @@
 #include <LVGLPage.h>
 #include "../score-function/LeadershipEvaluator.h"
 
+
 class SoldiersMissionPage : public LVGLPage
 {
     private:
@@ -49,6 +50,8 @@ class SoldiersMissionPage : public LVGLPage
 
     bool syncFreq;
 
+    volatile bool pmuFlag;
+
     const char* certPath = "/cert.txt";
 
     bool finishTimer;
@@ -60,6 +63,10 @@ class SoldiersMissionPage : public LVGLPage
         {0.0f, 0.0f, 31.970840f, 34.785623f,   0, 2},
         {0.0f, 0.0f, 31.970880f, 34.785703f, 120, 3}
     };
+
+    static SoldiersMissionPage* s_pmuOwner;
+    static void pmuISR(); 
+
 
     static void sendTimerCallback(lv_timer_t *);
     static void sendRealGPSTimerCallback(lv_timer_t *);

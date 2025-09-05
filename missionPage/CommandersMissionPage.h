@@ -75,6 +75,9 @@ private:
     uint8_t shamirPartsCollected;
     uint8_t currentShamirRec;
 
+    static CommandersMissionPage* c_pmuOwner;
+    static void pmuISR(); 
+
     uint8_t tileZoom;
     int tileX;
     int tileY;

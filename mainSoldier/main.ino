@@ -38,7 +38,7 @@ void transferFromMissionCommanderToMissionSoldier(std::shared_ptr<LoraModule> ne
     wifiModule = std::move(newWifiModule);
 
     soldiersMissionPage = std::make_unique<SoldiersMissionPage>(newLoraModule,
-     newGPSModule, std::move(newFhfModule), std::move(soldiersModule), true, false);
+     newGPSModule, std::move(newFhfModule), std::move(soldiersModule), true, true);
 
     Serial.println("std::make_unique<SoldiersMissionPage>");
 
@@ -81,7 +81,7 @@ void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiMod
     wifiModule = std::move(currentWifiModule);
 
     soldiersMissionPage = std::make_unique<SoldiersMissionPage>(loraModule, gpsModule,
-         std::move(fhfModule), std::move(soldiersModule), false, false);
+         std::move(fhfModule), std::move(soldiersModule), false, true);
     
     soldiersMissionPage->createPage();
 

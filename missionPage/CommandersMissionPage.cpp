@@ -1,10 +1,35 @@
 #include "CommandersMissionPage.h"
 
+CommandersMissionPage* CommandersMissionPage::c_pmuOwner = nullptr;
+
+void CommandersMissionPage::pmuISR()
+{
+    if (c_pmuOwner) 
+    {
+        c_pmuOwner->pmuFlag = true;
+    }
+}
+
 CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraModule, std::unique_ptr<WifiModule> wifiModule,
      std::shared_ptr<GPSModule> gpsModule, std::unique_ptr<FHFModule> fhfModule,
     std::unique_ptr<Commander> commanderModule, const std::string& logFilePath, bool commanderChange, bool fakeGPS)
     : logFilePath(logFilePath) 
     {
+
+        this->pmuFlag = false;
+        c_pmuOwner = this;
+
+        watch.attachPMU(&CommandersMissionPage::pmuISR);
+
+        watch.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
+        watch.clearPMU();
+        watch.enableIRQ(
+            XPOWERS_AXP2101_BAT_INSERT_IRQ   | XPOWERS_AXP2101_BAT_REMOVE_IRQ   |
+            XPOWERS_AXP2101_VBUS_INSERT_IRQ  | XPOWERS_AXP2101_VBUS_REMOVE_IRQ  |
+            XPOWERS_AXP2101_PKEY_SHORT_IRQ   | XPOWERS_AXP2101_PKEY_LONG_IRQ    |
+            XPOWERS_AXP2101_BAT_CHG_DONE_IRQ | XPOWERS_AXP2101_BAT_CHG_START_IRQ
+        );
+
         this->loraModule = std::move(loraModule);
         this->wifiModule = std::move(wifiModule);
         this->gpsModule = std::move(gpsModule);
@@ -36,8 +61,6 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         this->tileZoom = 0;
         this->tileX = -1;
         this->tileY = -1;
-
-        this->pmuFlag = false;
 
         FFatHelper::deleteFile(this->tileFilePath);
 
@@ -172,7 +195,11 @@ void CommandersMissionPage::createPage() {
                 uint32_t status = watch.readPMU();
                 if (watch.isPekeyShortPressIrq()) 
                 {
-                    //Do something
+                    lv_async_call([](void* user_data) {
+                        auto* me = static_cast<CommandersMissionPage*>(user_data);
+                        me->switchCommanderEvent();
+
+                    }, me);
                 }
                 watch.clearPMU();
             }
@@ -210,7 +237,7 @@ void CommandersMissionPage::createPage() {
 
             currentCommandersEvent["latitude"] = lat;
             currentCommandersEvent["longitude"] = lon;
-            currentCommandersEvent["heartRate"] = LVGLPage::generateHeartRate();
+            currentCommandersEvent["heartRate"] = me->generateHeartRate();
             currentCommandersEvent["soldierId"] = me->commanderModule->getName();
 
             FFatHelper::appendRegularJsonObjectToFile(me->logFilePath.c_str(), currentCommandersEvent);
@@ -407,25 +434,19 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
     if(newG->heartRate == 0 && std::find(comp.begin(), comp.end(), newG->soldiersID) == comp.end())
     {
-        // Serial.println("CompromisedEvent");
-        // this->commanderModule->setCompromised(newG->soldiersID);
-        // delay(500);
-        // const std::string newEventText = "Compromised Soldier Event - " + 
-        // this->commanderModule->getCommanders().at(newG->soldiersID).name;
-        // this->switchGMKEvent(newEventText.c_str(), newG->soldiersID);
+        Serial.println("CompromisedEvent");
+        this->commanderModule->setCompromised(newG->soldiersID);
+        delay(500);
+        const std::string newEventText = "Compromised Soldier Event - " + 
+        this->commanderModule->getCommanders().at(newG->soldiersID).name;
+        this->switchGMKEvent(newEventText.c_str(), newG->soldiersID);
         
-        // JsonDocument doc;
-        // doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
-        // doc["eventName"] = "compromisedSoldier";
-        // doc["compromisedID"] = newG->soldiersID;
+        JsonDocument doc;
+        doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
+        doc["eventName"] = "compromisedSoldier";
+        doc["compromisedID"] = newG->soldiersID;
 
-        // FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
-
-        lv_async_call([](void* user_data) {
-            auto* me = static_cast<CommandersMissionPage*>(user_data);
-            me->switchCommanderEvent();
-
-        }, this);
+        FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 
         return;
     }
@@ -952,6 +973,14 @@ void CommandersMissionPage::switchCommanderEvent()
 
     Serial.println("this->transferFunction");
 
+    if (c_pmuOwner == this)
+    {
+         c_pmuOwner = nullptr;
+    }
+    
+    watch.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
+    watch.clearPMU();
+
     this->transferFunction(this->loraModule, std::move(this->wifiModule),
      this->gpsModule, std::move(this->fhfModule), std::move(sold));
 }
@@ -1270,7 +1299,12 @@ void CommandersMissionPage::sendNextShamirRequest()
             if (!self->didntSendShamir.empty() && self->didntSendShamir.front() == self->currentShamirRec)
             {
                 self->didntSendShamir.erase(self->didntSendShamir.begin());
-                self->sendNextShamirRequest();
+
+                if(self->shamirPartsCollected < ShamirHelper::getThreshold())
+                {
+                    self->sendNextShamirRequest();
+                }
+                
             }
 
             Serial.println("shamirTimeoutTimer finished!");
