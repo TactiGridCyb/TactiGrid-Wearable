@@ -10,7 +10,7 @@ uint8_t ShamirHelper::minThreshold = 2;
 // Returns a vector of Strings containing the file paths of the generated share files.
 // Each share file is named inputPath + ".share" + index.
 //=============================================================================
-bool ShamirHelper::splitFile(const char* inputPath, int nShares, const std::vector<uint8_t>& shareIds,
+bool ShamirHelper::splitFile(const char* inputPath, int nShares, const std::vector<uint16_t>& shareIds,
   std::vector<String>& sharePaths) {
   sharePaths.clear();  // ensure it's empty before starting
 
@@ -40,7 +40,7 @@ bool ShamirHelper::splitFile(const char* inputPath, int nShares, const std::vect
   std::vector<File> shareFiles;
   shareFiles.reserve(nShares);
   for (int i = 0; i < nShares; i++) {
-    uint8_t id = shareIds[i];
+    uint16_t id = shareIds[i];
     String spath = "/share_" + String(id) + ".txt";
     Serial.printf("Creating spath %s\n", spath);
 
@@ -61,7 +61,7 @@ bool ShamirHelper::splitFile(const char* inputPath, int nShares, const std::vect
     uint8_t secretByte = inFile.read();
     uint16_t randomCoeff = random(1, ShamirHelper::PRIME);
     for (int i = 0; i < nShares; i++) {
-        uint8_t x = shareIds[i];
+        uint16_t x = shareIds[i];
         uint16_t y = evalPolynomial(x, secretByte, randomCoeff, ShamirHelper::PRIME);
         shareFiles[i].print(x);
         shareFiles[i].print(',');

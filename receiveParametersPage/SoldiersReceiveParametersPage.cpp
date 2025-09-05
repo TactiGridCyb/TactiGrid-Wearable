@@ -98,6 +98,9 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     updateLabel(2);
     
+    File certFile = FFat.open(this->certFile.c_str(), FILE_WRITE);
+    certFile.print(ownCertPem.c_str());
+    certFile.close();
 
     std::vector<float> freqs;
     for (auto v : doc["frequencies"].as<JsonArray>())

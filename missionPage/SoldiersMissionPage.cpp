@@ -490,7 +490,7 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
         float currentLat, currentLon;
         uint8_t currentHeartRate;
         uint8_t ID = self->soldierModule->getSoldierNumber();
-        if(self->currentIndex == 2)
+        if(self->currentIndex == 3)
         {
             currentHeartRate = 0;
         }

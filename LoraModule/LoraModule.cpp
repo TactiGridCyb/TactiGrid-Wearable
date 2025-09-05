@@ -204,7 +204,7 @@ int16_t LoraModule::sendFile(const uint8_t* data, size_t length, size_t chunkSiz
       break;
     }
 
-    delay(150);
+    delay(400);
   }
 
   Serial.println("RESETTING ACTION");
@@ -472,6 +472,13 @@ void LoraModule::syncFrequency(const FHFModule* module)
 const std::function<void(const uint8_t* data, size_t len)>& LoraModule::getOnFileReceived()
 {
   return this->onFileReceived;
+}
+
+bool LoraModule::isCurrentlyReadingFile()
+{
+  Op currentOP = this->currentOp.load(std::memory_order_acquire);
+
+  return currentOP == Op::FileRx;
 }
 
 float LoraModule::getCurrentFreq() const

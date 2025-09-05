@@ -27,6 +27,8 @@ class SoldiersReceiveParametersPage : public LVGLPage {
                                    const char* footer);
 
     private:
+        const std::string certFile = "/cert.txt";
+
         std::unique_ptr<WifiModule> wifiModule;
         lv_obj_t* mainPage;
         lv_obj_t* openSocketButton;

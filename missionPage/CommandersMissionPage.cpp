@@ -1229,6 +1229,11 @@ void CommandersMissionPage::sendNextShamirRequest()
     shamirTimeoutTimer = lv_timer_create(
         [](lv_timer_t* t) {
             auto *self = static_cast<CommandersMissionPage*>(t->user_data);
+            if(self->loraModule->isCurrentlyReadingFile())
+            {
+                Serial.println("Currently reading file ! !!");
+                return;
+            }
             if (!self->didntSendShamir.empty())
             {
                 Serial.printf("shamirTimeoutTimer started for %d!\n", self->currentShamirRec);
@@ -1251,7 +1256,7 @@ void CommandersMissionPage::sendNextShamirRequest()
 
             Serial.println("shamirTimeoutTimer finished!");
         },
-        20000,
+        10000,
         this
     );
 }
