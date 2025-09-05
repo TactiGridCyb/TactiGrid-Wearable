@@ -799,7 +799,7 @@ void CommandersMissionPage::switchCommanderEvent()
     Serial.println("sharePaths:");
     for(const auto& path : sharePaths)
     {
-        Serial.println(path);
+        Serial.println(path.c_str());
     }
     if(allSoldiers.size() > 1)
     {
@@ -848,8 +848,9 @@ void CommandersMissionPage::switchCommanderEvent()
             String line = currentShamir.readStringUntil('\n');
             int comma = line.indexOf(',');
             if (comma < 1) continue;
-            uint8_t x = (uint8_t)line.substring(0, comma).toInt();
-            uint8_t y = (uint8_t)line.substring(comma + 1).toInt();
+
+            uint16_t x = (uint16_t)line.substring(0, comma).toInt();
+            uint16_t y = (uint16_t)line.substring(comma + 1).toInt();
 
             payload.shamirPart.emplace_back(x, y);
         }
@@ -867,10 +868,12 @@ void CommandersMissionPage::switchCommanderEvent()
         buffer += static_cast<char>((shamirPartsLen >> 8) & 0xFF);
         buffer += static_cast<char>(shamirPartsLen & 0xFF);
         
-        for(auto &pt : payload.shamirPart) 
+        for (auto &pt : payload.shamirPart) 
         {
-            buffer.push_back((char)pt.first);
-            buffer.push_back((char)pt.second);
+            buffer.push_back((char)((pt.first >> 8) & 0xFF));
+            buffer.push_back((char)( pt.first & 0xFF));
+            buffer.push_back((char)((pt.second >> 8) & 0xFF));
+            buffer.push_back((char)( pt.second & 0xFF));
         }
         
         buffer += static_cast<char>(payload.compromisedSoldiersLength);
@@ -1004,8 +1007,9 @@ void CommandersMissionPage::onFinishedSplittingShamirReceived(const uint8_t* dat
         int comma = line.indexOf(',');
         if (comma < 1) continue;
 
-        uint8_t x = (uint8_t)line.substring(0, comma).toInt();
-        uint8_t y = (uint8_t)line.substring(comma + 1).toInt();
+        uint16_t x = (uint16_t)line.substring(0, comma).toInt();
+        uint16_t y = (uint16_t)line.substring(comma + 1).toInt();
+
         payload.shamirPart.emplace_back(x, y);
     }
 
@@ -1019,10 +1023,12 @@ void CommandersMissionPage::onFinishedSplittingShamirReceived(const uint8_t* dat
     buffer += static_cast<char>(payload.msgID);
     buffer += static_cast<char>(payload.soldiersID);
 
-    for(auto &pt : payload.shamirPart) 
+    for (auto &pt : payload.shamirPart) 
     {
-        buffer.push_back((char)pt.first);
-        buffer.push_back((char)pt.second);
+        buffer.push_back((char)((pt.first >> 8) & 0xFF));
+        buffer.push_back((char)(pt.first & 0xFF));
+        buffer.push_back((char)((pt.second >> 8) & 0xFF));
+        buffer.push_back((char)(pt.second & 0xFF));
     }
 
     std::string base64Payload = crypto::CryptoModule::base64Encode(
@@ -1073,15 +1079,28 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
         return;
     }
 
-    uint16_t shamirPartsLength = (decodedData.size() - 2) / 2;
+    size_t bytesPoints = decodedData.size() - 2;
+
+    if (bytesPoints % 4 != 0) 
+    {
+        Serial.printf("sendShamir payload misaligned: %u bytes\n", (unsigned)bytesPoints);
+        return;
+    }
+
+    size_t shamirPartsLength = bytesPoints / 4;
     payload.shamirPart.reserve(shamirPartsLength);
 
     size_t idx = 2;
-    for(int k = 0; k < shamirPartsLength; ++k) 
+    for (size_t k = 0; k < shamirPartsLength; ++k) 
     {
-        uint8_t x = uint8_t(decodedData[idx++]);
-        uint8_t y = uint8_t(decodedData[idx++]);
-        payload.shamirPart.emplace_back(x,y);
+
+        uint16_t x = (static_cast<uint16_t>(decodedData[idx]) << 8) | static_cast<uint16_t>(decodedData[idx + 1]);
+        idx += 2;
+
+        uint16_t y = (static_cast<uint16_t>(decodedData[idx]) << 8) | static_cast<uint16_t>(decodedData[idx + 1]);
+        idx += 2;
+
+        payload.shamirPart.emplace_back(x, y);
     }
 
     Serial.printf("Deserialized sendShamir: msgID=%d, soldiersID=%d, shamirPart size=%zu\n",

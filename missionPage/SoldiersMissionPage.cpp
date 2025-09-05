@@ -220,15 +220,21 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         scPayload.shamirPart.reserve(shamirLen);
         index += 2;
 
-        if (decodedData.size() < index + shamirLen * 2 + 2) {
+        if (decodedData.size() < index + shamirLen * 4) 
+        {
             Serial.println("❌ Not enough data for Shamir part");
             return;
         }
 
-        for(int k = 0; k < shamirLen; ++k) {
-            uint8_t x = uint8_t(decodedData[index++]);
-            uint8_t y = uint8_t(decodedData[index++]);
-            scPayload.shamirPart.emplace_back(x,y);
+        for (int k = 0; k < shamirLen; ++k) 
+        {
+            uint16_t x = (uint16_t(decodedData[index]) << 8) | decodedData[index + 1];
+            index += 2;
+
+            uint16_t y = (uint16_t(decodedData[index]) << 8) | decodedData[index + 1];
+            index += 2;
+
+            scPayload.shamirPart.emplace_back(x, y);
         }
 
         scPayload.shamirPartLength = shamirLen;
@@ -490,7 +496,7 @@ void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
         float currentLat, currentLon;
         uint8_t currentHeartRate;
         uint8_t ID = self->soldierModule->getSoldierNumber();
-        if(self->currentIndex == 3)
+        if(self->currentIndex == 2)
         {
             currentHeartRate = 0;
         }
@@ -922,8 +928,9 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
         int comma = line.indexOf(',');
         if (comma < 1) continue;
 
-        uint8_t x = (uint8_t)line.substring(0, comma).toInt();
-        uint8_t y = (uint8_t)line.substring(comma + 1).toInt();
+        uint16_t x = (uint16_t)line.substring(0, comma).toInt();
+        uint16_t y = (uint16_t)line.substring(comma + 1).toInt();
+
         ans.shamirPart.emplace_back(x, y);
     }
 
@@ -932,14 +939,18 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
     FFatHelper::deleteFile(sharePath);
 
     std::string buffer;
-    buffer.reserve(2 + ans.shamirPart.size() * 2);
+    buffer.reserve(2 + ans.shamirPart.size() * 4);
 
     buffer += static_cast<char>(ans.msgID);
     buffer += static_cast<char>(ans.soldiersID);
-    for(auto &pt : ans.shamirPart) 
+
+    for (auto &pt : ans.shamirPart) 
     {
-        buffer.push_back((char)pt.first);
-        buffer.push_back((char)pt.second);
+        buffer.push_back((char)((pt.first >> 8) & 0xFF));
+        buffer.push_back((char)(pt.first & 0xFF));
+
+        buffer.push_back((char)((pt.second >> 8) & 0xFF));
+        buffer.push_back((char)(pt.second & 0xFF));
     }
 
     std::string base64Payload = crypto::CryptoModule::base64Encode(

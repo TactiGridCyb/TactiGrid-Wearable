@@ -10,7 +10,7 @@ uint8_t ShamirHelper::minThreshold = 2;
 // Returns a vector of Strings containing the file paths of the generated share files.
 // Each share file is named inputPath + ".share" + index.
 //=============================================================================
-bool ShamirHelper::splitFile(const char* inputPath, int nShares, const std::vector<uint16_t>& shareIds,
+bool ShamirHelper::splitFile(const char* inputPath, int nShares, const std::vector<uint8_t>& shareIds,
   std::vector<String>& sharePaths) {
   sharePaths.clear();  // ensure it's empty before starting
 
@@ -40,7 +40,7 @@ bool ShamirHelper::splitFile(const char* inputPath, int nShares, const std::vect
   std::vector<File> shareFiles;
   shareFiles.reserve(nShares);
   for (int i = 0; i < nShares; i++) {
-    uint16_t id = shareIds[i];
+    uint8_t id = shareIds[i];
     String spath = "/share_" + String(id) + ".txt";
     Serial.printf("Creating spath %s\n", spath);
 
@@ -61,9 +61,12 @@ bool ShamirHelper::splitFile(const char* inputPath, int nShares, const std::vect
     uint8_t secretByte = inFile.read();
     uint16_t randomCoeff = random(1, ShamirHelper::PRIME);
     for (int i = 0; i < nShares; i++) {
-        uint16_t x = shareIds[i];
+
+        uint16_t x = shareIds[i] % ShamirHelper::PRIME;
+        if (x == 0) x = 1;
         uint16_t y = evalPolynomial(x, secretByte, randomCoeff, ShamirHelper::PRIME);
-        shareFiles[i].print(x);
+
+        shareFiles[i].print((int)x);
         shareFiles[i].print(',');
         shareFiles[i].println((int)y);
 
@@ -129,6 +132,11 @@ bool ShamirHelper::reconstructFile(const std::vector<String>& sharePaths, const 
     xValues[idx] = firstLine.substring(0, commaIdx).toInt();
   }
 
+  for (int i = 0; i < availableShares; ++i) 
+  {
+    xValues[i] %= ShamirHelper::PRIME;
+  }
+
   int byteCount = 0;
   File& firstShare = shareFiles[0];
   while (firstShare.available()) {
@@ -160,11 +168,14 @@ bool ShamirHelper::reconstructFile(const std::vector<String>& sharePaths, const 
         for (File& sf : shareFiles) sf.close();
         return false;
       }
-      xSubset[s] = xValues[s];
-      yValues[s] = line.substring(commaPos + 1).toInt();
+
+      xSubset[s] = xValues[s] % ShamirHelper::PRIME;
+      if (xSubset[s] == 0) xSubset[s] = 1;
+      yValues[s] = line.substring(commaPos + 1).toInt() % ShamirHelper::PRIME;
+
     }
 
-    int recovered = lagrangeInterpolation(0, xSubset, yValues, ShamirHelper::PRIME);
+    int recovered = lagrangeInterpolation(0, xSubset, yValues, ShamirHelper::PRIME) % ShamirHelper::PRIME;
     secret[byteIdx] = (uint8_t)recovered;
   }
 
@@ -183,30 +194,51 @@ bool ShamirHelper::reconstructFile(const std::vector<String>& sharePaths, const 
 //=============================================================================
 // evalPolynomial: f(x) = (secret + randomCoeff * x) mod PRIME
 //=============================================================================
-uint16_t ShamirHelper::evalPolynomial(uint8_t x, uint8_t secret, uint16_t randomCoeff, int prime) {
-  return (uint16_t)((secret + (int)randomCoeff * x) % prime);
+uint16_t ShamirHelper::evalPolynomial(uint16_t x, uint8_t secret, uint16_t randomCoeff, int prime) 
+{
+
+  uint32_t prod = (uint32_t)randomCoeff * (uint32_t)(x % prime);
+  return (uint16_t)((secret + (prod % prime)) % prime);
+}
+
+static inline int modp(int a, int p)
+{ 
+  a %= p;
+
+  if (a < 0)
+  {
+    a += p;
+  }
+
+  return a; 
+
 }
 
 //=============================================================================
 // modInverse: Extended Euclidean Algorithm to find modular inverse of 'a' modulo 'm'
 // Returns inverse in [0..m-1], or 0 if no inverse (should not happen if m is prime and a != 0)
 //=============================================================================
-int ShamirHelper::modInverse(int a, int m) {
-  int m0 = m;
-  int x0 = 0, x1 = 1;
-  if (m == 1) return 0;
-  while (a > 1) {
-    int q = a / m;
-    int t = m;
-    m = a % m;    // m is remainder now
-    a = t;
-    t = x0;
-    x0 = x1 - q * x0;
-    x1 = t;
+
+int ShamirHelper::modInverse(int a, int p) {
+  a = modp(a, p);
+  if (a == 0) return 0;
+  int t = 0, newt = 1;
+  int r = p, newr = a;
+
+  while (newr != 0) 
+  {
+    int q = r / newr;
+    int tmp = t - q * newt;
+    t = newt;
+    newt = tmp;
+    tmp = r - q * newr;
+    r = newr; 
+    newr = tmp;
   }
-  // Make x1 positive
-  if (x1 < 0) x1 += m0;
-  return x1;
+
+  if (r != 1) return 0;
+  if (t < 0) t += p;
+  return t;
 }
 
 //=============================================================================
