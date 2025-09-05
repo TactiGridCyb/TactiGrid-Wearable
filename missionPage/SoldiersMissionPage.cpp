@@ -64,6 +64,7 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
     this->fakeGPS = fakeGPS;
     this->commanderSwitchEvent = commanderChange;
     this->prevCommanderSwitchEvent = commanderSwitchEvent;
+    this->initialCommanderSwitchEvent = commanderChange;
 
     this->currentIndex = 0;
 
@@ -223,8 +224,10 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     {
         if(this->commanderSwitchEvent == this->prevCommanderSwitchEvent)
         {
+            Serial.println("RECEIVED SILENCE!");
             this->prevCommanderSwitchEvent = this->commanderSwitchEvent;
             this->commanderSwitchEvent = true;
+            this->syncFreq = false;
         }
 
         return;
@@ -262,7 +265,6 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     }
     else if(sgPayload.msgID == 0x02)
     {
-        this->syncFreq = false;
         this->loraModule->setOnReadData(nullptr);
         this->loraModule->setOnFileReceived(nullptr);
         this->finishTimer = true;
@@ -375,28 +377,50 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         Serial.println("this->soldierModule->removeFirstCommanderFromInsertionOrder()");
 
         std::vector<uint8_t> commandersInsertionOrder = this->soldierModule->getCommandersInsertionOrder();
-        bool canBeCommander = false;
+        bool canBeCommander = true;
 
         if(!commandersInsertionOrder.empty() && commandersInsertionOrder.at(0) == this->soldierModule->getSoldierNumber())
         {
             canBeCommander = this->canBeCommander(scPayload);
+
+            if(canBeCommander)
+            {
+                return;
+            }
+
+            this->soldierModule->removeFirstCommanderFromInsertionOrder();
+
+            canBeCommander = false;
         }
         
+        Serial.println("getCommandersInsertionOrder");
+        for(const auto& commanderOrdered: this->soldierModule->getCommandersInsertionOrder())
+        {
+            Serial.println(commanderOrdered);
+        }
+
+
+        Serial.println("Im not supposed to be the next commander! waiting for shamirReq!");
+            
+        this->finishTimer = false;
+        this->commanderSwitchEvent = true;
 
         if(!canBeCommander)
         {
-            Serial.println("Im not supposed to be the next commander! waiting for shamirReq!");
-            this->finishTimer = false;
-            this->commanderSwitchEvent = true;
-
+            this->loraModule->setOnFileReceived([this, scPayload](const uint8_t* data, size_t len) mutable {
+                this->onCommanderSwitchDataReceived(data, len, nullptr);
+            });
+        }
+        else
+        {
             this->loraModule->setOnFileReceived([this, scPayload](const uint8_t* data, size_t len) mutable {
                 this->onCommanderSwitchDataReceived(data, len, &scPayload);
             });
-            
-            this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
-                this->loraModule->onLoraFileDataReceived(data, len);
-            });
         }
+
+        this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
+            this->loraModule->onLoraFileDataReceived(data, len);
+        });
     }
 }
 
@@ -847,6 +871,12 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
     }
     else if(payload.msgID == 0x07)
     {
+        if(!scPayload && !this->initialCommanderSwitchEvent)
+        {
+            Serial.println("!SCPAYLOAD!");
+            delay(500);
+            this->transmitSkipCommanderMessage();
+        }
         return;
     }
 
@@ -863,13 +893,43 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
 
         this->soldierModule->removeFirstCommanderFromInsertionOrder();
 
-        bool canBeCommander = false;
+        Serial.println("getCommandersInsertionOrder");
+        for(const auto& commanderOrdered: this->soldierModule->getCommandersInsertionOrder())
+        {
+            Serial.println(commanderOrdered);
+        }
+
+        bool canBeCommander = true;
 
         if(!this->soldierModule->getCommandersInsertionOrder().empty() && this->soldierModule->getCommandersInsertionOrder().at(0))
         {
             Serial.println("I should be commander now after the previous skipped!");
 
             canBeCommander = this->canBeCommander(*scPayload);
+
+            if(canBeCommander)
+            {
+                return;
+            }
+
+            this->soldierModule->removeFirstCommanderFromInsertionOrder();
+
+            Serial.println("getCommandersInsertionOrder11");
+
+            for(const auto& commanderOrdered: this->soldierModule->getCommandersInsertionOrder())
+            {
+                Serial.println(commanderOrdered);
+            }
+
+            canBeCommander = false;
+
+            this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
+                this->onCommanderSwitchDataReceived(data, len, nullptr);
+            });
+
+            delay(500);
+
+            this->transmitSkipCommanderMessage();
         }
 
     }
@@ -890,7 +950,6 @@ bool SoldiersMissionPage::canBeCommander(SwitchCommander& payload)
     Serial.println("CanBeCommander");
     if(!this->soldierModule->areCoordsValid(this->soldierModule->getSoldierNumber(), true))
     {
-        this->transmitSkipCommanderMessage();
         return false;
         //Cannot be commander -> pass
     }
@@ -909,7 +968,6 @@ bool SoldiersMissionPage::canBeCommander(SwitchCommander& payload)
     Serial.printf("Score is: %.5f\n", score);
     if(score < 0.5)
     {
-        this->transmitSkipCommanderMessage();
         return false;
         // Cannot be commander -> pass
     }
@@ -1016,18 +1074,6 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
     Serial.printf("Important vars: %d %d\n", ans.msgID, ans.soldiersID);
     Serial.println(base64Payload.c_str());
     this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
-    
-
-    delay(10000);
-    this->commanderSwitchEvent = false;
-    this->syncFreq = true;
-
-    this->currentIndex = 0;
-
-    this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) 
-    {
-        this->onDataReceived(data, len);
-    });
 }
 
 

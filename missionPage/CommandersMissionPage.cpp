@@ -360,7 +360,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         name = String(this->commanderModule->getSoldiers().at(newG->soldiersID).name.c_str());
     }
 
-    Serial.printf("Name is: %s\n", name);
+    Serial.printf("Name is: %s\n", name.c_str());
     currentEvent["soldierId"] = name;
 
     bool writeResult = FFatHelper::appendRegularJsonObjectToFile(this->logFilePath.c_str(), currentEvent);
@@ -657,7 +657,7 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     std::string base64Payload = crypto::CryptoModule::base64Encode(
     reinterpret_cast<const uint8_t*>(ansBuffer.data()), ansBuffer.size());
     
-    for(uint8_t i = 0; i < 3; ++i)
+    for(uint8_t i = 0; i < 4; ++i)
     {
         this->loraModule->cancelReceive();
         this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
@@ -797,6 +797,23 @@ void CommandersMissionPage::switchCommanderEvent()
     
     this->missingSoldierTimer = nullptr;
     this->selfLogTimer = nullptr;
+
+    FocusOnMessage fomPayload;
+    fomPayload.msgID = 0x08;
+
+    std::string ansBuffer;
+    ansBuffer += static_cast<char>(fomPayload.msgID);
+
+    std::string base64Payload = crypto::CryptoModule::base64Encode(
+    reinterpret_cast<const uint8_t*>(ansBuffer.data()), ansBuffer.size());
+    
+    for(uint8_t i = 0; i < 4; ++i)
+    {
+        this->loraModule->cancelReceive();
+        this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+
+        delay(100);
+    }
 
     
     uint8_t nextID = -1;
@@ -986,8 +1003,10 @@ void CommandersMissionPage::switchCommanderEvent()
 
     std::string buffer;
     buffer += static_cast<char>(ans.msgID);
-
-    std::string base64Payload = crypto::CryptoModule::base64Encode(
+    
+    base64Payload.clear();
+    
+    base64Payload = crypto::CryptoModule::base64Encode(
     reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
         
     this->loraModule->cancelReceive();

@@ -48,6 +48,7 @@ class SoldiersMissionPage : public LVGLPage
 
     bool commanderSwitchEvent;
     bool prevCommanderSwitchEvent;
+    bool initialCommanderSwitchEvent;
 
     bool syncFreq;
 

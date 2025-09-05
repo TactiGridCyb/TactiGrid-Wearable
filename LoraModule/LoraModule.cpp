@@ -204,7 +204,7 @@ int16_t LoraModule::sendFile(const uint8_t* data, size_t length, size_t chunkSiz
       break;
     }
 
-    delay(300);
+    delay(250);
   }
 
   Serial.println("RESETTING ACTION");
@@ -270,7 +270,7 @@ void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
     if (memcmp(pkt, kFileEndTag, strlen(kFileEndTag)) == 0) 
     {
       Serial.println("kFileEndTag");
-      if (this->onFileReceived && this->receivedChunks == this->expectedChunks) 
+      if (this->onFileReceived && this->expectedChunks > 0 && this->receivedChunks == this->expectedChunks) 
       {
         Serial.printf("✅ File complete (%u chunks)\n", this->receivedChunks);
         this->currentOp.store(Op::None, std::memory_order_release);
@@ -292,6 +292,9 @@ void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
       else 
       {
         Serial.printf("❌ Incomplete file (%u/%u chunks)\n", this->receivedChunks, this->expectedChunks);
+
+        this->receivedChunks = 0;
+        this->expectedChunks = 0;
       }
       return;
     }
