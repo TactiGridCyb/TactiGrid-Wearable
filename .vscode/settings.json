@@ -51,6 +51,7 @@
         "typeinfo": "cpp",
         "cstdarg": "cpp",
         "string": "cpp",
-        "sstream": "cpp"
+        "sstream": "cpp",
+        "*.tpp": "cpp"
     }
 }
