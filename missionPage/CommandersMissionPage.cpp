@@ -51,7 +51,8 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         Serial.printf("🌐 wifiModule: %s\n", this->wifiModule ? "✅ OK" : "❌ NULL");
         Serial.printf("📍 gpsModule: %s\n", this->gpsModule ? "✅ OK" : "❌ NULL");
         Serial.printf("📻 fhfModule: %s\n", this->fhfModule ? "✅ OK" : "❌ NULL");
-        Serial.printf("📻 commanderModule: %s\n", this->commanderModule? "✅ OK" : "❌ NULL");
+        Serial.printf("📻 commanderModule: %s\n", this->commanderModule ? "✅ OK" : "❌ NULL");
+        Serial.printf("📻 isCommanderDirect: %s\n", this->commanderModule->isDirectCommander() ? "✅ OK" : "❌ NULL");
 
         Serial.printf("📌 loraModule shared_ptr address: %p\n", this->loraModule.get());
 
@@ -129,13 +130,39 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
                 Serial.println(k);
             }
 
-            this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
-                this->onFinishedSplittingShamirReceived(data, len);
-            });
+            if(this->commanderModule->isDirectCommander())
+            {
+                
+                this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
+                    this->onFinishedSplittingShamirReceived(data, len);
+                });
 
-            this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
-                this->loraModule->onLoraFileDataReceived(data, len);
-            });
+                this->loraModule->setOnReadData([this](const uint8_t* data, size_t len) {
+                    this->loraModule->onLoraFileDataReceived(data, len);
+                });
+            }
+            else
+            {
+
+                lv_async_call([](void* user_data) {
+                    auto* me = static_cast<CommandersMissionPage*>(user_data);
+                    FinishedSplittingShamir ans;
+                
+                    std::string base64Payload;
+                    std::string buffer;
+                    
+                    ans.msgID = 0x07;
+
+                    buffer += static_cast<char>(ans.msgID);
+                    
+                    base64Payload = crypto::CryptoModule::base64Encode(reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
+                    
+                    me->onFinishedSplittingShamirReceived(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+
+                }, this);
+                
+            }
+            
 
             
         }

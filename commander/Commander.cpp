@@ -15,6 +15,8 @@ Commander::Commander(const std::string& name,
     mbedtls_x509_crt_init(&this->caCertificate);
     mbedtls_x509_crt_init(&this->ownCertificate);
 
+    this->directCommander = true;
+
     if (mbedtls_x509_crt_parse_der(&this->ownCertificate, publicCert.raw.p, publicCert.raw.len) != 0) {
         throw std::runtime_error("Failed to copy public certificate");
     }
@@ -161,6 +163,15 @@ const std::vector<uint8_t>& Commander::getMissing() const
     return this->missing;
 }
 
+bool Commander::isDirectCommander()
+{
+    return this->directCommander;
+}
+
+void Commander::setDirectCommander(bool directCommander)
+{
+    this->directCommander = directCommander;
+}
 
 void Commander::appendFrequencies(const std::vector<float>& freqs) {
     frequencies.insert(frequencies.end(), freqs.begin(), freqs.end());

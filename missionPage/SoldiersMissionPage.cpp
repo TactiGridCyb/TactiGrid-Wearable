@@ -381,7 +381,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
         if(!commandersInsertionOrder.empty() && commandersInsertionOrder.at(0) == this->soldierModule->getSoldierNumber())
         {
-            canBeCommander = this->canBeCommander(scPayload);
+            canBeCommander = this->canBeCommander(scPayload, false);
 
             if(canBeCommander)
             {
@@ -721,7 +721,7 @@ void SoldiersMissionPage::onCommanderSwitchEvent(SwitchCommander& payload)
     this->soldierModule->updateInsertionOrderByForbidden(payload.missingSoldiers);
 }
 
-void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload)
+void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload, bool skipEvent)
 {
 
     Serial.println("onSoldierTurnToCommanderEvent");
@@ -771,6 +771,7 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
     this->soldierModule->getCAPublicCert(),
     this->soldierModule->getSoldierNumber(), this->soldierModule->getIntervalMS());
 
+    command->setDirectCommander(!skipEvent);
     Serial.println("command");
 
     //Because of the initial duplicate
@@ -905,7 +906,7 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
         {
             Serial.println("I should be commander now after the previous skipped!");
 
-            canBeCommander = this->canBeCommander(*scPayload);
+            canBeCommander = this->canBeCommander(*scPayload, true);
 
             if(canBeCommander)
             {
@@ -945,7 +946,7 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
     }
 }
 
-bool SoldiersMissionPage::canBeCommander(SwitchCommander& payload)
+bool SoldiersMissionPage::canBeCommander(SwitchCommander& payload, bool skipEvent)
 {
     Serial.println("CanBeCommander");
     if(!this->soldierModule->areCoordsValid(this->soldierModule->getSoldierNumber(), true))
@@ -972,7 +973,7 @@ bool SoldiersMissionPage::canBeCommander(SwitchCommander& payload)
         // Cannot be commander -> pass
     }
 
-    this->onSoldierTurnToCommanderEvent(payload);
+    this->onSoldierTurnToCommanderEvent(payload, skipEvent);
 
     return true;
 

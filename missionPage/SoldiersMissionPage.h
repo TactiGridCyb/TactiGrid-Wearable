@@ -81,11 +81,11 @@ class SoldiersMissionPage : public LVGLPage
 
     void onCommanderSwitchEvent(SwitchCommander&);
 
-    void onSoldierTurnToCommanderEvent(SwitchCommander&);
+    void onSoldierTurnToCommanderEvent(SwitchCommander&, bool);
 
     void receiveShamirRequest(const uint8_t* data, size_t len);
 
-    bool canBeCommander(SwitchCommander&);
+    bool canBeCommander(SwitchCommander&, bool);
 
     void onCommanderSwitchDataReceived(const uint8_t*, size_t, SwitchCommander*);
 

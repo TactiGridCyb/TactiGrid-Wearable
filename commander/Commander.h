@@ -110,6 +110,10 @@ public:
     
 
     bool isComp(uint8_t id);
+    bool isDirectCommander();
+
+    void setDirectCommander(bool directCommander);
+
     void clear();
 
 private:
@@ -121,6 +125,8 @@ private:
     std::vector<float> frequencies;
     std::vector<uint8_t> comp;
     std::vector<uint8_t> missing;
+
+    bool directCommander;
 
     crypto::Key256 GK;
     crypto::Key256 GMK = []() {
