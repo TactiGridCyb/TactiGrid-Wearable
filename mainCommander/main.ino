@@ -139,6 +139,7 @@ void transferFromReceiveParametersToDhPage(std::unique_ptr<WifiModule> currentWi
 
     wifiModule = std::move(currentWifiModule);
 
+    
     dhPage = std::make_unique<DiffieHellmanPageCommander>(std::move(wifiModule), std::move(commanderModule), commanderModule.get());
     dhPage->createPage();
 
@@ -199,7 +200,6 @@ void setup()
         delay(500);
     }
     
-//TODO:
     commandersReceiveParametersPage = std::make_unique<CommandersReceiveParametersPage>(std::move(wifiModule));
     commandersReceiveParametersPage->createPage();
     commandersReceiveParametersPage->setOnReceiveParams(transferFromReceiveParametersToDhPage);

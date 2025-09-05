@@ -70,16 +70,28 @@ void DiffieHellmanPageCommander::startProcess() {
     dhHandler->begin();
 
     // Extract soldiers to a vector
-    const auto& soldierMap = commander->getSoldiers();
-    if (soldierMap.empty()) {
+    allSoldiersVector.clear();
+
+    for (const auto& [k, v] : this->commander->getCommanders()) 
+    {
+        if(k == this->commander->getCommanderNumber())
+        {
+            continue;
+        }
+        
+        allSoldiersVector.push_back(k);
+    }
+
+    for (const auto& [k, v] : this->commander->getSoldiers()) 
+    {
+        allSoldiersVector.push_back(k);
+    }
+
+    if (allSoldiersVector.empty()) {
         setStatusText("❌ No soldiers to process");
         return;
     }
 
-    soldierVector.clear();
-    for (const auto& pair : soldierMap) {
-        soldierVector.push_back(pair.second);
-    }
 
     currentSoldierIndex = 0;
     startExchangeWithNextSoldier();
@@ -91,7 +103,7 @@ void DiffieHellmanPageCommander::startProcess() {
 
 
 void DiffieHellmanPageCommander::startExchangeWithNextSoldier() {
-    if (currentSoldierIndex >= soldierVector.size()) {
+    if (currentSoldierIndex >= allSoldiersVector.size()) {
         setStatusText("✅ All exchanges complete");
         commanderProcessStarted = false;
         this->destroyPage();
@@ -99,8 +111,7 @@ void DiffieHellmanPageCommander::startExchangeWithNextSoldier() {
         return;
     }
 
-    const SoldierInfo& soldier = soldierVector[currentSoldierIndex];
-    int soldierId = soldier.soldierNumber;
+    const uint8_t soldierId = allSoldiersVector[currentSoldierIndex];
 
     setStatusText(("Exchange with Soldier #" + String(soldierId)).c_str());
 

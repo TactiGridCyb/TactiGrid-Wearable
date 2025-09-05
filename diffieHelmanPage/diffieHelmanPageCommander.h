@@ -22,7 +22,7 @@ private:
     std::function<void()> onStart;
     bool commanderProcessStarted;
     bool exchangeInProgress;
-    std::vector<SoldierInfo> soldierVector;
+    std::vector<uint8_t> allSoldiersVector;
     int currentSoldierIndex = 0;
     std::unique_ptr<WifiModule> wifiModule;
     std::unique_ptr<Commander> commanderPtr;
