@@ -31,6 +31,8 @@ void CommanderECDHHandler::begin() {
 
 bool CommanderECDHHandler::startECDHExchange(int soldierId, const mbedtls_x509_crt& soldiersCert) {
     currentSoldierId = soldierId;
+    this->hasHandled = false;
+    
     // 1) Generate our ECDH ephemeral
     if (!ecdh.generateEphemeralKey()) {
         Serial.println("❌ Failed to generate ephemeral key");
@@ -312,7 +314,7 @@ void CommanderECDHHandler::handleLoRaData(const uint8_t* data, size_t len) {
     Serial.println("✅ Shared secret OK");
 
     // 12) Done
-    hasHandled     = true;
+    hasHandled = true;
     waitingResponse = false;
 
     // send the final message encrypted with the shared secret
