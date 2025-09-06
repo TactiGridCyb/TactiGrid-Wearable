@@ -9,10 +9,20 @@
 #include <stdexcept>
 #include <cstring>
 
+struct GKInfo{
+    std::vector<uint8_t> salt;
+    unsigned long millis;
+    std::string info;
+};
+
 struct SwitchGMK{
     uint8_t msgID;
     uint8_t soldiersID;
-    std::vector<uint8_t> encryptedGMK;
+    uint16_t saltLength;
+    std::vector<uint8_t> salt;
+    unsigned long millis;
+    uint8_t infoLength;
+    std::string info;
 };
 
 struct SwitchCommander{
@@ -76,6 +86,13 @@ public:
     const crypto::Key256& getGMK() const {
         return GMK;
     }
+
+    const crypto::Key256& getGK() const
+    {
+        return GK;
+    }
+
+
     const crypto::Key256& getCompGMK() const {
         return CompGMK;
     }
@@ -94,6 +111,7 @@ public:
     void setCommanderNumber(uint16_t soldierNumber);
     void setCurrentHeartRate(uint16_t heartRate);
     void setGMK(const crypto::Key256& gmk);
+    void setGK(const crypto::Key256& gk);
     void setCompGMK(const crypto::Key256& gmk);
     void setCompromised(const uint8_t id);
     void setComp(const std::vector<uint8_t>& comp);

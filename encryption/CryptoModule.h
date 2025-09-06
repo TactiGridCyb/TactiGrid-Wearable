@@ -30,7 +30,7 @@ public:
                            uint64_t unixTime,
                            const std::string& missionInfo,
                            const ByteVec& salt,
-                           uint32_t soldiers);
+                           uint32_t commandersNum);
 
     static Ciphertext encrypt(const Key256& gk, const ByteVec& plaintext);
     static ByteVec decrypt(const Key256& gk, const Ciphertext& ct);
@@ -43,6 +43,8 @@ public:
 
     static std::string base64Encode(const uint8_t* data, size_t len);
     static std::vector<uint8_t> base64Decode(const std::string& s);
+
+    static crypto::ByteVec hexToBytes(const String& hex);
 
     static Ciphertext encryptFile(const Key256& gk, const std::string& filePath);
 

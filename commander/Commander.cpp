@@ -52,6 +52,11 @@ void Commander::setGMK(const crypto::Key256& gmk) {
     this->GMK = gmk;
 }
 
+void Commander::setGK(const crypto::Key256& gk)
+{
+    this->GK = gk;
+}
+
 void Commander::setCompromised(const uint8_t id)
 {
     this->addComp(id);

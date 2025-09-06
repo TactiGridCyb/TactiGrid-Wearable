@@ -32,7 +32,7 @@ void CommanderECDHHandler::begin() {
 bool CommanderECDHHandler::startECDHExchange(int soldierId, const mbedtls_x509_crt& soldiersCert) {
     currentSoldierId = soldierId;
     this->hasHandled = false;
-    
+
     // 1) Generate our ECDH ephemeral
     if (!ecdh.generateEphemeralKey()) {
         Serial.println("❌ Failed to generate ephemeral key");
@@ -187,6 +187,53 @@ void CommanderECDHHandler::handleLoRaDataStatic(const uint8_t* data, size_t len)
     }
 }
 
+void CommanderECDHHandler::sendGMKData()
+{
+
+    crypto::ByteVec salt(32);
+    randombytes_buf(salt.data(), salt.size());
+
+    DynamicJsonDocument gkDoc(256);
+    gkDoc["millis"] = millis();
+    gkDoc["info"] = "INITIAL DH";
+    gkDoc["salt"] = certModule::toBase64(salt);            // send salt bytes, not a vector layout
+    String gkJson;
+    serializeJson(gkDoc, gkJson);
+
+    for(const auto& currentSharedSecret : this->secretsList)
+    {
+        delay(100);
+
+        const crypto::Key256 initialGK = crypto::CryptoModule::deriveGK(this->commander->getGMK(), gkDoc["millis"], gkDoc["info"], salt, this->commander->getCommanderNumber());
+        this->commander->setGK(initialGK);
+
+        crypto::ByteVec payload(gkJson.begin(), gkJson.end());
+        
+        crypto::Key256 sharedSecretKey;
+        std::copy(currentSharedSecret.second.begin(), currentSharedSecret.second.end(), sharedSecretKey.begin());
+
+        crypto::Ciphertext ct = crypto::CryptoModule::encrypt(sharedSecretKey, payload);
+
+        auto appendHex = [](String& s, uint8_t b) 
+        {
+            if (b < 0x10) s += "0";
+            s += String(b, HEX);
+        };
+
+        String msg;
+        for (auto b : ct.nonce) appendHex(msg, b);
+        msg += "|";
+        for (auto b : ct.data) appendHex(msg, b);
+        msg += "|";
+        for (auto b : ct.tag) appendHex(msg, b);
+
+        this->getLoRa().sendFile(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length());
+
+        Serial.printf("new GK: %s %d\n", crypto::CryptoModule::keyToHex(this->commander->getGK()).c_str(), this->commander->getCommanderNumber());
+        
+    }
+}
+
 void CommanderECDHHandler::handleLoRaData(const uint8_t* data, size_t len) {
     // 1) Stop the receive‐timer
     // if(fileReceiveTimer) {
@@ -311,6 +358,9 @@ void CommanderECDHHandler::handleLoRaData(const uint8_t* data, size_t len) {
         return;
     }
     sharedSecret = std::move(shared);
+
+    this->secretsList[currentSoldierId] = sharedSecret;
+
     Serial.println("✅ Shared secret OK");
 
     // 12) Done

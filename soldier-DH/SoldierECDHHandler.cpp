@@ -17,10 +17,15 @@ lv_timer_t* fileReceiveTimer;
 SoldierECDHHandler* SoldierECDHHandler::instance = nullptr;
 
 SoldierECDHHandler::SoldierECDHHandler(float freq, Soldier* soldier, certModule& crypt)
-    : lora(freq), soldier(soldier), crypto(crypt), hasResponded(false) {
+: lora(freq), soldier(soldier), receivedGK(false), crypto(crypt), hasResponded(false)
+{
     instance = this;
 }
 
+bool SoldierECDHHandler::hasReceivedGK() const
+{
+    return this->receivedGK;
+}
 
 void SoldierECDHHandler::begin() {
     instance = this;
@@ -45,7 +50,7 @@ void SoldierECDHHandler::startListening() {
       self->lora.handleCompletedOperation();
       self->lora.readData();  // <-- always re-arm
 
-      if(self->hasResponded && self->hasReceiveMessage)
+      if(self->hasResponded && self->hasReceiveMessage && self->receivedGK)
       {
         Serial.println("Deleting timer!");
         lv_timer_del(t);
@@ -347,14 +352,7 @@ void SoldierECDHHandler::sendResponse(int toId) {
     return;
 }
 
-
-
-
-
-
-
-
-std::vector<uint8_t> SoldierECDHHandler::getSharedSecret() {
+const std::vector<uint8_t>& SoldierECDHHandler::getSharedSecret() {
     if (!hasResponded) {
         Serial.println("⚠️ Shared secret not ready");
         return {};
@@ -362,11 +360,13 @@ std::vector<uint8_t> SoldierECDHHandler::getSharedSecret() {
     return sharedSecret;
 }
 
-bool SoldierECDHHandler::hasRespondedToCommander() const {
+bool SoldierECDHHandler::hasRespondedToCommander() const 
+{
     return hasResponded;
 }
 
-bool SoldierECDHHandler::hasReceivedSecureMessage() const {
+bool SoldierECDHHandler::hasReceivedSecureMessage() const 
+{
     return hasReceiveMessage;
 }
 
@@ -447,16 +447,81 @@ void SoldierECDHHandler::handleSecureLoRaData(const uint8_t* data, size_t len) {
     Serial.println("”");
 
     finalMessage = plain;
-        
     
     hasReceiveMessage = true;
     
-    if(this->hasResponded)
+    this->lora.setOnReadData([this](const uint8_t* data, size_t len) {
+        this->lora.onLoraFileDataReceived(data, len);
+    });
+    
+    this->lora.setOnFileReceived([this](const uint8_t* data, size_t len) {
+        this->onGKDataRecieve(data, len);
+    });
+
+  
+  
+}
+
+void SoldierECDHHandler::onGKDataRecieve(const uint8_t* data, size_t len)
+{
+    String incoming;
+
+    for (size_t i = 0; i < len; i++) 
     {
-        this->lora.cancelReceive();
+        incoming += (char)data[i];
     }
-  
-  
+
+    Serial.println("onGKDataRecieve");
+
+    Serial.printf("-------------------%d % \n------------------------", watch.getBatteryPercent());
+
+    int p1 = incoming.indexOf('|');
+    int p2 = incoming.indexOf('|', p1 + 1);
+
+    if (p1 < 0 || p2 < 0) 
+    {                      
+        Serial.println("Bad ciphertext format");
+        return;
+    }
+
+    Serial.println("Bad ciphertext format1");
+    crypto::Ciphertext ct;
+    ct.nonce = crypto::CryptoModule::hexToBytes(incoming.substring(0, p1));
+    ct.data = crypto::CryptoModule::hexToBytes(incoming.substring(p1 + 1, p2));
+    ct.tag = crypto::CryptoModule::hexToBytes(incoming.substring(p2 + 1));
+
+    crypto::ByteVec pt;
+    Serial.println("Bad ciphertext format2");
+    try
+    {
+        crypto::Key256 sharedSecretKey;
+
+
+        std::copy(this->getSharedSecret().begin(), this->getSharedSecret().end(), sharedSecretKey.begin());
+        Serial.println("Bad ciphertext format32");
+        pt = crypto::CryptoModule::decrypt(sharedSecretKey, ct);
+    } 
+    catch (const std::exception& e)
+    {
+        Serial.printf("Decryption failed: %s\n", e.what());
+        return;
+    }
+    Serial.println("Bad ciphertext format3");
+
+    DynamicJsonDocument gkDoc(256);
+    DeserializationError e = deserializeJson(gkDoc, String((const char*)pt.data(), pt.size()));
+    if (e) { Serial.println("GK JSON parse failed"); return; }
+
+    const uint64_t currentMillis = gkDoc["millis"].as<uint64_t>();
+    const String infoStr = gkDoc["info"].as<String>();
+
+    std::vector<uint8_t> saltBytes;
+    certModule::decodeBase64(gkDoc["salt"].as<String>(), saltBytes);
+
+    const crypto::Key256 firstGK = crypto::CryptoModule::deriveGK(this->soldier->getGMK(), currentMillis, std::string(infoStr.c_str()), saltBytes, this->soldier->getCommandersInsertionOrder().at(0));
+    Serial.println("Bad ciphertext format4");
+    this->soldier->setGK(firstGK);
+    this->receivedGK = true;
 }
 
 void SoldierECDHHandler::awaitSecureMessage() {
@@ -481,23 +546,28 @@ void SoldierECDHHandler::awaitSecureMessage() {
 
 
 void SoldierECDHHandler::poll() {
-  // 1) Drive LoRa ISR machinery
-  lora.handleCompletedOperation();
-  //Serial.println("poll(): handleCompletedOperation done");
+    // 1) Drive LoRa ISR machinery
+    if(this->hasReceiveMessage)
+    {
+        return;
+    }
 
-  // 2) Re-arm RX if idle
-  if (!lora.isBusy()) {
-    Serial.println("poll(): radio idle → rearming RX");
-    lora.setup(false);
-    lora.readData();
-  }
+    lora.handleCompletedOperation();
+    //Serial.println("poll(): handleCompletedOperation done");
 
-  // ✅ 3) Check if a secure message is pending
-  if (secureMsgPending) {
-    Serial.println("poll(): secureMsgPending → calling handleSecureLoRaData");
-    secureMsgPending = false;
-    handleSecureLoRaData(securePkt.data(), securePkt.size());
-  }
+    // 2) Re-arm RX if idle
+    if (!lora.isBusy()) {
+        Serial.println("poll(): radio idle → rearming RX");
+        lora.setup(false);
+        lora.readData();
+    }
+
+    // ✅ 3) Check if a secure message is pending
+    if (secureMsgPending) {
+        Serial.println("poll(): secureMsgPending → calling handleSecureLoRaData");
+        secureMsgPending = false;
+        handleSecureLoRaData(securePkt.data(), securePkt.size());
+    }
 }
 
  String SoldierECDHHandler::getFinalMessage(){

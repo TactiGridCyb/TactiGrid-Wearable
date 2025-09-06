@@ -22,8 +22,15 @@ public:
     const mbedtls_pk_context& getPrivateKey() const;
     uint8_t getSoldierNumber() const;
     uint16_t getCurrentHeartRate() const;
-    const crypto::Key256& getGMK() const {
+    
+    const crypto::Key256& getGMK() const 
+    {
         return GMK;
+    }
+
+    const crypto::Key256& getGK() const 
+    {
+        return GK;
     }
 
     const uint16_t getIntervalMS() const
@@ -42,6 +49,7 @@ public:
     void appendFrequencies(const std::vector<float>& freqs);
 
     void setGMK(const crypto::Key256& gmk);
+    void setGK(const crypto::Key256& gk);
 
     void clear();
 

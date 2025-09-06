@@ -84,7 +84,7 @@ bool ECDHHelper::deriveSharedSecret(std::vector<uint8_t>& out) {
     out.resize(max_len);
 
     size_t slen = 0;
-    Serial.println("  [ECDH] calling mbedtls_ecdh_calc_secret…");
+    Serial.println("[ECDH] calling mbedtls_ecdh_calc_secret…");
     int ret = mbedtls_ecdh_calc_secret(&ctx, &slen,
                                        out.data(), out.size(),
                                        mbedtls_ctr_drbg_random, &ctr_drbg);

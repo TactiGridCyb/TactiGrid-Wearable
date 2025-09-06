@@ -130,6 +130,12 @@ void transferFromDhToMainPage(std::unique_ptr<WifiModule> currentWifiModule, std
     commandersMainPage->setOnTransferReceiveCoordsPage(transferFromMainToReceiveCoordsPage);
 
     commandersModule = std::move(commanderModule);
+
+    lv_async_call([](void * user_data) {
+        auto* iDHPage = static_cast<std::unique_ptr<DiffieHellmanPageCommander>*>(user_data);
+        iDHPage->reset();
+
+    }, &dhPage);
 }
 
 //commander-current

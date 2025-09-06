@@ -19,7 +19,9 @@ private:
     SoldierECDHHandler* dhHandler = nullptr;
     certModule certmodule;
     std::function<void()> onStart;
-    bool soldierProcessStarted;    
+
+    bool soldierProcessStarted;
+
     std::unique_ptr<WifiModule> wifiModule;
     std::unique_ptr<Soldier> soldierPtr;
 

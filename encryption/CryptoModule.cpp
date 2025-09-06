@@ -33,16 +33,26 @@ namespace crypto {
         return oss.str();
     }
 
+    crypto::ByteVec CryptoModule::hexToBytes(const String& hex) 
+    {
+        crypto::ByteVec out;
+        out.reserve(hex.length() >> 1);
+        for (int i = 0; i < hex.length(); i += 2) {
+            out.push_back(strtoul(hex.substring(i, i + 2).c_str(), nullptr, 16));
+        }
+        return out;
+    }
+
 
     Key256 CryptoModule::deriveGK(
         const Key256& gmk,
-        uint64_t       unixTime,
+        uint64_t unixTime,
         const std::string& missionInfo,
         const ByteVec& salt,
-        uint32_t       soldiers)
+        uint32_t commandersNum)
     {
         std::ostringstream oss;
-        oss << unixTime << "|" << missionInfo << "|" << soldiers;
+        oss << unixTime << "|" << missionInfo << "|" << commandersNum;
         std::string info = oss.str();
 
         unsigned char prk[crypto_auth_hmacsha256_BYTES];

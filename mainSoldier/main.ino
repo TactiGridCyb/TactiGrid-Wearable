@@ -112,7 +112,12 @@ void transferFromDhToMainPage(std::unique_ptr<WifiModule> currentWifiModule, std
 
     soldiersModule = std::move(soldierModule);
 
-    dhPage.release();
+    lv_async_call([](void * user_data) {
+        auto* iDHPage = static_cast<std::unique_ptr<DiffieHellmanPageSoldier>*>(user_data);
+        iDHPage->reset();
+
+    }, &dhPage);
+
 }
 
 void transferFromReceiveParametersToDhPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Soldier> soldierModule)

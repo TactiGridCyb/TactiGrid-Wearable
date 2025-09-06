@@ -80,6 +80,12 @@ void Soldier::setPublicCert(const std::string& publicCert) {
     }
 }
 
+void Soldier::setGK(const crypto::Key256& gk)
+{
+    this->GK = gk;
+}
+
+
 void Soldier::setPrivateKey(const std::string& privateKey) {
     mbedtls_pk_free(&this->privateKey);
     mbedtls_pk_init(&this->privateKey);

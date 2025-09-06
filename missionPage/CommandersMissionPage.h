@@ -24,8 +24,6 @@ public:
 
     void createPage() override;
 
-    static inline crypto::ByteVec hexToBytes(const String& hex);
-
     static inline bool isZero(float);
 
     static std::tuple<int, int, int> positionToTile(float lat, float lon, int zoom);

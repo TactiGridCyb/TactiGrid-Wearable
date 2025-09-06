@@ -311,7 +311,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     }
     Serial.println("onDataReceived");
 
-    Serial.printf("-------------------%d % \n------------------------", watch.getBatteryPercent());
+    Serial.printf("-------------------%d \n------------------------", watch.getBatteryPercent());
 
     int p1 = incoming.indexOf('|');
     int p2 = incoming.indexOf('|', p1 + 1);
@@ -321,9 +321,9 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     }
     Serial.println("Bad ciphertext format123");
     crypto::Ciphertext ct;
-    ct.nonce = hexToBytes(incoming.substring(0, p1));
-    ct.data = hexToBytes(incoming.substring(p1 + 1, p2));
-    ct.tag = hexToBytes(incoming.substring(p2 + 1));
+    ct.nonce = crypto::CryptoModule::hexToBytes(incoming.substring(0, p1));
+    ct.data = crypto::CryptoModule::hexToBytes(incoming.substring(p1 + 1, p2));
+    ct.tag = crypto::CryptoModule::hexToBytes(incoming.substring(p2 + 1));
 
     crypto::ByteVec pt;
 
@@ -479,16 +479,6 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         return;
     }
 
-}
-
-inline crypto::ByteVec CommandersMissionPage::hexToBytes(const String& hex) 
-{
-    crypto::ByteVec out;
-    out.reserve(hex.length() >> 1);
-    for (int i = 0; i < hex.length(); i += 2) {
-        out.push_back(strtoul(hex.substring(i, i + 2).c_str(), nullptr, 16));
-    }
-    return out;
 }
 
 inline bool CommandersMissionPage::isZero(float x)
@@ -703,14 +693,24 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     payload.soldiersID = soldiersIDMoveToComp;
 
     Serial.println("IMPORTANT INFO");
-    std::string info("IMPORTANT INFO");
+    std::string info(this->commanderModule->getName());
     crypto::ByteVec salt(32);
+
     randombytes_buf(salt.data(), salt.size());
-    const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), millis(), info, salt, this->commanderModule->getCommanders().size());
+
+    payload.salt = salt;
+    payload.saltLength = 0;
+
+    unsigned long currentMillies = millis();
+    payload.millis = currentMillies;
+
+    payload.info = info;
+    payload.infoLength = info.length();
+    
+    const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), currentMillies, info, salt, this->commanderModule->getCommanderNumber());
     Serial.println("newGMK");
 
     std::unordered_map<uint8_t, bool> allSoldiers;
-
 
     for (const auto& [k, v] : this->commanderModule->getCommanders()) 
     {
@@ -728,37 +728,53 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
         }
     }
 
+    crypto::Key256 saltAsKey;
+    std::copy(payload.salt.begin(), payload.salt.end(), saltAsKey.begin());
+
     for (const auto& soldier : allSoldiers) 
     {
         if(soldier.first == this->commanderModule->getCommanderNumber())
         {
             continue;
         }
-        
-        const crypto::Key256& keyRef = (soldier.first == soldiersIDMoveToComp ? this->commanderModule->getCompGMK() : newGMK);
-        
-        payload.encryptedGMK.clear();
+                
         payload.soldiersID = soldier.first;
         Serial.printf("%d\n", payload.soldiersID);
 
         if(soldier.second)
         {
             certModule::encryptWithPublicKey(this->commanderModule->getSoldiers().at(payload.soldiersID).cert,
-            crypto::CryptoModule::key256ToAsciiString(keyRef), payload.encryptedGMK);
+            crypto::CryptoModule::key256ToAsciiString(saltAsKey), payload.salt);
         }
         else
         {
             certModule::encryptWithPublicKey(this->commanderModule->getCommanders().at(payload.soldiersID).cert,
-            crypto::CryptoModule::key256ToAsciiString(keyRef), payload.encryptedGMK);
+            crypto::CryptoModule::key256ToAsciiString(saltAsKey), payload.salt);
         }
-        
+
+        payload.saltLength = payload.salt.size();
+
         Serial.println("crypto::CryptoModule::key256ToAsciiString");
         std::string buffer;
+
         buffer += static_cast<char>(payload.msgID);
         buffer += static_cast<char>(payload.soldiersID);
-        buffer.append(reinterpret_cast<const char*>(payload.encryptedGMK.data()), payload.encryptedGMK.size());
 
-        Serial.printf("GMK SENT: %s\n", crypto::CryptoModule::key256ToAsciiString(keyRef).c_str());
+        buffer.push_back(static_cast<char>((payload.saltLength >> 8) & 0xFF));
+        buffer.push_back(static_cast<char>(payload.saltLength & 0xFF));
+
+        buffer.append(reinterpret_cast<const char*>(payload.salt.data()), payload.salt.size());
+
+        uint32_t ms = static_cast<uint32_t>(payload.millis);
+        buffer.push_back((char)((ms >> 24) & 0xFF));
+        buffer.push_back((char)((ms >> 16) & 0xFF));
+        buffer.push_back((char)((ms >> 8) & 0xFF));
+        buffer.push_back((char)(ms & 0xFF));
+
+        buffer += static_cast<char>(payload.infoLength);
+        buffer.append(payload.info.data(), payload.info.size());
+
+        Serial.printf("SALT SENT: %s\n", crypto::CryptoModule::key256ToAsciiString(saltAsKey).c_str());
 
         std::string base64Payload = crypto::CryptoModule::base64Encode(
             reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());

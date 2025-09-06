@@ -19,32 +19,36 @@ public:
     void poll();
     bool sendSecureMessage(int soldierId, const String& plaintext);
 
+    void sendGMKData();
 
-private:
+    private:
     static void handleLoRaDataStatic(const uint8_t* data, size_t len);
-
+    
     void handleLoRaData(const uint8_t* data, size_t len);
-    static bool decodeBase64(const String& input, std::vector<uint8_t>& output);
-    static String toBase64(const std::vector<uint8_t>& input);
 
-    static CommanderECDHHandler* instance; // For static callback access
 
-    //modify the code to match
-    String getPeerPublicKeyPEM(int soldierId);
-    String getCertificatePEM();
+   static bool decodeBase64(const String& input, std::vector<uint8_t>& output);
+   static String toBase64(const std::vector<uint8_t>& input);
 
-    LoraModule lora;
-    Commander* commander;
-    certModule& crypto;
-    ECDHHelper ecdh;
-    std::vector<uint8_t> sharedSecret;
-    bool waitingResponse;
-    bool hasHandled;
-    unsigned long startWait;
-    const unsigned long TIMEOUT_MS = 15000;
+   static CommanderECDHHandler* instance; // For static callback access
 
-    bool           responsePending  = false;
-  std::vector<uint8_t> pendingPacket;
+   //modify the code to match
+   String getPeerPublicKeyPEM(int soldierId);
+   String getCertificatePEM();
+
+   LoraModule lora;
+   Commander* commander;
+   certModule& crypto;
+   ECDHHelper ecdh;
+   std::vector<uint8_t> sharedSecret;
+   std::unordered_map<uint8_t, std::vector<uint8_t>> secretsList;
+   bool waitingResponse;
+   bool hasHandled;
+   unsigned long startWait;
+   const unsigned long TIMEOUT_MS = 15000;
+
+   bool responsePending  = false;
+   std::vector<uint8_t> pendingPacket;
 };
 
 /*

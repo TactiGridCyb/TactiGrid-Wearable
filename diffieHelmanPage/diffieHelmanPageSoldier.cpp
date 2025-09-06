@@ -40,7 +40,7 @@ void DiffieHellmanPageSoldier::createPage() {
         auto* self = static_cast<DiffieHellmanPageSoldier*>(t->user_data);
         self->poll();
 
-        if(self->dhHandler && self->dhHandler->hasRespondedToCommander() && self->dhHandler->hasReceivedSecureMessage())
+        if(self->dhHandler && self->dhHandler->hasRespondedToCommander() && self->dhHandler->hasReceivedSecureMessage() && !self->soldierProcessStarted)
         {
             Serial.println("deleting second timer!");
             lv_timer_del(t);
@@ -73,7 +73,7 @@ void DiffieHellmanPageSoldier::startProcess() {
     dhHandler = new SoldierECDHHandler(868, soldier, certmodule);
     dhHandler->begin();
     dhHandler->startListening();
-
+    
     soldierProcessStarted = true;
     setStatusText("Waiting for commander...");
 }
@@ -82,7 +82,7 @@ void DiffieHellmanPageSoldier::startProcess() {
 void DiffieHellmanPageSoldier::poll() {
   if (!soldierProcessStarted || !dhHandler) return;
   dhHandler->poll();
-  if (dhHandler->hasRespondedToCommander() && dhHandler->hasReceivedSecureMessage()) {
+  if (dhHandler->hasRespondedToCommander() && dhHandler->hasReceivedSecureMessage() && this->dhHandler->hasReceivedGK()) {
     // Build hex string of shared secret
         setStatusText("extracting shared secret..");
         auto shared = dhHandler->getSharedSecret();
@@ -92,6 +92,8 @@ void DiffieHellmanPageSoldier::poll() {
 
         Serial.print("Final message (String): ");
         Serial.println(dhHandler->getFinalMessage());
+
+        Serial.printf("new GK: %s %d\n", crypto::CryptoModule::keyToHex(this->soldier->getGK()).c_str(), this->soldier->getCommandersInsertionOrder().at(0));
         soldierProcessStarted = false;
 
         this->destroyPage();

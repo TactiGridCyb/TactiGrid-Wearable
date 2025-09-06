@@ -256,11 +256,26 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     else if(sgPayload.msgID == 0x01)
     {
         this->simulateZero = false;
-        sgPayload.encryptedGMK.assign(decodedData.begin() + 2, decodedData.end());
+
+        sgPayload.saltLength = (static_cast<uint16_t>(decodedData[index]) << 8) | (static_cast<uint16_t>(decodedData[index + 1]));
+        index += 2;
+
+        sgPayload.salt.assign(decodedData.begin() + index, decodedData.begin() + index + sgPayload.saltLength);
+        index += sgPayload.saltLength;
+
+        sgPayload.millis = (static_cast<uint32_t>(decodedData[index]) << 24) | (static_cast<uint32_t>(decodedData[index + 1]) << 16) |
+        (static_cast<uint32_t>(decodedData[index + 2]) << 8) | (static_cast<uint32_t>(decodedData[index + 3]));
+        index += 4;
+
+        sgPayload.infoLength = decodedData[index++];
+
+        sgPayload.info.assign(reinterpret_cast<const char*>(&decodedData[index]), sgPayload.infoLength);
+        index += sgPayload.infoLength;
+
         this->onGMKSwitchEvent(sgPayload);
 
-        Serial.printf("Deserialized SwitchGMK: msgID=%d, soldiersID=%d, encryptedGMK size=%zu\n",
-                  sgPayload.msgID, sgPayload.soldiersID, sgPayload.encryptedGMK.size());
+        Serial.printf("Deserialized SwitchGMK: msgID=%d, soldiersID=%d, salt size=%zu\n",
+                  sgPayload.msgID, sgPayload.soldiersID, sgPayload.salt.size());
 
         this->commanderSwitchEvent = this->prevCommanderSwitchEvent;
     }
@@ -427,15 +442,22 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
 void SoldiersMissionPage::onGMKSwitchEvent(SwitchGMK payload)
 {
-    std::string decryptedStr;
-    bool success = certModule::decryptWithPrivateKey(this->soldierModule->getPrivateKey(), payload.encryptedGMK, decryptedStr);
-    if (!success) {
+    std::string decryptedSalt;
+    bool success = certModule::decryptWithPrivateKey(this->soldierModule->getPrivateKey(), payload.salt, decryptedSalt);
+
+    if (!success) 
+    {
         Serial.println("Decryption failed in onGMKSwitchEvent");
         return;
     }
-    Serial.println("ENCRYPTED GMK: ");
-    Serial.printf("NEW GMK SET: %s\n", decryptedStr.c_str());
-    crypto::Key256 newGMK = crypto::CryptoModule::strToKey256(decryptedStr);
+
+    Serial.println("ENCRYPTED SALT: ");
+    Serial.printf("NEW SALT SET: %s\n", decryptedSalt.c_str());
+    
+    const crypto::ByteVec saltVec(decryptedSalt.begin(), decryptedSalt.end());
+
+    const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->soldierModule->getGMK(), payload.millis, payload.info, saltVec, this->soldierModule->getCommandersInsertionOrder().at(0));
+    Serial.printf("NEW GMK: %s\n", crypto::CryptoModule::keyToHex(newGMK).c_str());
 
     this->soldierModule->setGMK(newGMK);
     this->delaySendFakeGPS = true;

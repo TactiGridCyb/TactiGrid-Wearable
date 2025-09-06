@@ -42,7 +42,7 @@ void DiffieHellmanPageCommander::createPage() {
         auto* self = static_cast<DiffieHellmanPageCommander*>(t->user_data);
         self->poll();
         
-        if (self->currentSoldierIndex >= (int)self->allSoldiersVector.size())
+        if (self->currentSoldierIndex > (int)self->allSoldiersVector.size())
         {
             Serial.printf("%d %d\n", self->currentSoldierIndex, self->allSoldiersVector.size());
             Serial.println("Releasing timer!");
@@ -113,9 +113,19 @@ void DiffieHellmanPageCommander::startProcess() {
 void DiffieHellmanPageCommander::startExchangeWithNextSoldier() {
     Serial.println("startExchangeWithNextSoldier");
 
-    if (currentSoldierIndex >= allSoldiersVector.size()) {
+    if (currentSoldierIndex >= (int)allSoldiersVector.size()) {
         setStatusText("✅ All exchanges complete");
         commanderProcessStarted = false;
+
+        this->dhHandler->getLoRa().cancelReceive();
+        this->dhHandler->getLoRa().switchToTransmitterMode();
+        this->dhHandler->sendGMKData();
+
+        ++this->currentSoldierIndex;
+        
+        delay(10);
+        this->dhHandler->getLoRa().handleCompletedOperation();
+
         this->destroyPage();
         onTransferMainPage(std::move(this->wifiModule), std::move(this->commanderPtr));
         return;
@@ -142,7 +152,7 @@ void DiffieHellmanPageCommander::startExchangeWithNextSoldier() {
 
 
 void DiffieHellmanPageCommander::poll() {
-    if (!commanderProcessStarted || !commander || !exchangeInProgress) return;
+    if (!commanderProcessStarted || !commander || !exchangeInProgress || currentSoldierIndex >= (int)allSoldiersVector.size()) return;
 
     dhHandler->poll();
 

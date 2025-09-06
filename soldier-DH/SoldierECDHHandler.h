@@ -9,43 +9,47 @@
 
 class SoldierECDHHandler {
 public:
-    SoldierECDHHandler(float freq, Soldier* soldier, certModule& crypto);
-    void begin();
-    void startListening();
-    std::vector<uint8_t> getSharedSecret();
-    String getFinalMessage();
-    bool hasRespondedToCommander() const;
-    bool hasReceivedSecureMessage() const;
-    LoraModule& getLoRa() { return lora; }
-    void poll();
+   SoldierECDHHandler(float freq, Soldier* soldier, certModule& crypto);
+   void begin();
+   void startListening();
+   const std::vector<uint8_t>& getSharedSecret();
+   String getFinalMessage();
+   bool hasRespondedToCommander() const;
+   bool hasReceivedSecureMessage() const;
+   bool hasReceivedGK() const;
+   LoraModule& getLoRa() { return lora; }
+   void poll();
 
 
 private:
    static void handleLoRaDataStatic(const uint8_t* data, size_t len);
    void handleSecureLoRaData(const uint8_t* data, size_t len);
    static void handleSecureLoRaDataStatic(const uint8_t* buf, size_t len);
+
    void awaitSecureMessage();
 
+   void handleLoRaData(const uint8_t* data, size_t len);
+   void onGKDataRecieve(const uint8_t* data, size_t len);
+   bool decodeBase64(const String& input, std::vector<uint8_t>& output);
+   String toBase64(const std::vector<uint8_t>& input);
+   void sendResponse(int toId);
 
-    void handleLoRaData(const uint8_t* data, size_t len);
-    bool decodeBase64(const String& input, std::vector<uint8_t>& output);
-    String toBase64(const std::vector<uint8_t>& input);
-    void sendResponse(int toId);
+   static SoldierECDHHandler* instance; // For static callback access
 
-    static SoldierECDHHandler* instance; // For static callback access
+   //modify the code to match
+   String getCommanderPubKey(int commanderId);
+   String getCertificatePEM();
 
-    //modify the code to match
-    String getCommanderPubKey(int commanderId);
-    String getCertificatePEM();
-
-    LoraModule lora;
-    Soldier* soldier;
-    certModule& crypto;
-    ECDHHelper ecdh;
-    std::vector<uint8_t> sharedSecret;
-    bool hasResponded;
-    bool hasReceiveMessage;
-    String finalMessage;
+   LoraModule lora;
+   Soldier* soldier;
+   certModule& crypto;
+   ECDHHelper ecdh;
+   std::vector<uint8_t> sharedSecret;
+   String finalMessage;
+   
+   bool hasResponded;
+   bool hasReceiveMessage;
+   bool receivedGK;
 
    bool secureMsgPending = false;
    std::vector<uint8_t> securePkt;
