@@ -861,6 +861,7 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
 
         this->syncFreq = true;
         this->commanderSwitchEvent = false;
+        this->prevCommanderSwitchEvent = this->commanderSwitchEvent;
 
         this->currentIndex = 0;
 
@@ -903,7 +904,7 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
 
         bool canBeCommander = true;
 
-        if(!this->soldierModule->getCommandersInsertionOrder().empty() && this->soldierModule->getCommandersInsertionOrder().at(0))
+        if(!this->soldierModule->getCommandersInsertionOrder().empty() && this->soldierModule->getCommandersInsertionOrder().at(0) == this->soldierModule->getSoldierNumber())
         {
             Serial.println("I should be commander now after the previous skipped!");
 
