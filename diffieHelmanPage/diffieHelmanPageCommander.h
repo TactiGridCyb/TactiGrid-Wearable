@@ -23,7 +23,7 @@ private:
     bool commanderProcessStarted;
     bool exchangeInProgress;
     std::vector<uint8_t> allSoldiersVector;
-    int currentSoldierIndex = 0;
+    int currentSoldierIndex = -1;
     std::unique_ptr<WifiModule> wifiModule;
     std::unique_ptr<Commander> commanderPtr;
 

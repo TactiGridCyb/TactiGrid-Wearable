@@ -35,14 +35,21 @@ void SoldierECDHHandler::begin() {
 
 void SoldierECDHHandler::startListening() {
   hasResponded = false;
-  hasReceiveMessage=false;
+  hasReceiveMessage = false;
   lora.setup(false);
   lora.readData();    // <-- first receive
+  
   fileReceiveTimer = lv_timer_create(
     [](lv_timer_t* t) {
       auto* self = static_cast<SoldierECDHHandler*>(t->user_data);
       self->lora.handleCompletedOperation();
       self->lora.readData();  // <-- always re-arm
+
+      if(self->hasResponded && self->hasReceiveMessage)
+      {
+        Serial.println("Deleting timer!");
+        lv_timer_del(t);
+      }
     },
     100,
     this
@@ -65,8 +72,8 @@ void SoldierECDHHandler::handleLoRaDataStatic(const uint8_t* data, size_t len) {
 
 void SoldierECDHHandler::handleLoRaData(const uint8_t* data, size_t len) {
     // stop our receive‐timer
-    lv_timer_del(fileReceiveTimer);
-    fileReceiveTimer = nullptr;
+    // lv_timer_del(fileReceiveTimer);
+    // fileReceiveTimer = nullptr;
 
     if (hasResponded) return;
 
@@ -80,6 +87,10 @@ void SoldierECDHHandler::handleLoRaData(const uint8_t* data, size_t len) {
 
     // 2) Check it’s addressed to me
     int recipientId = doc["id"];
+
+    Serial.println(recipientId);
+    Serial.println(soldier->getSoldierNumber());
+    
     if (recipientId != soldier->getSoldierNumber()) {
         Serial.println("⚠️ Not for me");
         return;
@@ -152,54 +163,54 @@ void SoldierECDHHandler::handleLoRaData(const uint8_t* data, size_t len) {
 
     //7.5) generate own ephemeral key pair
     // …after decrypting the commander’s envelope…
-if (!ecdh.generateEphemeralKey()) {
-  Serial.println("❌ Soldier failed to generate ephemeral key");
-  return;
-}
-
-    // 8) Decode & import commander’s ephemeral public key (DER)
-String ephB64 = doc["ephemeral"].as<String>();
-
-// turn it back into bytes
-std::vector<uint8_t> ctEph;
-if (!certModule::decodeBase64(ephB64, ctEph)) {
-    Serial.println("❌ decodeBase64(ephemeral) failed!");
+    if (!ecdh.generateEphemeralKey()) {
+    Serial.println("❌ Soldier failed to generate ephemeral key");
     return;
-}
+    }
 
-// now decrypt
-std::vector<uint8_t> derEph;
-aesCtrDecryptRaw(ctEph, derEph);
+        // 8) Decode & import commander’s ephemeral public key (DER)
+    String ephB64 = doc["ephemeral"].as<String>();
 
-if (derEph.empty()) {
-    Serial.println("❌ derEph is empty – nothing to import!");
-    return;
-}
+    // turn it back into bytes
+    std::vector<uint8_t> ctEph;
+    if (!certModule::decodeBase64(ephB64, ctEph)) {
+        Serial.println("❌ decodeBase64(ephemeral) failed!");
+        return;
+    }
 
-// if you’re working with raw X||Y 64-byte points, they need the 0x04 prefix:
-if (derEph.size() == 64 && derEph[0] != 0x04) {
-    Serial.println("⚠️ prefixing 0x04 to uncompressed point");
-    derEph.insert(derEph.begin(), 0x04);
-}
+    // now decrypt
+    std::vector<uint8_t> derEph;
+    aesCtrDecryptRaw(ctEph, derEph);
 
-// import into your ECDH context
-if (!ecdh.importPeerPublicKey(derEph)) {
-    Serial.println("❌ importPeerPublicKey DER failed");
-    return;
-}
-Serial.println("✅ imported commander ephemeral");
+    if (derEph.empty()) {
+        Serial.println("❌ derEph is empty – nothing to import!");
+        return;
+    }
 
-// 9) Derive shared secret
-std::vector<uint8_t> shared;
-if (!ecdh.deriveSharedSecret(shared)) {
-    Serial.println("❌ deriveSharedSecret failed");
-    return;
-}
-sharedSecret = std::move(shared);
-Serial.println("✅ Shared secret OK");
+    // if you’re working with raw X||Y 64-byte points, they need the 0x04 prefix:
+    if (derEph.size() == 64 && derEph[0] != 0x04) {
+        Serial.println("⚠️ prefixing 0x04 to uncompressed point");
+        derEph.insert(derEph.begin(), 0x04);
+    }
+
+    // import into your ECDH context
+    if (!ecdh.importPeerPublicKey(derEph)) {
+        Serial.println("❌ importPeerPublicKey DER failed");
+        return;
+    }
+    Serial.println("✅ imported commander ephemeral");
+
+    // 9) Derive shared secret
+    std::vector<uint8_t> shared;
+    if (!ecdh.deriveSharedSecret(shared)) {
+        Serial.println("❌ deriveSharedSecret failed");
+        return;
+    }
+    sharedSecret = std::move(shared);
+    Serial.println("✅ Shared secret OK");
 
 
-    hasResponded   = true;
+    hasResponded = true;
     // send our response
     sendResponse(instance->soldier->getCommandersInsertionOrder()[0]);
 }
@@ -309,10 +320,10 @@ void SoldierECDHHandler::sendResponse(int toId) {
     // ────────────────────────────────────────────────────────────
     // 9) Build JSON envelope and send
     DynamicJsonDocument doc(8192);
-    doc["id"]        = toId;
-    doc["key"]       = wrappedKeyB64;
-    doc["iv"]        = ivB64;
-    doc["cert"]      = certCTB64;
+    doc["id"] = toId;
+    doc["key"] = wrappedKeyB64;
+    doc["iv"] = ivB64;
+    doc["cert"] = certCTB64;
     doc["ephemeral"] = ephCTB64;
 
     String out;
@@ -325,8 +336,14 @@ void SoldierECDHHandler::sendResponse(int toId) {
 
     Serial.println("✅ Soldier response sent");
 
-  // 2) install the secure‐msg handler
-  awaitSecureMessage();
+    // 2) install the secure‐msg handler
+    lv_async_call([](void* user_data) {
+        Serial.println("Called lv_async_call");
+        auto* me = static_cast<SoldierECDHHandler*>(user_data);
+        me->awaitSecureMessage();
+
+    }, this);
+
     return;
 }
 
@@ -384,6 +401,7 @@ void SoldierECDHHandler::handleSecureLoRaDataStatic(const uint8_t* buf, size_t l
 
 
 void SoldierECDHHandler::handleSecureLoRaData(const uint8_t* data, size_t len) {
+
     Serial.printf("🔐 handleSecureLoRaData: %u bytes\n", len);
     DynamicJsonDocument doc(512);
     String in((const char*)data, len);
@@ -422,21 +440,30 @@ void SoldierECDHHandler::handleSecureLoRaData(const uint8_t* data, size_t len) {
     pt.resize(outl+finl);
 
     // 5) print
-  String plain;
-  for (auto c: pt) plain += char(c);
-  Serial.print("📨 secure → “");
-  Serial.print(plain);
-  Serial.println("”");
+    String plain;
+    for (auto c: pt) plain += char(c);
+    Serial.print("📨 secure → “");
+    Serial.print(plain);
+    Serial.println("”");
 
-  finalMessage = plain;
-  hasReceiveMessage = true;
+    finalMessage = plain;
+        
+    
+    hasReceiveMessage = true;
+    
+    if(this->hasResponded)
+    {
+        this->lora.cancelReceive();
+    }
+  
+  
 }
 
 void SoldierECDHHandler::awaitSecureMessage() {
     Serial.println("⏳ awaitSecureMessage(): switching to RX for secure msg");
 
     // 1) switch radio back into RX
-    lora.setup(/*transmissionMode=*/false);
+    this->lora.switchToReceiverMode();
 
     // 2) re-hook chunk-by-chunk callback
     lora.setOnReadData([](const uint8_t* pkt, size_t len) {
@@ -450,28 +477,13 @@ void SoldierECDHHandler::awaitSecureMessage() {
 
     // 4) now it's safe to start RX
     lora.readData();
-
-    // 5) start the polling timer
-    fileReceiveTimer = lv_timer_create(
-        [](lv_timer_t* t) {
-            auto* self = static_cast<SoldierECDHHandler*>(t->user_data);
-            self->lora.handleCompletedOperation();
-            if (!self->lora.isBusy()) {
-                Serial.println("🔁 poll() → rearming RX");
-                self->lora.readData();
-            }
-        },
-        100,
-        this
-    );
-    
 }
 
 
 void SoldierECDHHandler::poll() {
   // 1) Drive LoRa ISR machinery
   lora.handleCompletedOperation();
-  Serial.println("poll(): handleCompletedOperation done");
+  //Serial.println("poll(): handleCompletedOperation done");
 
   // 2) Re-arm RX if idle
   if (!lora.isBusy()) {

@@ -39,6 +39,13 @@ void DiffieHellmanPageSoldier::createPage() {
     lv_timer_create([](lv_timer_t* t) {
         auto* self = static_cast<DiffieHellmanPageSoldier*>(t->user_data);
         self->poll();
+
+        if(self->dhHandler && self->dhHandler->hasRespondedToCommander() && self->dhHandler->hasReceivedSecureMessage())
+        {
+            Serial.println("deleting second timer!");
+            lv_timer_del(t);
+
+        }
     }, 100, this);
 }
 
@@ -86,7 +93,9 @@ void DiffieHellmanPageSoldier::poll() {
         Serial.print("Final message (String): ");
         Serial.println(dhHandler->getFinalMessage());
         soldierProcessStarted = false;
+
         this->destroyPage();
+
         onTransferMainPage(std::move(wifiModule), std::move(soldierPtr));
   }
 }

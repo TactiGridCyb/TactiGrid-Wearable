@@ -41,6 +41,14 @@ void DiffieHellmanPageCommander::createPage() {
     lv_timer_create([](lv_timer_t* t) {
         auto* self = static_cast<DiffieHellmanPageCommander*>(t->user_data);
         self->poll();
+        
+        if (self->currentSoldierIndex >= self->allSoldiersVector.size())
+        {
+            Serial.printf("%d %d\n", self->currentSoldierIndex, self->allSoldiersVector.size());
+            Serial.println("Releasing timer!");
+            lv_timer_del(t);
+        }
+
     }, 100, this);
 }
 
@@ -70,6 +78,7 @@ void DiffieHellmanPageCommander::startProcess() {
     dhHandler->begin();
 
     // Extract soldiers to a vector
+
     allSoldiersVector.clear();
 
     for (const auto& [k, v] : this->commander->getCommanders()) 
@@ -92,7 +101,6 @@ void DiffieHellmanPageCommander::startProcess() {
         return;
     }
 
-
     currentSoldierIndex = 0;
     startExchangeWithNextSoldier();
     commanderProcessStarted = true;
@@ -103,6 +111,7 @@ void DiffieHellmanPageCommander::startProcess() {
 
 
 void DiffieHellmanPageCommander::startExchangeWithNextSoldier() {
+    Serial.println("startExchangeWithNextSoldier");
     if (currentSoldierIndex >= allSoldiersVector.size()) {
         setStatusText("✅ All exchanges complete");
         commanderProcessStarted = false;
@@ -111,11 +120,17 @@ void DiffieHellmanPageCommander::startExchangeWithNextSoldier() {
         return;
     }
 
-    const uint8_t soldierId = allSoldiersVector[currentSoldierIndex];
+    const uint8_t soldierId = allSoldiersVector.at(currentSoldierIndex);
+    Serial.printf("Exchange with Soldier # %d\n", soldierId);
 
     setStatusText(("Exchange with Soldier #" + String(soldierId)).c_str());
 
-    if (!dhHandler->startECDHExchange(soldierId)) {
+    const std::unordered_map<uint8_t, SoldierInfo>& currentSoldiers = this->commander->getSoldiers();
+    const mbedtls_x509_crt& soldiersCert = currentSoldiers.find(soldierId) != currentSoldiers.end() ? currentSoldiers.at(soldierId).cert : this->commander->getCommanders().at(soldierId).cert;
+
+    delay(200);
+
+    if (!dhHandler->startECDHExchange(soldierId, soldiersCert)) {
         setStatusText("❌ Failed to start exchange");
         commanderProcessStarted = false;
         return;

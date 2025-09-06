@@ -111,6 +111,8 @@ void transferFromDhToMainPage(std::unique_ptr<WifiModule> currentWifiModule, std
     soldiersMainPage->setOnTransferPage(transferFromMainToSendCoordsPage);
 
     soldiersModule = std::move(soldierModule);
+
+    dhPage.release();
 }
 
 void transferFromReceiveParametersToDhPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Soldier> soldierModule)

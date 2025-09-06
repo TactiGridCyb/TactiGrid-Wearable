@@ -29,24 +29,23 @@ void CommanderECDHHandler::begin() {
 }
 
 
-bool CommanderECDHHandler::startECDHExchange(int soldierId) {
+bool CommanderECDHHandler::startECDHExchange(int soldierId, const mbedtls_x509_crt& soldiersCert) {
     currentSoldierId = soldierId;
-
     // 1) Generate our ECDH ephemeral
     if (!ecdh.generateEphemeralKey()) {
         Serial.println("❌ Failed to generate ephemeral key");
         return false;
     }
-
     // ────────────────────────────────────────────────────────────────────────────
         // ── 2) EXTRACT soldier’s public-key DER (not the full cert)
-    const auto& cert = commander->getSoldiers().at(soldierId).cert;
+    const auto& cert = soldiersCert;
     constexpr size_t PUB_DER_BUF = 512;
     unsigned char derBuf[PUB_DER_BUF];
     int pubDerLen = mbedtls_pk_write_pubkey_der(
         const_cast<mbedtls_pk_context*>(&cert.pk),
         derBuf, PUB_DER_BUF
     );
+
     if (pubDerLen < 0) {
       Serial.printf("❌ pubkey DER extract failed: -0x%04X\n", -pubDerLen);
       return false;
@@ -122,23 +121,27 @@ bool CommanderECDHHandler::startECDHExchange(int soldierId) {
 
     // 8) Base64-encode everything
     String wrappedKeyB64 = certModule::toBase64(wrappedKey);
-    String ivB64         = certModule::toBase64({ iv, iv + sizeof(iv) });
-    String certCTB64     = certModule::toBase64(ctCert);
-    String ephCTB64      = certModule::toBase64(ctEph);
+    String ivB64 = certModule::toBase64({ iv, iv + sizeof(iv) });
+    String certCTB64 = certModule::toBase64(ctCert);
+    String ephCTB64 = certModule::toBase64(ctEph);
 
     // Cleanup
     mbedtls_pk_free(&soldierPubKey);
 
     // 9) Build & send JSON
     DynamicJsonDocument doc(8192);
-    doc["id"]        = soldierId;
-    doc["key"]       = wrappedKeyB64;
-    doc["iv"]        = ivB64;
-    doc["cert"]      = certCTB64;
+    doc["id"] = soldierId;
+    doc["key"] = wrappedKeyB64;
+    doc["iv"] = ivB64;
+    doc["cert"] = certCTB64;
     doc["ephemeral"] = ephCTB64;
+
+    Serial.println(doc["id"].as<uint8_t>());
 
     String out;
     serializeJson(doc, out);
+
+    this->lora.cancelReceive();
 
     if (lora.sendFile((const uint8_t*)out.c_str(), out.length(), 180)
             != RADIOLIB_ERR_NONE) {
@@ -152,7 +155,7 @@ bool CommanderECDHHandler::startECDHExchange(int soldierId) {
 
     // ────────────────────────────────────────────────────────────────────
     // **Immediately** switch back into RX mode so we catch the reply:
-    lora.setup(/* transmissionMode = */ false);
+    this->lora.switchToReceiverMode();
     lora.readData();
 
     return true;
@@ -184,10 +187,10 @@ void CommanderECDHHandler::handleLoRaDataStatic(const uint8_t* data, size_t len)
 
 void CommanderECDHHandler::handleLoRaData(const uint8_t* data, size_t len) {
     // 1) Stop the receive‐timer
-    if(fileReceiveTimer) {
-        lv_timer_del(fileReceiveTimer);
-        fileReceiveTimer = nullptr;
-    }
+    // if(fileReceiveTimer) {
+    //     lv_timer_del(fileReceiveTimer);
+    //     fileReceiveTimer = nullptr;
+    // }
 
     // 2) Only handle the first valid response
     if (!waitingResponse || hasHandled) return;
@@ -358,7 +361,7 @@ void CommanderECDHHandler::poll() {
 
     // 2) If we’re not in the middle of anything, re-arm for receive
     if (!lora.isBusy()) {
-        lora.setup(/* transmissionMode = */ false);
+        lora.switchToReceiverMode();
         lora.readData();
     }
 }
@@ -421,8 +424,8 @@ bool CommanderECDHHandler::sendSecureMessage(int soldierId, const String& plaint
             self->lora.handleCompletedOperation();
             // once all chunks + FILE_END are on-air, tear down the timer
             if (!self->lora.isBusy()) {
-                lv_timer_del(t);
                 Serial.println("✅ Secure message fully sent");
+                lv_timer_del(t);
             }
         },
         100,

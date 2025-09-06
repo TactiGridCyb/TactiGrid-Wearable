@@ -12,7 +12,7 @@ class CommanderECDHHandler {
 public:
     CommanderECDHHandler(float freq, Commander* cmdr, certModule& crypt);
     void begin();
-    bool startECDHExchange(int soldierId);
+    bool startECDHExchange(int soldierId, const mbedtls_x509_crt& soldiersCert);
     std::vector<uint8_t> getSharedSecret();
     bool isExchangeComplete();
     LoraModule& getLoRa() { return lora; }

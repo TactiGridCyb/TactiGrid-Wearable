@@ -136,7 +136,7 @@ int16_t LoraModule::sendData(const char* data, bool interrupt)
 
 int16_t LoraModule::readData()
 {
-  Serial.println("ReadData called");
+  //Serial.println("ReadData called");
   if (!tryStartOp(Op::Receive))
   {
     return RADIOLIB_ERR_NONE;
@@ -277,6 +277,8 @@ void LoraModule::onLoraFileDataReceived(const uint8_t* pkt, size_t len)
         this->receivedChunks = 0;
         this->expectedChunks = 0;
 
+        Serial.println("TS");
+        Serial.printf("%p\n", (void*)&this->onFileReceived);
         if(this->onFileReceived)
         {
           Serial.println("onFileReceived exists");
