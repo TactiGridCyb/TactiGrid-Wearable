@@ -304,28 +304,11 @@ void CommandersMissionPage::createPage() {
 void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 {
     Serial.printf("onDataReceived %d\n", len);
-    String incoming;
-    for (size_t i = 0; i < len; i++) 
-    {
-        incoming += (char)data[i];
-    }
-    Serial.println("onDataReceived");
 
     Serial.printf("-------------------%d \n------------------------", watch.getBatteryPercent());
 
-    int p1 = incoming.indexOf('|');
-    int p2 = incoming.indexOf('|', p1 + 1);
-    if (p1 < 0 || p2 < 0) {                      
-        Serial.println("Bad ciphertext format");
-        return;
-    }
-    Serial.println("Bad ciphertext format123");
-
-    crypto::Ciphertext ct;
-    ct.nonce = crypto::CryptoModule::hexToBytes(incoming.substring(0, p1));
-    ct.data = crypto::CryptoModule::hexToBytes(incoming.substring(p1 + 1, p2));
-    ct.tag = crypto::CryptoModule::hexToBytes(incoming.substring(p2 + 1));
-
+    
+    crypto::Ciphertext ct = crypto::CryptoModule::decodeText(data, len);
     crypto::ByteVec pt;
 
     try {
@@ -700,19 +683,10 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     randombytes_buf(salt.data(), salt.size());
     
     switchGKDoc["info"] = info;
-    switchGKDoc["salt"] = salt;
-
-    payload.salt = salt;
-    payload.saltLength = 0;
-
-    unsigned long currentMillies = millis();
-    payload.millis = currentMillies;
-
-    payload.info = info;
-    payload.infoLength = info.length();
+    switchGKDoc["millies"] = millis();
     
-    const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), currentMillies, info, salt, this->commanderModule->getCommanderNumber());
-    Serial.println("newGMK");
+    const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), switchGKDoc["millies"], info, salt, this->commanderModule->getCommanderNumber());
+    Serial.println("newGK");
 
     std::unordered_map<uint8_t, bool> allSoldiers;
 
@@ -733,67 +707,52 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     }
 
     crypto::Key256 saltAsKey;
-    std::copy(payload.salt.begin(), payload.salt.end(), saltAsKey.begin());
+    std::copy(salt.begin(), salt.end(), saltAsKey.begin());
 
     for (const auto& soldier : allSoldiers) 
     {
+        switchGKJson.clear();
+
         if(soldier.first == this->commanderModule->getCommanderNumber())
         {
             continue;
         }
                 
-        payload.soldiersID = soldier.first;
-        Serial.printf("%d\n", payload.soldiersID);
+        switchGKDoc["soldiersID"] = soldier.first;
+        Serial.printf("%d\n", switchGKDoc["soldiersID"]);
 
         if(soldier.second)
         {
-            certModule::encryptWithPublicKey(this->commanderModule->getSoldiers().at(payload.soldiersID).cert,
-            crypto::CryptoModule::key256ToAsciiString(saltAsKey), payload.salt);
+            certModule::encryptWithPublicKey(this->commanderModule->getSoldiers().at(switchGKDoc["soldiersID"]).cert,
+            crypto::CryptoModule::key256ToAsciiString(saltAsKey), salt);
         }
         else
         {
-            certModule::encryptWithPublicKey(this->commanderModule->getCommanders().at(payload.soldiersID).cert,
-            crypto::CryptoModule::key256ToAsciiString(saltAsKey), payload.salt);
+            certModule::encryptWithPublicKey(this->commanderModule->getCommanders().at(switchGKDoc["soldiersID"]).cert,
+            crypto::CryptoModule::key256ToAsciiString(saltAsKey), salt);
         }
 
-        payload.saltLength = payload.salt.size();
-
+        serializeJson(switchGKDoc, switchGKJson);
         Serial.println("crypto::CryptoModule::key256ToAsciiString");
-        std::string buffer;
 
-        buffer += static_cast<char>(payload.msgID);
-        buffer += static_cast<char>(payload.soldiersID);
+        crypto::ByteVec payload(switchGKJson.begin(), switchGKJson.end());
+        crypto::Ciphertext ct = crypto::CryptoModule::encrypt(this->commanderModule->getGK(), payload);
 
-        buffer.push_back(static_cast<char>((payload.saltLength >> 8) & 0xFF));
-        buffer.push_back(static_cast<char>(payload.saltLength & 0xFF));
-
-        buffer.append(reinterpret_cast<const char*>(payload.salt.data()), payload.salt.size());
-
-        uint32_t ms = static_cast<uint32_t>(payload.millis);
-        buffer.push_back((char)((ms >> 24) & 0xFF));
-        buffer.push_back((char)((ms >> 16) & 0xFF));
-        buffer.push_back((char)((ms >> 8) & 0xFF));
-        buffer.push_back((char)(ms & 0xFF));
-
-        buffer += static_cast<char>(payload.infoLength);
-        buffer.append(payload.info.data(), payload.info.size());
-
+        String msg;
+        msg = crypto::CryptoModule::encodeCipherText(ct);
         Serial.printf("SALT SENT: %s\n", crypto::CryptoModule::key256ToAsciiString(saltAsKey).c_str());
 
-        std::string base64Payload = crypto::CryptoModule::base64Encode(
-            reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
-
-        Serial.printf("PAYLOAD SENT (base64): %s %d\n", base64Payload.c_str(), base64Payload.length());
+        Serial.printf("PAYLOAD SENT (base64): %s %d\n", msg.c_str(), msg.length());
 
         Serial.println("SENDING base64Payload");
         this->loraModule->cancelReceive();
-        this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+        this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length());
 
         delay(500);
     }
     
     this->commanderSwitchEvent = prevCommanderSwitchEvent;
-    this->commanderModule->setGMK(newGMK);
+    this->commanderModule->setGK(newGMK);
     LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, infoBoxText);
 }
 

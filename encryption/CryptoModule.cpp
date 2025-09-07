@@ -51,6 +51,30 @@ namespace crypto {
         return msg;
     }
 
+    crypto::Ciphertext CryptoModule::decodeText(const uint8_t* data, size_t len)
+    {
+        String incoming;
+        for (size_t i = 0; i < len; i++) 
+        {
+            incoming += (char)data[i];
+        }
+
+        int p1 = incoming.indexOf('|');
+        int p2 = incoming.indexOf('|', p1 + 1);
+        if (p1 < 0 || p2 < 0) {                      
+            Serial.println("Bad ciphertext format");
+            return;
+        }
+        Serial.println("Bad ciphertext format123");
+
+        crypto::Ciphertext ct;
+        ct.nonce = crypto::CryptoModule::hexToBytes(incoming.substring(0, p1));
+        ct.data = crypto::CryptoModule::hexToBytes(incoming.substring(p1 + 1, p2));
+        ct.tag = crypto::CryptoModule::hexToBytes(incoming.substring(p2 + 1));
+
+        return ct;
+    }
+
     crypto::ByteVec CryptoModule::hexToBytes(const String& hex) 
     {
         crypto::ByteVec out;
