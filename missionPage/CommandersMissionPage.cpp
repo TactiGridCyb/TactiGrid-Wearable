@@ -320,6 +320,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         return;
     }
     Serial.println("Bad ciphertext format123");
+
     crypto::Ciphertext ct;
     ct.nonce = crypto::CryptoModule::hexToBytes(incoming.substring(0, p1));
     ct.data = crypto::CryptoModule::hexToBytes(incoming.substring(p1 + 1, p2));
@@ -344,19 +345,16 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         
     }
 
-    SoldiersSentData* newG = reinterpret_cast<SoldiersSentData*>(pt.data());
-    String plainStr;
-    plainStr.reserve(pt.size());
+    DynamicJsonDocument cordDoc(256);
+    DeserializationError e = deserializeJson(cordDoc, String((const char*)pt.data(), pt.size()));
+    if (e) { Serial.println("coords JSON parse failed"); return; }
 
-    for (unsigned char b : pt)
-    {
-         plainStr += (char)b;
-    }
-
-    float tile_lat = newG->tileLat;
-    float tile_lon = newG->tileLon;
-    float marker_lat = newG->posLat;
-    float marker_lon = newG->posLon;
+    float tile_lat = cordDoc["tileLat"];
+    float tile_lon = cordDoc["tileLon"];
+    float marker_lat = cordDoc["posLat"];
+    float marker_lon = cordDoc["posLon"];
+    uint8_t heartRate = cordDoc["heartRate"];
+    uint8_t soldiersID = cordDoc["soldiersID"];
 
     Serial.printf("%.5f %.5f %.5f %.5f\n", tile_lat, tile_lon, marker_lat, marker_lon);
 
@@ -373,19 +371,19 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     currentEvent["time_sent"] = timeStr.c_str();
     currentEvent["latitude"] = marker_lat;
     currentEvent["longitude"] = marker_lon;
-    currentEvent["heartRate"] = newG->heartRate;
+    currentEvent["heartRate"] = heartRate;
     
-    Serial.printf("Current Event: %d\n", newG->heartRate);
-    Serial.printf("Current id: %d\n", newG->soldiersID);
+    Serial.printf("Current Event: %d\n", heartRate);
+    Serial.printf("Current id: %d\n", soldiersID);
     String name;
 
-    if(this->commanderModule->getCommanders().find(newG->soldiersID) != this->commanderModule->getCommanders().end())
+    if(this->commanderModule->getCommanders().find(soldiersID) != this->commanderModule->getCommanders().end())
     {
-        name = String(this->commanderModule->getCommanders().at(newG->soldiersID).name.c_str());
+        name = String(this->commanderModule->getCommanders().at(soldiersID).name.c_str());
     }
     else
     {
-        name = String(this->commanderModule->getSoldiers().at(newG->soldiersID).name.c_str());
+        name = String(this->commanderModule->getSoldiers().at(soldiersID).name.c_str());
     }
 
     Serial.printf("Name is: %s\n", name.c_str());
@@ -439,40 +437,39 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
     auto [centerLat, centerLon] = tileCenterLatLon(this->tileZoom, this->tileX, this->tileY);
 
-    int heartRate = newG->heartRate;
     lv_color_t color = getColorFromHeartRate(heartRate);
 
-    ballColors[newG->soldiersID] = color;
-    Serial.println(ballColors[newG->soldiersID].full);
+    ballColors[soldiersID] = color;
+    Serial.println(ballColors[soldiersID].full);
 
     lv_obj_t* marker = nullptr;
     lv_obj_t* label = nullptr;
 
-    if (markers.find(newG->soldiersID) != markers.end()) {
-        marker = markers[newG->soldiersID];
+    if (markers.find(soldiersID) != markers.end()) {
+        marker = markers[soldiersID];
     }
-    if (labels.find(newG->soldiersID) != labels.end()) {
-        label = labels[newG->soldiersID];
+    if (labels.find(soldiersID) != labels.end()) {
+        label = labels[soldiersID];
     }
 
-    create_fading_circle(marker_lat, marker_lon, centerLat, centerLon, newG->soldiersID, 19, &ballColors[newG->soldiersID], marker, label);
+    create_fading_circle(marker_lat, marker_lon, centerLat, centerLon, soldiersID, 19, &ballColors[soldiersID], marker, label);
 
-    this->commanderModule->updateReceivedData(newG->soldiersID, marker_lat, marker_lon);
+    this->commanderModule->updateReceivedData(soldiersID, marker_lat, marker_lon);
     const std::vector<uint8_t>& comp = this->commanderModule->getComp();
 
-    if(newG->heartRate == 0 && std::find(comp.begin(), comp.end(), newG->soldiersID) == comp.end())
+    if(heartRate == 0 && std::find(comp.begin(), comp.end(), soldiersID) == comp.end())
     {
         Serial.println("CompromisedEvent");
-        this->commanderModule->setCompromised(newG->soldiersID);
+        this->commanderModule->setCompromised(soldiersID);
         delay(500);
         const std::string newEventText = "Compromised Soldier Event - " + 
-        this->commanderModule->getCommanders().at(newG->soldiersID).name;
-        this->switchGMKEvent(newEventText.c_str(), newG->soldiersID);
+        this->commanderModule->getCommanders().at(soldiersID).name;
+        this->switchGMKEvent(newEventText.c_str(), soldiersID);
         
         JsonDocument doc;
         doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
         doc["eventName"] = "compromisedSoldier";
-        doc["compromisedID"] = newG->soldiersID;
+        doc["compromisedID"] = soldiersID;
 
         FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 

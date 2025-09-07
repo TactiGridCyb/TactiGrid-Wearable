@@ -471,68 +471,71 @@ void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRat
 
 
     this->loraModule->switchToTransmitterMode();
-    SoldiersSentData coord;
-    coord.posLat = lat;
-    coord.posLon = lon;
-    coord.heartRate = heartRate;
-    coord.soldiersID = soldiersID;
 
-  Serial.printf("BEFORE SENDING: %.7f %.7f %.7f %.7f %d\n",coord.tileLat, coord.tileLon, coord.posLat, coord.posLon, coord.heartRate);
-  auto [tileLat, tileLon] = getTileCenterLatLon(coord.posLat, coord.posLon, 19, 256);
+    JsonDocument gkDoc;
+    gkDoc["posLat"] = lat;
+    gkDoc["posLon"] = lon;
+    gkDoc["heartRate"] = heartRate;
+    gkDoc["soldiersID"] = soldiersID;
 
-  coord.tileLat = tileLat;
-  coord.tileLon = tileLon;
-  Serial.printf("SENDING: %.7f %.7f %.7f %.7f %d\n",coord.tileLat, coord.tileLon, coord.posLat, coord.posLon, coord.heartRate);
-  
-  crypto::ByteVec payload;
-  payload.resize(sizeof(SoldiersSentData));
-  std::memcpy(payload.data(), &coord, sizeof(SoldiersSentData));
-  
-  crypto::Ciphertext ct = crypto::CryptoModule::encrypt(this->soldierModule->getGMK(), payload);
+    Serial.printf("BEFORE SENDING: %.7f %.7f %.7f %.7f %d\n",gkDoc["posLat"], gkDoc["posLon"], gkDoc["heartRate"]);
+    auto [tileLat, tileLon] = getTileCenterLatLon(gkDoc["posLat"], gkDoc["posLon"], 19, 256);
 
-  auto appendHex = [](String& s, uint8_t b) {
-    if (b < 0x10) s += "0";
-    s += String(b, HEX);
-  };
+    gkDoc["tileLat"] = tileLat;
+    gkDoc["tileLon"] = tileLon;
 
-  String msg;
-  for (auto b : ct.nonce) appendHex(msg, b);
-  msg += "|";
-  for (auto b : ct.data) appendHex(msg, b);
-  msg += "|";
-  for (auto b : ct.tag) appendHex(msg, b);
+    String gkJson;
+    serializeJson(gkDoc, gkJson);
 
-  int16_t transmissionState = -1;
+    Serial.printf("SENDING: %.7f %.7f %.7f %.7f %d\n",gkDoc["tileLat"], gkDoc["tileLon"], gkDoc["posLat"], gkDoc["posLon"], gkDoc["heartRate"]);
+    
+    crypto::ByteVec payload(gkJson.begin(),gkJson.end());
+    crypto::Ciphertext ct = crypto::CryptoModule::encrypt(this->soldierModule->getGK(), payload);
 
-  for(int i = 0; i < 5; ++i)
-  {
-    delay(random(0, 100));
-    if(loraModule->canTransmit())
+    auto appendHex = [](String& s, uint8_t b) 
     {
-        transmissionState = loraModule->sendData(msg.c_str());
-        break;
+        if (b < 0x10) s += "0";
+        s += String(b, HEX);
+    };
+
+    String msg;
+    for (auto b : ct.nonce) appendHex(msg, b);
+    msg += "|";
+    for (auto b : ct.data) appendHex(msg, b);
+    msg += "|";
+    for (auto b : ct.tag) appendHex(msg, b);
+
+    int16_t transmissionState = -1;
+
+    for(int i = 0; i < 5; ++i)
+    {
+        delay(random(0, 100));
+        if(loraModule->canTransmit())
+        {
+            transmissionState = loraModule->sendData(msg.c_str());
+            break;
+        }
     }
-  }
 
-  if(transmissionState == -1)
-  {
-    return;
-  }
+    if(transmissionState == -1)
+    {
+        return;
+    }
 
-  struct tm timeInfo;
-  char timeStr[9];
+    struct tm timeInfo;
+    char timeStr[9];
 
-  if(getLocalTime(&timeInfo)) {
-      strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeInfo);
-  } else {
-      strcpy(timeStr, "00:00:00");
-  }
+    if(getLocalTime(&timeInfo)) {
+        strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeInfo);
+    } else {
+        strcpy(timeStr, "00:00:00");
+    }
 
-  lv_label_set_text_fmt(sendLabel, "%s - sent coords {%.5f, %.5f}\n with freq %.2f\n", 
-                        timeStr,
-                        lat, 
-                        lon,
-                        this->loraModule->getCurrentFreq());
+    lv_label_set_text_fmt(sendLabel, "%s - sent coords {%.5f, %.5f}\n with freq %.2f\n", 
+                            timeStr,
+                            lat, 
+                            lon,
+                            this->loraModule->getCurrentFreq());
 }
 
 void SoldiersMissionPage::sendTimerCallback(lv_timer_t *timer) {
