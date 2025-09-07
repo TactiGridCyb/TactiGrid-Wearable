@@ -147,18 +147,20 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
 
                 lv_async_call([](void* user_data) {
                     auto* me = static_cast<CommandersMissionPage*>(user_data);
-                    FinishedSplittingShamir ans;
-                
-                    std::string base64Payload;
-                    std::string buffer;
                     
-                    ans.msgID = 0x07;
+                    JsonDocument finishSplittingShamirDoc;
 
-                    buffer += static_cast<char>(ans.msgID);
+                    finishSplittingShamirDoc["msgID"] = 0x07;
+
+                    String finishSplittingShamirJson;
+                    serializeJson(finishSplittingShamirDoc, finishSplittingShamirJson);
+
+                    crypto::ByteVec payload(finishSplittingShamirJson.begin(), finishSplittingShamirJson.end());
+
+                    crypto::Ciphertext ct = crypto::CryptoModule::encrypt(me->commanderModule->getGK(), payload);
+                    String msg = crypto::CryptoModule::encodeCipherText(ct);
                     
-                    base64Payload = crypto::CryptoModule::base64Encode(reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
-                    
-                    me->onFinishedSplittingShamirReceived(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+                    me->onFinishedSplittingShamirReceived(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length());
 
                 }, this);
                 
@@ -1050,36 +1052,35 @@ void CommandersMissionPage::onFinishedSplittingShamirReceived(const uint8_t* dat
 {
     Serial.println("onFinishedSplittingShamirReceived");
 
-    std::string base64Str(reinterpret_cast<const char*>(data), len);
-    Serial.printf("DECODED DATA: %s %d\n", base64Str.c_str(), len);
-
-    std::vector<uint8_t> decodedData;
-    Serial.println("-----------------------------");
+    crypto::Ciphertext ct = crypto::CryptoModule::decodeText(data, len);
+    crypto::ByteVec pt;
 
     try {
-        decodedData = crypto::CryptoModule::base64Decode(base64Str);
-        
-    } catch (const std::exception& e) {
-        Serial.printf("Base64 decode failed: %s\n", e.what());
-        return;
-    }
-
-    FinishedSplittingShamir fshPayload;
-
-    fshPayload.msgID = static_cast<uint8_t>(decodedData[0]);
-
-    if(fshPayload.msgID != 0x07)
+        pt = crypto::CryptoModule::decrypt(this->commanderModule->getGK(), ct);
+    } catch (const std::exception& e)
     {
-        Serial.printf("ID is not 0x07! %d\n", fshPayload.msgID);
+        Serial.printf("Decryption failed: %s\n", e.what());
+        return;        
+    }
+
+    JsonDocument finishSplittingReceivedDoc;
+    DeserializationError e = deserializeJson(finishSplittingReceivedDoc, String((const char*)pt.data(), pt.size()));
+    if (e) { Serial.println("coords JSON parse failed"); return; }
+    
+    uint8_t msgID = finishSplittingReceivedDoc["msgID"].as<uint8_t>();
+
+    if(msgID != 0x07)
+    {
+        Serial.printf("ID is not 0x07! %d\n", msgID);
         return;
     }
 
-    sendShamir payload;
-    payload.msgID = 0x03;
-    payload.soldiersID = this->commanderModule->getCommanderNumber();
+    JsonDocument sendShamirDoc;
+    sendShamirDoc["msgID"] = 0x03;
+    sendShamirDoc["soldiersID"] = this->commanderModule->getCommanderNumber();
 
     char sharePath[25];
-    snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", payload.soldiersID);
+    snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", this->commanderModule->getCommanderNumber());
     Serial.println(sharePath);
 
     File currentShamir = FFat.open(sharePath, FILE_READ);
@@ -1091,6 +1092,7 @@ void CommandersMissionPage::onFinishedSplittingShamirReceived(const uint8_t* dat
         return;
     }
 
+    std::vector<std::pair<uint16_t, uint16_t>> shamirPart;
     while (currentShamir.available()) 
     {
         String line = currentShamir.readStringUntil('\n');
@@ -1100,35 +1102,28 @@ void CommandersMissionPage::onFinishedSplittingShamirReceived(const uint8_t* dat
         uint16_t x = (uint16_t)line.substring(0, comma).toInt();
         uint16_t y = (uint16_t)line.substring(comma + 1).toInt();
 
-        payload.shamirPart.emplace_back(x, y);
+        shamirPart.emplace_back(x, y);
     }
 
     currentShamir.close();
 
     FFatHelper::deleteFile(sharePath);
 
-    std::string buffer;
-    buffer.reserve(2 + payload.shamirPart.size() * 2);
+    sendShamirDoc["shamirPart"] = shamirPart;
 
-    buffer += static_cast<char>(payload.msgID);
-    buffer += static_cast<char>(payload.soldiersID);
+    String sendShamirJson;
+    serializeJson(sendShamirDoc, sendShamirJson);
 
-    for (auto &pt : payload.shamirPart) 
-    {
-        buffer.push_back((char)((pt.first >> 8) & 0xFF));
-        buffer.push_back((char)(pt.first & 0xFF));
-        buffer.push_back((char)((pt.second >> 8) & 0xFF));
-        buffer.push_back((char)(pt.second & 0xFF));
-    }
+    pt.clear();
+    pt.assign(sendShamirJson.begin(), sendShamirJson.end());
 
-    std::string base64Payload = crypto::CryptoModule::base64Encode(
-    reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
-        
-    Serial.printf("ALL LENGTHS: %d %d %d\n", payload.shamirPart.size(), buffer.size(), base64Payload.length());
+    ct = crypto::CryptoModule::encrypt(this->commanderModule->getGK(), pt);
+
+    String msg = crypto::CryptoModule::encodeCipherText(ct);
 
     delay(5000);
 
-    this->onShamirPartReceived(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+    this->onShamirPartReceived(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length());
 }
 
 void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len)
@@ -1310,21 +1305,20 @@ void CommandersMissionPage::sendNextShamirRequest()
 
     this->currentShamirRec = this->didntSendShamir.front();
 
-    requestShamir req;
-    req.msgID = 0x04;
-    req.soldiersID = this->currentShamirRec;
+    JsonDocument requestShamirDoc;
+    requestShamirDoc["msgID"] = 0x04;
+    requestShamirDoc["soldiersID"] = this->currentShamirRec;
 
-    std::string buffer;
-    buffer += static_cast<char>(req.msgID);
-    buffer += static_cast<char>(req.soldiersID);
+    String requestShamirJson;
+    serializeJson(requestShamirDoc, requestShamirJson);
 
-    std::string base64Payload = crypto::CryptoModule::base64Encode(
-    reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
-        
-    Serial.printf("Sending requestShamir to %d\n", req.soldiersID);
+    crypto::ByteVec payload(requestShamirJson.begin(), requestShamirJson.end());
+    crypto::Ciphertext ct = crypto::CryptoModule::encrypt(this->commanderModule->getGK(), payload);
+
+    String msg = crypto::CryptoModule::encodeCipherText(ct);
 
     this->loraModule->cancelReceive();
-    this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+    this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length());
 
 
     shamirTimeoutTimer = lv_timer_create(

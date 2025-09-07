@@ -808,22 +808,29 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
 {
     Serial.println("onCommanderSwitchDataReceived");
 
-    std::string base64Str(reinterpret_cast<const char*>(data), len);
-    std::vector<uint8_t> decodedData;
+    crypto::Ciphertext ct = crypto::CryptoModule::decodeText(data, len);
+    crypto::ByteVec pt;
 
-    try {
-        decodedData = crypto::CryptoModule::base64Decode(base64Str);
-        
-    } catch (const std::exception& e) {
-        Serial.printf("Base64 decode failed: %s\n", e.what());
+    try 
+    {
+        pt = crypto::CryptoModule::decrypt(this->soldierModule->getGK(), ct);
+    } catch (const std::exception& e)
+    {
+        Serial.printf("Decryption failed: %s\n", e.what());
         return;
     }
 
-    SkipCommander payload;
+    JsonDocument commmanderSwitchDoc;
+    DeserializationError e = deserializeJson(commmanderSwitchDoc, String((const char*)pt.data(), pt.size()));
+    if (e) { Serial.println("coords JSON parse failed"); return; }
 
-    payload.msgID = static_cast<uint8_t>(decodedData[0]);
+    JsonDocument skipCommanderDoc;
 
-    if(payload.msgID == 0x06)
+    uint8_t msgID = commmanderSwitchDoc["msgID"].as<uint8_t>();
+    
+    skipCommanderDoc["msgID"] = msgID;
+
+    if(msgID == 0x06)
     {
         Serial.println("Commander Found!!!");
 
@@ -842,7 +849,7 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
 
         return;
     }
-    else if(payload.msgID == 0x07)
+    else if(msgID == 0x07)
     {
         if(!scPayload && !this->initialCommanderSwitchEvent)
         {
@@ -853,12 +860,11 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
         return;
     }
 
-    payload.commandersID = static_cast<uint8_t>(decodedData[1]);
-
-    if(payload.msgID == 0x05)
+    if(msgID == 0x05 && commmanderSwitchDoc["soldiersID"].as<uint8_t>() == this->soldierModule->getSoldierNumber())
     {
-        Serial.printf("Received SkipCommander! %d %d\n", payload.msgID, payload.commandersID);
-        if(this->soldierModule->getCommandersInsertionOrder().at(0) != payload.commandersID)
+        uint8_t commandersID = commmanderSwitchDoc["commandersID"].as<uint8_t>();
+        Serial.printf("Received SkipCommander! %d %d\n", msgID, commandersID);
+        if(this->soldierModule->getCommandersInsertionOrder().at(0) != commandersID)
         {
             Serial.println("Problematic! Skipped commander is somehow not first in line!");
             return;
@@ -906,7 +912,7 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
         }
 
     }
-    else if(payload.msgID == 0x04 && payload.commandersID == this->soldierModule->getSoldierNumber())
+    else if(msgID == 0x04 && commmanderSwitchDoc["soldiersID"].as<uint8_t>() == this->soldierModule->getSoldierNumber())
     {
         Serial.println("After someone skipped or not skipped commandership, a new commander was found!");
 
@@ -914,7 +920,7 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
     }
     else
     {
-        Serial.printf("Something strange! these are the parameters: %d %d\n", payload.msgID, payload.commandersID);
+        Serial.printf("Something strange! these are the parameters: %d\n", msgID);
     }
 }
 
