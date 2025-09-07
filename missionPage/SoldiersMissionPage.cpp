@@ -784,24 +784,24 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(JsonDocument& payload, b
 void SoldiersMissionPage::transmitSkipCommanderMessage()
 {
     Serial.println("transmitSkipCommanderMessage");
-    SkipCommander payload;
 
-    payload.msgID = 0x05;
-    payload.commandersID = this->soldierModule->getSoldierNumber();
+    JsonDocument skipCommanderDoc;
+    skipCommanderDoc["msgID"] = 0x05;
+    skipCommanderDoc["soldiersID"] = 0;
+    skipCommanderDoc["commandersID"] = this->soldierModule->getSoldierNumber();;
 
-    std::string buffer;
-    buffer += static_cast<char>(payload.msgID);
-    buffer += static_cast<char>(payload.commandersID);
+    String skipCommanderJson;
+    serializeJson(skipCommanderDoc, skipCommanderJson);
 
-    std::string base64Payload = crypto::CryptoModule::base64Encode(reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
+    crypto::ByteVec payload(skipCommanderJson.begin(), skipCommanderJson.end());
+    crypto::Ciphertext ct = crypto::CryptoModule::encrypt(this->soldierModule->getGK(), payload);
+
+    String msg = crypto::CryptoModule::encodeCipherText(ct);
 
     delay(1000);
 
     this->loraModule->cancelReceive();
-    this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
-
-
-
+    this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length());
 }
 
 void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, size_t len, JsonDocument* scPayload)
@@ -971,50 +971,44 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
 {
     Serial.println("SoldiersMissionPage::receiveShamirRequest");
     
-    if (len < 4)
+    crypto::Ciphertext ct = crypto::CryptoModule::decodeText(data, len);
+    crypto::ByteVec pt;
+    
+    try 
     {
-        Serial.println("Received data too short for any struct with length prefix");
+        pt = crypto::CryptoModule::decrypt(this->soldierModule->getGK(), ct);
+    } catch (const std::exception& e)
+    {
+        Serial.printf("Decryption failed: %s\n", e.what());
         return;
-    }
-
-    std::string base64Str(reinterpret_cast<const char*>(data), len);
-    Serial.printf("DECODED DATA: %s\n", base64Str.c_str());
-
-    std::vector<uint8_t> decodedData;
-    Serial.println("-----------------------------");
-
-    try {
-        decodedData = crypto::CryptoModule::base64Decode(base64Str);
         
-    } catch (const std::exception& e) {
-        Serial.printf("Base64 decode failed: %s\n", e.what());
-        return;
     }
 
-    if (decodedData.size() < 2) {
+    JsonDocument requestReceivedJson;
+    DeserializationError e = deserializeJson(requestReceivedJson, String((const char*)pt.data(), pt.size()));
+    if (e) { Serial.println("coords JSON parse failed"); return; }
+
+    if (requestReceivedJson.size() < 2)
+    {
         Serial.println("Decoded data too short for any struct with length prefix");
         return;
     }
 
-    Serial.printf("PAYLOAD LEN: %d %u %u\n", base64Str.length(), 
-     static_cast<uint8_t>(decodedData[0]), static_cast<uint8_t>(decodedData[1]));
+    
 
-    requestShamir payload;
-    payload.msgID = static_cast<uint8_t>(decodedData[0]);
-    payload.soldiersID = static_cast<uint8_t>(decodedData[1]);
-
-    if(payload.soldiersID != this->soldierModule->getSoldierNumber() || payload.msgID != 0x04)
+    if(requestReceivedJson["soldiersID"].as<uint8_t>() != this->soldierModule->getSoldierNumber() || requestReceivedJson["msgID"].as<uint8_t>() != 0x04)
     {
         Serial.println("Message wasn't for me or message number is not matching current event!");
         return;
     }
 
-    sendShamir ans;
-    ans.msgID = 0x03;
-    ans.soldiersID = payload.soldiersID;
+
+    JsonDocument shamirAnsDoc;
+    shamirAnsDoc["msgID"] = 0x03;
+    shamirAnsDoc["soldiersID"] = requestReceivedJson["soldiersID"].as<uint8_t>();
 
     char sharePath[25];
-    snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", payload.soldiersID);
+    snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", requestReceivedJson["soldiersID"].as<uint8_t>());
 
     File currentShamir = FFat.open(sharePath, FILE_READ);
     if (!currentShamir) 
@@ -1025,6 +1019,7 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
         return;
     }
 
+    std::vector<std::pair<uint16_t, uint16_t>> shamirPart;
     while (currentShamir.available()) 
     {
         String line = currentShamir.readStringUntil('\n');
@@ -1034,34 +1029,24 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
         uint16_t x = (uint16_t)line.substring(0, comma).toInt();
         uint16_t y = (uint16_t)line.substring(comma + 1).toInt();
 
-        ans.shamirPart.emplace_back(x, y);
+        shamirPart.emplace_back(x, y);
     }
 
     currentShamir.close();
-
     FFatHelper::deleteFile(sharePath);
-
-    std::string buffer;
-    buffer.reserve(2 + ans.shamirPart.size() * 4);
-
-    buffer += static_cast<char>(ans.msgID);
-    buffer += static_cast<char>(ans.soldiersID);
-
-    for (auto &pt : ans.shamirPart) 
-    {
-        buffer.push_back((char)((pt.first >> 8) & 0xFF));
-        buffer.push_back((char)(pt.first & 0xFF));
-
-        buffer.push_back((char)((pt.second >> 8) & 0xFF));
-        buffer.push_back((char)(pt.second & 0xFF));
-    }
-
-    std::string base64Payload = crypto::CryptoModule::base64Encode(
-    reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
     
-    Serial.printf("Important vars: %d %d\n", ans.msgID, ans.soldiersID);
-    Serial.println(base64Payload.c_str());
-    this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+    shamirAnsDoc["shamirPart"] = shamirPart;
+
+    String shamirAnsJson;
+    serializeJson(shamirAnsDoc, shamirAnsJson);
+    
+    Serial.printf("Important vars: %d %d\n", requestReceivedJson["msgID"].as<uint8_t>(), requestReceivedJson["soldiersID"].as<uint8_t>());
+    
+    crypto::ByteVec payload(shamirAnsJson.begin(), shamirAnsJson.end());
+    ct = crypto::CryptoModule::encrypt(this->soldierModule->getGK(), payload);
+    String msg = crypto::CryptoModule::encodeCipherText(ct);
+    
+    this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length());
 }
 
 

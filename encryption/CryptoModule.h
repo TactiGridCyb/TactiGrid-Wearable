@@ -44,7 +44,7 @@ public:
     static std::string base64Encode(const uint8_t* data, size_t len);
     static std::vector<uint8_t> base64Decode(const std::string& s);
 
-    static crypto::CipherText decodeText(const uint8_t* data, size_t len);
+    static crypto::Ciphertext decodeText(const uint8_t* data, size_t len);
 
     static crypto::ByteVec hexToBytes(const String& hex);
 

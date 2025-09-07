@@ -1134,75 +1134,66 @@ void CommandersMissionPage::onFinishedSplittingShamirReceived(const uint8_t* dat
 void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len)
 {
     Serial.println("onShamirPartReceived");
-    if (len < 4) {
-        Serial.println("Received data too short for any struct with length prefix");
+    crypto::Ciphertext ct = crypto::CryptoModule::decodeText(data, len);
+    crypto::ByteVec pt;
+
+    try 
+    {
+        pt = crypto::CryptoModule::decrypt(this->commanderModule->getGK(), ct);
+    } catch (const std::exception& e)
+    {
+        Serial.printf("Decryption failed: %s\n", e.what());
         return;
-    }
-
-    std::string base64Str(reinterpret_cast<const char*>(data), len);
-    Serial.printf("DECODED DATA: %s %d\n", base64Str.c_str(), len);
-
-    std::vector<uint8_t> decodedData;
-    Serial.println("-----------------------------");
-
-    try {
-        decodedData = crypto::CryptoModule::base64Decode(base64Str);
         
-    } catch (const std::exception& e) {
-        Serial.printf("Base64 decode failed: %s\n", e.what());
-        return;
     }
 
-    if (decodedData.size() < 2) {
+    JsonDocument shamirReceivedDoc;
+    DeserializationError e = deserializeJson(shamirReceivedDoc, String((const char*)pt.data(), pt.size()));
+    if (e) { Serial.println("coords JSON parse failed"); return; }
+
+    if (shamirReceivedDoc.size() < 2) {
         Serial.println("Decoded data too short for any struct with length prefix");
         return;
     }
 
-    sendShamir payload;
 
-    payload.msgID = static_cast<uint8_t>(decodedData[0]);
-    payload.soldiersID = static_cast<uint8_t>(decodedData[1]);
+    JsonDocument sendShamirDoc;
 
-    if(payload.msgID != 0x03)
+    uint8_t msgID = shamirReceivedDoc["msgID"].as<uint8_t>();
+    uint8_t soldiersID = shamirReceivedDoc["soldiersID"].as<uint8_t>();
+
+    sendShamirDoc["msgID"] = msgID;
+    sendShamirDoc["soldiersID"] = soldiersID;
+
+    if(msgID != 0x03)
     {
-        Serial.printf("ID is not 0x03! %d\n", payload.msgID);
+        Serial.printf("ID is not 0x03! %d\n", msgID);
         return;
     }
-
-    size_t bytesPoints = decodedData.size() - 2;
-
-    if (bytesPoints % 4 != 0) 
-    {
-        Serial.printf("sendShamir payload misaligned: %u bytes\n", (unsigned)bytesPoints);
-        return;
-    }
-
-    size_t shamirPartsLength = bytesPoints / 4;
-    payload.shamirPart.reserve(shamirPartsLength);
 
     size_t idx = 2;
-    for (size_t k = 0; k < shamirPartsLength; ++k) 
+
+    std::vector<std::pair<uint16_t, uint16_t>> shamirPart;
+    JsonArray shamirPartArr = shamirReceivedDoc["shamirPart"].as<JsonArray>();
+    shamirPart.reserve(shamirPartArr.size());
+
+    for (const auto& v : shamirPartArr) 
     {
-
-        uint16_t x = (static_cast<uint16_t>(decodedData[idx]) << 8) | static_cast<uint16_t>(decodedData[idx + 1]);
-        idx += 2;
-
-        uint16_t y = (static_cast<uint16_t>(decodedData[idx]) << 8) | static_cast<uint16_t>(decodedData[idx + 1]);
-        idx += 2;
-
-        payload.shamirPart.emplace_back(x, y);
+        uint16_t x = v[0].as<uint16_t>();
+        uint16_t y = v[1].as<uint16_t>();
+        shamirPart.emplace_back(x, y);
     }
 
     Serial.printf("Deserialized sendShamir: msgID=%d, soldiersID=%d, shamirPart size=%zu\n",
-                  payload.msgID, payload.soldiersID, payload.shamirPart.size());
+                  msgID, soldiersID, shamirPart.size());
 
-    if(payload.shamirPart.size() == 0)
+    if(shamirPart.size() == 0)
     {
         return;
     }
 
     char sharePath[25];
-    snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", payload.soldiersID);
+    snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", shamirReceivedDoc["soldiersID"].as<uint8_t>());
     Serial.println(sharePath);
 
     if(!FFat.exists(sharePath))
@@ -1216,16 +1207,16 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
         }
 
         uint16_t bytesWritten = 0;
-        for (auto &pt : payload.shamirPart) 
+        for (auto &pt : shamirPart) 
         {
             currentShare.printf("%u,%u\n", pt.first, pt.second);
             bytesWritten++;
         }
 
-        if (bytesWritten != payload.shamirPart.size()) 
+        if (bytesWritten != shamirPart.size()) 
         {
             Serial.printf("⚠️  Only wrote %u/%u bytes to \"%s\"\n",
-                        (unsigned)bytesWritten, (unsigned)payload.shamirPart.size(), sharePath);
+                        (unsigned)bytesWritten, (unsigned)shamirPart.size(), sharePath);
         } 
         else 
         {
@@ -1259,17 +1250,18 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
 
         FFatHelper::removeFilesIncludeWords("share", "txt");
         
-        CommanderIntialized ans;
-        ans.msgID = 0x06;
+        JsonDocument commanderInitializedDoc;
+        commanderInitializedDoc["msgID"] = 0x06;
+        String commanderInitalizedJson;
 
-        std::string buffer;
-        buffer += static_cast<char>(ans.msgID);
+        serializeJson(commanderInitializedDoc, commanderInitalizedJson);
+        crypto::ByteVec payload(commanderInitalizedJson.begin(), commanderInitalizedJson.end());
+        ct = crypto::CryptoModule::encrypt(this->commanderModule->getGK(), payload);
 
-        std::string base64Payload = crypto::CryptoModule::base64Encode(
-        reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
+        String msg = crypto::CryptoModule::encodeCipherText(ct);
             
         this->loraModule->cancelReceive();
-        this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+        this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length());
         
         delay(2000);
 
