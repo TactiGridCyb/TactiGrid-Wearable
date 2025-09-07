@@ -33,6 +33,24 @@ namespace crypto {
         return oss.str();
     }
 
+    String CryptoModule::encodeCipherText(crypto::Ciphertext& ct)
+    {
+        auto appendHex = [](String& s, uint8_t b) 
+        {
+            if (b < 0x10) s += "0";
+            s += String(b, HEX);
+        };
+
+        String msg;
+        for (auto b : ct.nonce) appendHex(msg, b);
+        msg += "|";
+        for (auto b : ct.data) appendHex(msg, b);
+        msg += "|";
+        for (auto b : ct.tag) appendHex(msg, b);
+
+        return msg;
+    }
+
     crypto::ByteVec CryptoModule::hexToBytes(const String& hex) 
     {
         crypto::ByteVec out;

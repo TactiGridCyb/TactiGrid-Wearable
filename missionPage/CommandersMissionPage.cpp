@@ -662,20 +662,20 @@ std::tuple<int,int> CommandersMissionPage::latlon_to_pixel(double lat, double lo
 void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t soldiersIDMoveToComp)
 {
     Serial.println("switchGMKEvent");
+    JsonDocument switchGKDoc;
+    switchGKDoc["msgID"] = 0x08;
+    String switchGKJson;
 
-    FocusOnMessage ans;
-    ans.msgID = 0x08;
+    serializeJson(switchGKDoc, switchGKJson);
+    crypto::ByteVec payload(switchGKJson.begin(), switchGKJson.end());
+    crypto::Ciphertext ct = crypto::CryptoModule::encrypt(this->commanderModule->getGK(), payload);
 
-    std::string ansBuffer;
-    ansBuffer += static_cast<char>(ans.msgID);
+    String msg = crypto::CryptoModule::encodeCipherText(ct);
 
-    std::string base64Payload = crypto::CryptoModule::base64Encode(
-    reinterpret_cast<const uint8_t*>(ansBuffer.data()), ansBuffer.size());
-    
     for(uint8_t i = 0; i < 4; ++i)
     {
         this->loraModule->cancelReceive();
-        this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+        this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length());
 
         delay(100);
     }
@@ -684,16 +684,23 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
 
     this->commanderSwitchEvent = true;
     
+    payload.clear();
+    switchGKJson.clear();
+    switchGKDoc.clear();
+    msg.clear();
 
     SwitchGMK payload;
-    payload.msgID = 0x01;
-    payload.soldiersID = soldiersIDMoveToComp;
 
+    switchGKDoc["msgID"] = 0x01;
+    switchGKDoc["soldiersID"] = soldiersIDMoveToComp;
+    
     Serial.println("IMPORTANT INFO");
     std::string info(this->commanderModule->getName());
     crypto::ByteVec salt(32);
-
     randombytes_buf(salt.data(), salt.size());
+    
+    switchGKDoc["info"] = info;
+    switchGKDoc["salt"] = salt;
 
     payload.salt = salt;
     payload.saltLength = 0;

@@ -48,6 +48,8 @@ public:
 
     static Ciphertext encryptFile(const Key256& gk, const std::string& filePath);
 
+    static String encodeCipherText(crypto::Ciphertext& ct);
+
     static std::string keyToHex(const Key256& key);
 };
 
