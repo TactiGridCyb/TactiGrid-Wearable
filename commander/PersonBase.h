@@ -7,7 +7,7 @@
 #include <LilyGoLib.h>
 #include <optional>
 #include "mbedtls/x509_crt.h"
-
+#include <ArduinoJson.h>
 
 enum SoldiersStatus
 {
@@ -178,15 +178,18 @@ public:
         return this->soldiers;
     }
 
-    void updateInsertionOrderByForbidden(const JsonArray& forb)
+    void updateInsertionOrderByForbidden(JsonArray forb) 
     {
-        this->commandersInsertionOrder.erase(
-            std::remove_if(this->commandersInsertionOrder.begin(), this->commandersInsertionOrder.end(), [&](uint8_t val) 
-            {
-                return std::find(forb.begin(), forb.end(), val) != forb.end();
-            }),
-            this->commandersInsertionOrder.end()
-        );
+        bool forbid[256] = {false};
+        
+        for (JsonVariant v : forb) 
+        {
+            forbid[v.as<uint8_t>()] = true;
+        }
+
+        auto& order = this->commandersInsertionOrder;
+
+        order.erase(std::remove_if(order.begin(), order.end(), [&](uint8_t val){ return forbid[val]; }), order.end());
     }
 
     void removeUntillReachedCommanderInsertion(uint8_t commID)

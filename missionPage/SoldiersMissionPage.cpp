@@ -209,7 +209,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     crypto::Ciphertext ct = crypto::CryptoModule::decodeText(data, len);
     crypto::ByteVec pt;
 
-    try 
+    try
     {
         pt = crypto::CryptoModule::decrypt(this->soldierModule->getGK(), ct);
     } catch (const std::exception& e)
@@ -237,20 +237,24 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         
     }
 
+    String tmp;
+    serializeJson(dataReceivedJson, tmp);
+    Serial.printf("%s %d\n", tmp.c_str(), dataReceivedJson.size());
+
     if (dataReceivedJson.size() < 2) 
     {
         Serial.println("Decoded data too short for any struct with length prefix");
         return;
     }
     
-    Serial.printf("PAYLOAD LEN: %d %u\n", dataReceivedJson.size(), dataReceivedJson["msgID"]);
+    Serial.printf("PAYLOAD LEN: %d %u\n", dataReceivedJson.size(), dataReceivedJson["msgID"].as<uint8_t>());
     
-    if(dataReceivedJson["msgID"] != 0x05 && dataReceivedJson["soldiersID"] != this->soldierModule->getSoldierNumber())
+    if(dataReceivedJson["msgID"].as<uint8_t>() != 0x05 && dataReceivedJson["soldiersID"].as<uint8_t>() != this->soldierModule->getSoldierNumber())
     {
         Serial.println("Message wasn't for me!");
         return;
     }
-    else if(dataReceivedJson["soldiersID"] == 0x01)
+    else if(dataReceivedJson["soldiersID"].as<uint8_t>() == 0x01)
     {
         this->simulateZero = false;
 
@@ -262,7 +266,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
         this->commanderSwitchEvent = this->prevCommanderSwitchEvent;
     }
-    else if(dataReceivedJson["soldiersID"] == 0x02)
+    else if(dataReceivedJson["soldiersID"].as<uint8_t>() == 0x02)
     {
         this->loraModule->setOnReadData(nullptr);
         this->loraModule->setOnFileReceived(nullptr);
@@ -279,9 +283,9 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         this->onCommanderSwitchEvent(dataReceivedJson);
 
         Serial.println("scPayload.compromisedSoldiers");
-        for(const uint8_t commanderComp : compromisedSoldiers)
+        for(const auto& commanderComp : compromisedSoldiers)
         {
-            Serial.println(commanderComp);
+            Serial.println(commanderComp.as<uint8_t>());
         }
 
         Serial.println("getCommandersInsertionOrder");
@@ -291,27 +295,30 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         }
 
         Serial.println("scPayload.missingSoldiers");
-        for(const uint8_t missingSoldier : missingSoldiers)
+        for(const auto& missingSoldier : missingSoldiers)
         {
-            Serial.println(missingSoldier);
+            Serial.println(missingSoldier.as<uint8_t>());
         }
 
         Serial.println("scPayload.soldiersCoordsIDS");
-        for(const uint8_t soldiersIDS : soldiersCoordsIDS)
+        for(const auto& soldiersIDS : soldiersCoordsIDS)
         {
-            Serial.println(soldiersIDS);
+            Serial.println(soldiersIDS.as<uint8_t>());
         }
 
         Serial.println("scPayload.soldiersCoords");
-        for(const std::pair<float, float> soldiersCoord: soldiersCoords)
+        for(const auto& soldiersCoord: soldiersCoords)
         {
-            Serial.printf("%.5f %.5f\n", soldiersCoord.first, soldiersCoord.second);
+            auto arr = soldiersCoord.as<JsonArrayConst>();
+            float lat = arr[0];
+            float lon = arr[1];
+            Serial.printf("%.5f %.5f\n", lat, lon);
         }
 
         for(uint8_t idx = 0; idx < soldiersCoordsIDS.size(); ++idx)
         {
             JsonArray coord = soldiersCoords[idx];
-            Serial.printf("ID and coord soldier -> %d { %.3f %.3f }\n", soldiersCoordsIDS[idx], coord[0].as<float>(), coord[1].as<float>());
+            Serial.printf("ID and coord soldier -> %d { %.3f %.3f }\n", soldiersCoordsIDS[idx].as<uint8_t>(), coord[0].as<float>(), coord[1].as<float>());
         }
 
         if(!this->soldierModule->getCommandersInsertionOrder().empty())
@@ -372,7 +379,12 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 void SoldiersMissionPage::onGMKSwitchEvent(JsonDocument payload)
 {
     std::string decryptedSalt;
-    bool success = certModule::decryptWithPrivateKey(this->soldierModule->getPrivateKey(), payload["salt"], decryptedSalt);
+    std::vector<uint8_t> vectorSalt;
+    JsonArray arr = payload["salt"].as<JsonArray>();
+    vectorSalt.reserve(arr.size());
+    for (JsonVariant x : arr) vectorSalt.push_back(x.as<uint8_t>());
+
+    bool success = certModule::decryptWithPrivateKey(this->soldierModule->getPrivateKey(), vectorSalt, decryptedSalt);
 
     if (!success) 
     {
@@ -400,39 +412,26 @@ void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRat
 
 
     this->loraModule->switchToTransmitterMode();
+    SoldiersSentData coord;
+    coord.posLat = lat;
+    coord.posLon = lon;
+    coord.heartRate = heartRate;
+    coord.soldiersID = soldiersID;
 
-    JsonDocument gkDoc;
-    gkDoc["posLat"] = lat;
-    gkDoc["posLon"] = lon;
-    gkDoc["heartRate"] = heartRate;
-    gkDoc["soldiersID"] = soldiersID;
+    Serial.printf("BEFORE SENDING: %.7f %.7f %.7f %.7f %d\n",coord.tileLat, coord.tileLon, coord.posLat, coord.posLon, coord.heartRate);
+    auto [tileLat, tileLon] = getTileCenterLatLon(coord.posLat, coord.posLon, 19, 256);
 
-    Serial.printf("BEFORE SENDING: %.7f %.7f %.7f %.7f %d\n",gkDoc["posLat"], gkDoc["posLon"], gkDoc["heartRate"]);
-    auto [tileLat, tileLon] = getTileCenterLatLon(gkDoc["posLat"], gkDoc["posLon"], 19, 256);
-
-    gkDoc["tileLat"] = tileLat;
-    gkDoc["tileLon"] = tileLon;
-
-    String gkJson;
-    serializeJson(gkDoc, gkJson);
-
-    Serial.printf("SENDING: %.7f %.7f %.7f %.7f %d\n",gkDoc["tileLat"], gkDoc["tileLon"], gkDoc["posLat"], gkDoc["posLon"], gkDoc["heartRate"]);
+    coord.tileLat = tileLat;
+    coord.tileLon = tileLon;
+    Serial.printf("SENDING: %.7f %.7f %.7f %.7f %d\n",coord.tileLat, coord.tileLon, coord.posLat, coord.posLon, coord.heartRate);
     
-    crypto::ByteVec payload(gkJson.begin(),gkJson.end());
-    crypto::Ciphertext ct = crypto::CryptoModule::encrypt(this->soldierModule->getGK(), payload);
+    crypto::ByteVec payload;
+    payload.resize(sizeof(SoldiersSentData));
+    std::memcpy(payload.data(), &coord, sizeof(SoldiersSentData));
+    
+    crypto::Ciphertext ct = crypto::CryptoModule::encrypt(this->soldierModule->getGMK(), payload);
 
-    auto appendHex = [](String& s, uint8_t b) 
-    {
-        if (b < 0x10) s += "0";
-        s += String(b, HEX);
-    };
-
-    String msg;
-    for (auto b : ct.nonce) appendHex(msg, b);
-    msg += "|";
-    for (auto b : ct.data) appendHex(msg, b);
-    msg += "|";
-    for (auto b : ct.tag) appendHex(msg, b);
+    String msg = crypto::CryptoModule::encodeCipherText(ct);
 
     int16_t transmissionState = -1;
 
@@ -663,9 +662,12 @@ void SoldiersMissionPage::onCommanderSwitchEvent(JsonDocument& payload)
         return;
     }
 
-    for(const std::pair<uint16_t, uint16_t>& pt : payload["shamirPart"].to<JsonArray>()) 
+    JsonArray arr = payload["shamirPart"].as<JsonArray>();
+    for (JsonArray row : arr) 
     {
-        currentShare.printf("%u,%u\n", pt.first, pt.second);
+        uint16_t x = row[0].as<uint16_t>();
+        uint16_t y = row[1].as<uint16_t>();
+        currentShare.printf("%u,%u\n", x, y);
     }
 
     currentShare.close();
@@ -994,6 +996,10 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
     DeserializationError e = deserializeJson(requestReceivedJson, String((const char*)pt.data(), pt.size()));
     if (e) { Serial.println("coords JSON parse failed"); return; }
 
+    String tmp;
+    serializeJson(requestReceivedJson, tmp);
+    Serial.printf("%s %d\n", tmp.c_str(), requestReceivedJson.size());
+
     if (requestReceivedJson.size() < 2)
     {
         Serial.println("Decoded data too short for any struct with length prefix");
@@ -1041,7 +1047,13 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
     currentShamir.close();
     FFatHelper::deleteFile(sharePath);
     
-    shamirAnsDoc["shamirPart"] = shamirPart;
+    JsonArray parts = shamirAnsDoc.createNestedArray("shamirPart");
+    for (const auto& pt : shamirPart) 
+    {
+        JsonArray p = parts.createNestedArray();
+        p.add(static_cast<uint16_t>(pt.first));
+        p.add(static_cast<uint16_t>(pt.second));
+    }
 
     String shamirAnsJson;
     serializeJson(shamirAnsDoc, shamirAnsJson);

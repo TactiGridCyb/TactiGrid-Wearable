@@ -306,15 +306,31 @@ void CommandersMissionPage::createPage() {
 void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 {
     Serial.printf("onDataReceived %d\n", len);
+    String incoming;
+    for (size_t i = 0; i < len; i++) 
+    {
+        incoming += (char)data[i];
+    }
+    Serial.println("onDataReceived");
 
-    Serial.printf("-------------------%d \n------------------------", watch.getBatteryPercent());
+    Serial.printf("-------------------%d % \n------------------------", watch.getBatteryPercent());
 
-    
-    crypto::Ciphertext ct = crypto::CryptoModule::decodeText(data, len);
+    int p1 = incoming.indexOf('|');
+    int p2 = incoming.indexOf('|', p1 + 1);
+    if (p1 < 0 || p2 < 0) {                      
+        Serial.println("Bad ciphertext format");
+        return;
+    }
+    Serial.println("Bad ciphertext format123");
+    crypto::Ciphertext ct;
+    ct.nonce = crypto::CryptoModule::hexToBytes(incoming.substring(0, p1));
+    ct.data = crypto::CryptoModule::hexToBytes(incoming.substring(p1 + 1, p2));
+    ct.tag = crypto::CryptoModule::hexToBytes(incoming.substring(p2 + 1));
+
     crypto::ByteVec pt;
 
     try {
-        pt = crypto::CryptoModule::decrypt(this->commanderModule->getGK(), ct);
+        pt = crypto::CryptoModule::decrypt(this->commanderModule->getGMK(), ct);
     } catch (const std::exception& e)
     {
         Serial.printf("Decryption failed: %s\n", e.what());
@@ -330,16 +346,19 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         
     }
 
-    JsonDocument cordDoc;
-    DeserializationError e = deserializeJson(cordDoc, String((const char*)pt.data(), pt.size()));
-    if (e) { Serial.println("coords JSON parse failed"); return; }
+    SoldiersSentData* newG = reinterpret_cast<SoldiersSentData*>(pt.data());
+    String plainStr;
+    plainStr.reserve(pt.size());
 
-    float tile_lat = cordDoc["tileLat"];
-    float tile_lon = cordDoc["tileLon"];
-    float marker_lat = cordDoc["posLat"];
-    float marker_lon = cordDoc["posLon"];
-    uint8_t heartRate = cordDoc["heartRate"];
-    uint8_t soldiersID = cordDoc["soldiersID"];
+    for (unsigned char b : pt)
+    {
+         plainStr += (char)b;
+    }
+
+    float tile_lat = newG->tileLat;
+    float tile_lon = newG->tileLon;
+    float marker_lat = newG->posLat;
+    float marker_lon = newG->posLon;
 
     Serial.printf("%.5f %.5f %.5f %.5f\n", tile_lat, tile_lon, marker_lat, marker_lon);
 
@@ -356,19 +375,19 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     currentEvent["time_sent"] = timeStr.c_str();
     currentEvent["latitude"] = marker_lat;
     currentEvent["longitude"] = marker_lon;
-    currentEvent["heartRate"] = heartRate;
+    currentEvent["heartRate"] = newG->heartRate;
     
-    Serial.printf("Current Event: %d\n", heartRate);
-    Serial.printf("Current id: %d\n", soldiersID);
+    Serial.printf("Current Event: %d\n", newG->heartRate);
+    Serial.printf("Current id: %d\n", newG->soldiersID);
     String name;
 
-    if(this->commanderModule->getCommanders().find(soldiersID) != this->commanderModule->getCommanders().end())
+    if(this->commanderModule->getCommanders().find(newG->soldiersID) != this->commanderModule->getCommanders().end())
     {
-        name = String(this->commanderModule->getCommanders().at(soldiersID).name.c_str());
+        name = String(this->commanderModule->getCommanders().at(newG->soldiersID).name.c_str());
     }
     else
     {
-        name = String(this->commanderModule->getSoldiers().at(soldiersID).name.c_str());
+        name = String(this->commanderModule->getSoldiers().at(newG->soldiersID).name.c_str());
     }
 
     Serial.printf("Name is: %s\n", name.c_str());
@@ -422,39 +441,40 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
     auto [centerLat, centerLon] = tileCenterLatLon(this->tileZoom, this->tileX, this->tileY);
 
+    int heartRate = newG->heartRate;
     lv_color_t color = getColorFromHeartRate(heartRate);
 
-    ballColors[soldiersID] = color;
-    Serial.println(ballColors[soldiersID].full);
+    ballColors[newG->soldiersID] = color;
+    Serial.println(ballColors[newG->soldiersID].full);
 
     lv_obj_t* marker = nullptr;
     lv_obj_t* label = nullptr;
 
-    if (markers.find(soldiersID) != markers.end()) {
-        marker = markers[soldiersID];
+    if (markers.find(newG->soldiersID) != markers.end()) {
+        marker = markers[newG->soldiersID];
     }
-    if (labels.find(soldiersID) != labels.end()) {
-        label = labels[soldiersID];
+    if (labels.find(newG->soldiersID) != labels.end()) {
+        label = labels[newG->soldiersID];
     }
 
-    create_fading_circle(marker_lat, marker_lon, centerLat, centerLon, soldiersID, 19, &ballColors[soldiersID], marker, label);
+    create_fading_circle(marker_lat, marker_lon, centerLat, centerLon, newG->soldiersID, 19, &ballColors[newG->soldiersID], marker, label);
 
-    this->commanderModule->updateReceivedData(soldiersID, marker_lat, marker_lon);
+    this->commanderModule->updateReceivedData(newG->soldiersID, marker_lat, marker_lon);
     const std::vector<uint8_t>& comp = this->commanderModule->getComp();
 
-    if(heartRate == 0 && std::find(comp.begin(), comp.end(), soldiersID) == comp.end())
+    if(newG->heartRate == 0 && std::find(comp.begin(), comp.end(), newG->soldiersID) == comp.end())
     {
         Serial.println("CompromisedEvent");
-        this->commanderModule->setCompromised(soldiersID);
+        this->commanderModule->setCompromised(newG->soldiersID);
         delay(500);
         const std::string newEventText = "Compromised Soldier Event - " + 
-        this->commanderModule->getCommanders().at(soldiersID).name;
-        this->switchGMKEvent(newEventText.c_str(), soldiersID);
+        this->commanderModule->getCommanders().at(newG->soldiersID).name;
+        this->switchGMKEvent(newEventText.c_str(), newG->soldiersID);
         
         JsonDocument doc;
         doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
         doc["eventName"] = "compromisedSoldier";
-        doc["compromisedID"] = soldiersID;
+        doc["compromisedID"] = newG->soldiersID;
 
         FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 
@@ -673,8 +693,6 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     switchGKJson.clear();
     switchGKDoc.clear();
     msg.clear();
-
-    SwitchGMK payload;
 
     switchGKDoc["msgID"] = 0x01;
     switchGKDoc["soldiersID"] = soldiersIDMoveToComp;
@@ -936,10 +954,22 @@ void CommandersMissionPage::switchCommanderEvent()
         switchCommanderDoc["msgID"] = 0x02;
         switchCommanderDoc["soldiersID"] = soldier;
 
-        switchCommanderDoc["compromisedSoldiers"] = this->commanderModule->getComp();
-        switchCommanderDoc["missingSoldiers"] = this->commanderModule->getMissing();
-        switchCommanderDoc["soldiersCoordsIDS"] = soldiersCoordsIDS;
-        switchCommanderDoc["soldiersCoords"] = soldiersCoords;
+        JsonArray comp = switchCommanderDoc.createNestedArray("compromisedSoldiers");
+        for (uint8_t id : this->commanderModule->getComp()) comp.add(id);
+
+        JsonArray miss = switchCommanderDoc.createNestedArray("missingSoldiers");
+        for (uint8_t id : this->commanderModule->getMissing()) miss.add(id);
+
+        JsonArray ids = switchCommanderDoc.createNestedArray("soldiersCoordsIDS");
+        for (uint8_t id : soldiersCoordsIDS) ids.add(id);
+
+        JsonArray coords = switchCommanderDoc.createNestedArray("soldiersCoords");
+        for (const auto& p : soldiersCoords) 
+        {
+            JsonArray row = coords.createNestedArray();
+            row.add(p.first);
+            row.add(p.second);
+        }
 
         File currentShamir = FFat.open(sharePaths[index].c_str(), FILE_READ);
         if (!currentShamir) 
@@ -1109,7 +1139,13 @@ void CommandersMissionPage::onFinishedSplittingShamirReceived(const uint8_t* dat
 
     FFatHelper::deleteFile(sharePath);
 
-    sendShamirDoc["shamirPart"] = shamirPart;
+    JsonArray parts = sendShamirDoc.createNestedArray("shamirPart");
+    for (const auto& pt : shamirPart) 
+    {
+        JsonArray p = parts.createNestedArray();
+        p.add(static_cast<uint16_t>(pt.first));
+        p.add(static_cast<uint16_t>(pt.second));
+    }
 
     String sendShamirJson;
     serializeJson(sendShamirDoc, sendShamirJson);

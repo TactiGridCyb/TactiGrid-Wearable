@@ -63,7 +63,8 @@ namespace crypto {
         int p2 = incoming.indexOf('|', p1 + 1);
         if (p1 < 0 || p2 < 0) {                      
             Serial.println("Bad ciphertext format");
-            return;
+            Ciphertext ct1;
+            return ct1;
         }
         Serial.println("Bad ciphertext format123");
 

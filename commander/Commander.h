@@ -18,25 +18,18 @@ struct GKInfo{
 struct SwitchGMK{
     uint8_t msgID;
     uint8_t soldiersID;
-    uint16_t saltLength;
     std::vector<uint8_t> salt;
     unsigned long millis;
-    uint8_t infoLength;
     std::string info;
 };
 
 struct SwitchCommander{
     uint8_t msgID;
     uint8_t soldiersID;
-    uint16_t shamirPartLength;
     std::vector<std::pair<uint16_t,uint16_t>> shamirPart;
-    uint8_t compromisedSoldiersLength;
     std::vector<uint8_t> compromisedSoldiers;
-    uint8_t missingSoldiersLength;
     std::vector<uint8_t> missingSoldiers;
-    uint8_t soldiersCoordsIDSLength;
     std::vector<uint8_t> soldiersCoordsIDS;
-    uint8_t soldiersCoordsLength;
     std::vector<std::pair<float,float>> soldiersCoords;
 };
 
