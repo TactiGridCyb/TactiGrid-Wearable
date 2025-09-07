@@ -67,7 +67,7 @@ class SoldiersMissionPage : public LVGLPage
     };
 
     static SoldiersMissionPage* s_pmuOwner;
-    static void pmuISR(); 
+    static void pmuISR();
 
 
     static void sendTimerCallback(lv_timer_t *);
@@ -75,19 +75,19 @@ class SoldiersMissionPage : public LVGLPage
 
     void sendCoordinate(float, float, uint16_t, uint16_t);
 
-    void onGMKSwitchEvent(SwitchGMK);
+    void onGMKSwitchEvent(JsonDocument);
 
     void onDataReceived(const uint8_t*, size_t);
 
-    void onCommanderSwitchEvent(SwitchCommander&);
+    void onCommanderSwitchEvent(JsonDocument&);
 
-    void onSoldierTurnToCommanderEvent(SwitchCommander&, bool);
+    void onSoldierTurnToCommanderEvent(JsonDocument&, bool);
 
     void receiveShamirRequest(const uint8_t* data, size_t len);
 
-    bool canBeCommander(SwitchCommander&, bool);
+    bool canBeCommander(JsonDocument*, bool);
 
-    void onCommanderSwitchDataReceived(const uint8_t*, size_t, SwitchCommander*);
+    void onCommanderSwitchDataReceived(const uint8_t*, size_t, JsonDocument*);
 
     void transmitSkipCommanderMessage();
 

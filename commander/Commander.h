@@ -53,6 +53,7 @@ struct sendShamir{
 
 struct SkipCommander{
     uint8_t msgID;
+    uint8_t soldiersID;
     uint8_t commandersID;
     
 };

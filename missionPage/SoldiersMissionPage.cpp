@@ -206,22 +206,24 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         return;
     }
 
-    std::string base64Str(reinterpret_cast<const char*>(data), len);
-    Serial.printf("DECODED DATA: %s\n", base64Str.c_str());
+    crypto::Ciphertext ct = crypto::CryptoModule::decodeText(data, len);
+    crypto::ByteVec pt;
 
-    std::vector<uint8_t> decodedData;
-    Serial.println("-----------------------------");
-
-    try {
-        decodedData = crypto::CryptoModule::base64Decode(base64Str);
-        
-    } catch (const std::exception& e) {
-        Serial.printf("Base64 decode failed: %s\n", e.what());
+    try 
+    {
+        pt = crypto::CryptoModule::decrypt(this->soldierModule->getGK(), ct);
+    } catch (const std::exception& e)
+    {
+        Serial.printf("Decryption failed: %s\n", e.what());
         return;
+        
     }
 
+    JsonDocument dataReceivedJson;
+    DeserializationError e = deserializeJson(dataReceivedJson, String((const char*)pt.data(), pt.size()));
+    if (e) { Serial.println("coords JSON parse failed"); return; }
 
-    if(decodedData[0] == 0x08)
+    if(dataReceivedJson["msgID"] == 0x08)
     {
         if(this->commanderSwitchEvent == this->prevCommanderSwitchEvent)
         {
@@ -235,122 +237,49 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         
     }
 
-    if (decodedData.size() < 2) 
+    if (dataReceivedJson.size() < 2) 
     {
         Serial.println("Decoded data too short for any struct with length prefix");
         return;
     }
-
-    SwitchGMK sgPayload;
-    sgPayload.msgID = static_cast<uint8_t>(decodedData[index++]);
-    sgPayload.soldiersID = static_cast<uint8_t>(decodedData[index++]);
     
-    Serial.printf("PAYLOAD LEN: %d %u %u\n", base64Str.length(), 
-     static_cast<uint8_t>(decodedData[0]), static_cast<uint8_t>(decodedData[1]));
+    Serial.printf("PAYLOAD LEN: %d %u\n", dataReceivedJson.size(), dataReceivedJson["msgID"]);
     
-     if(sgPayload.msgID != 0x05 && sgPayload.soldiersID != this->soldierModule->getSoldierNumber())
+    if(dataReceivedJson["msgID"] != 0x05 && dataReceivedJson["soldiersID"] != this->soldierModule->getSoldierNumber())
     {
         Serial.println("Message wasn't for me!");
         return;
     }
-    else if(sgPayload.msgID == 0x01)
+    else if(dataReceivedJson["soldiersID"] == 0x01)
     {
         this->simulateZero = false;
 
-        sgPayload.saltLength = (static_cast<uint16_t>(decodedData[index]) << 8) | (static_cast<uint16_t>(decodedData[index + 1]));
-        index += 2;
-
-        sgPayload.salt.assign(decodedData.begin() + index, decodedData.begin() + index + sgPayload.saltLength);
-        index += sgPayload.saltLength;
-
-        sgPayload.millis = (static_cast<uint32_t>(decodedData[index]) << 24) | (static_cast<uint32_t>(decodedData[index + 1]) << 16) |
-        (static_cast<uint32_t>(decodedData[index + 2]) << 8) | (static_cast<uint32_t>(decodedData[index + 3]));
-        index += 4;
-
-        sgPayload.infoLength = decodedData[index++];
-
-        sgPayload.info.assign(reinterpret_cast<const char*>(&decodedData[index]), sgPayload.infoLength);
-        index += sgPayload.infoLength;
-
-        this->onGMKSwitchEvent(sgPayload);
+        this->onGMKSwitchEvent(dataReceivedJson);
 
         Serial.printf("Deserialized SwitchGMK: msgID=%d, soldiersID=%d, salt size=%zu\n",
-                  sgPayload.msgID, sgPayload.soldiersID, sgPayload.salt.size());
+                  dataReceivedJson["msgID"], dataReceivedJson["soldiersID"],
+                   dataReceivedJson["salt"].to<JsonArray>().size());
 
         this->commanderSwitchEvent = this->prevCommanderSwitchEvent;
     }
-    else if(sgPayload.msgID == 0x02)
+    else if(dataReceivedJson["soldiersID"] == 0x02)
     {
         this->loraModule->setOnReadData(nullptr);
         this->loraModule->setOnFileReceived(nullptr);
         this->finishTimer = true;
 
+        JsonArray shamirPart = dataReceivedJson["shamirPart"].as<JsonArray>();
+        JsonArray missingSoldiers = dataReceivedJson["missingSoldiers"].to<JsonArray>();
+        JsonArray compromisedSoldiers = dataReceivedJson["compromisedSoldiers"].to<JsonArray>();
+        JsonArray soldiersCoordsIDS = dataReceivedJson["soldiersCoordsIDS"].to<JsonArray>();
+        JsonArray soldiersCoords = dataReceivedJson["soldiersCoords"].to<JsonArray>();
 
-        SwitchCommander scPayload;
-        scPayload.msgID = sgPayload.msgID;
-        scPayload.soldiersID = sgPayload.soldiersID;
 
-        uint16_t shamirLen = (decodedData[index] << 8) | decodedData[index + 1];
-        scPayload.shamirPart.reserve(shamirLen);
-        index += 2;
-
-        if (decodedData.size() < index + shamirLen * 4) 
-        {
-            Serial.println("❌ Not enough data for Shamir part");
-            return;
-        }
-
-        for (int k = 0; k < shamirLen; ++k) 
-        {
-            uint16_t x = (uint16_t(decodedData[index]) << 8) | decodedData[index + 1];
-            index += 2;
-
-            uint16_t y = (uint16_t(decodedData[index]) << 8) | decodedData[index + 1];
-            index += 2;
-
-            scPayload.shamirPart.emplace_back(x, y);
-        }
-
-        scPayload.shamirPartLength = shamirLen;
-        
-        uint8_t compromisedSoldiersLen = decodedData[index++];
-
-        scPayload.compromisedSoldiers.assign(decodedData.begin() + index,
-        decodedData.begin() + index + compromisedSoldiersLen);
-        index += compromisedSoldiersLen;
-        scPayload.compromisedSoldiersLength = compromisedSoldiersLen;
-
-        uint8_t missingSoldiersLen = decodedData[index++];
-
-        scPayload.missingSoldiers.assign(decodedData.begin() + index,
-        decodedData.begin() + index + missingSoldiersLen);
-        index += missingSoldiersLen;
-        scPayload.missingSoldiersLength = missingSoldiersLen;
-
-        uint8_t soldiersCoordsIDSLen = decodedData[index++];
-
-        scPayload.soldiersCoordsIDS.assign(decodedData.begin() + index,
-        decodedData.begin() + index + soldiersCoordsIDSLen);
-        index += soldiersCoordsIDSLen;
-        scPayload.soldiersCoordsIDSLength = soldiersCoordsIDSLen;
-
-        uint8_t soldiersCoordsLen = decodedData[index++];
-
-        for (uint8_t i = 0; i < soldiersCoordsLen; ++i) 
-        {
-            float lat, lon;
-            std::memcpy(&lat, &decodedData[index], 4); index += 4;
-            std::memcpy(&lon, &decodedData[index], 4); index += 4;
-            scPayload.soldiersCoords.emplace_back(lat, lon);
-        }
-
-        scPayload.soldiersCoordsLength = soldiersCoordsLen;
-
-        Serial.printf("Important vars: %d %d %d\n", shamirLen, compromisedSoldiersLen, missingSoldiersLen);
-        this->onCommanderSwitchEvent(scPayload);
+        Serial.printf("Important vars: %d %d\n", dataReceivedJson["compromisedSoldiers"], dataReceivedJson["missingSoldiers"]);
+        this->onCommanderSwitchEvent(dataReceivedJson);
 
         Serial.println("scPayload.compromisedSoldiers");
-        for(const auto& commanderComp: scPayload.compromisedSoldiers)
+        for(const uint8_t commanderComp : compromisedSoldiers)
         {
             Serial.println(commanderComp);
         }
@@ -362,27 +291,27 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         }
 
         Serial.println("scPayload.missingSoldiers");
-        for(const auto& missingSoldier: scPayload.missingSoldiers)
+        for(const uint8_t missingSoldier : missingSoldiers)
         {
             Serial.println(missingSoldier);
         }
 
         Serial.println("scPayload.soldiersCoordsIDS");
-        for(const auto& soldiersIDS: scPayload.soldiersCoordsIDS)
+        for(const uint8_t soldiersIDS : soldiersCoordsIDS)
         {
             Serial.println(soldiersIDS);
         }
 
         Serial.println("scPayload.soldiersCoords");
-        for(const auto& soldiersCoords: scPayload.soldiersCoords)
+        for(const std::pair<float, float> soldiersCoord: soldiersCoords)
         {
-            Serial.printf("%.5f %.5f\n", soldiersCoords.first, soldiersCoords.second);
+            Serial.printf("%.5f %.5f\n", soldiersCoord.first, soldiersCoord.second);
         }
 
-        Serial.printf("Length of IDS and not IDS: %d %d\n", scPayload.soldiersCoordsIDSLength, scPayload.soldiersCoordsLength);
-        for(uint8_t idx = 0; idx < scPayload.soldiersCoordsIDSLength; ++idx)
+        for(uint8_t idx = 0; idx < soldiersCoordsIDS.size(); ++idx)
         {
-            Serial.printf("ID and coord soldier -> %d { %.3f %.3f }\n", scPayload.soldiersCoordsIDS.at(idx), scPayload.soldiersCoords.at(idx).first, scPayload.soldiersCoords.at(idx).second);
+            JsonArray coord = soldiersCoords[idx];
+            Serial.printf("ID and coord soldier -> %d { %.3f %.3f }\n", soldiersCoordsIDS[idx], coord[0].as<float>(), coord[1].as<float>());
         }
 
         if(!this->soldierModule->getCommandersInsertionOrder().empty())
@@ -397,7 +326,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
         if(!commandersInsertionOrder.empty() && commandersInsertionOrder.at(0) == this->soldierModule->getSoldierNumber())
         {
-            canBeCommander = this->canBeCommander(scPayload, false);
+            canBeCommander = this->canBeCommander(&dataReceivedJson, false);
 
             if(canBeCommander)
             {
@@ -423,14 +352,14 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
         if(!canBeCommander)
         {
-            this->loraModule->setOnFileReceived([this, scPayload](const uint8_t* data, size_t len) mutable {
+            this->loraModule->setOnFileReceived([this](const uint8_t* data, size_t len) {
                 this->onCommanderSwitchDataReceived(data, len, nullptr);
             });
         }
         else
         {
-            this->loraModule->setOnFileReceived([this, scPayload](const uint8_t* data, size_t len) mutable {
-                this->onCommanderSwitchDataReceived(data, len, &scPayload);
+            this->loraModule->setOnFileReceived([this, &dataReceivedJson](const uint8_t* data, size_t len) mutable {
+                this->onCommanderSwitchDataReceived(data, len, &dataReceivedJson);
             });
         }
 
@@ -440,10 +369,10 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     }
 }
 
-void SoldiersMissionPage::onGMKSwitchEvent(SwitchGMK payload)
+void SoldiersMissionPage::onGMKSwitchEvent(JsonDocument payload)
 {
     std::string decryptedSalt;
-    bool success = certModule::decryptWithPrivateKey(this->soldierModule->getPrivateKey(), payload.salt, decryptedSalt);
+    bool success = certModule::decryptWithPrivateKey(this->soldierModule->getPrivateKey(), payload["salt"], decryptedSalt);
 
     if (!success) 
     {
@@ -456,10 +385,10 @@ void SoldiersMissionPage::onGMKSwitchEvent(SwitchGMK payload)
     
     const crypto::ByteVec saltVec(decryptedSalt.begin(), decryptedSalt.end());
 
-    const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->soldierModule->getGMK(), payload.millis, payload.info, saltVec, this->soldierModule->getCommandersInsertionOrder().at(0));
-    Serial.printf("NEW GMK: %s\n", crypto::CryptoModule::keyToHex(newGMK).c_str());
+    const crypto::Key256 newGK = crypto::CryptoModule::deriveGK(this->soldierModule->getGMK(), payload["millis"], payload["info"], saltVec, this->soldierModule->getCommandersInsertionOrder().at(0));
+    Serial.printf("NEW GMK: %s\n", crypto::CryptoModule::keyToHex(newGK).c_str());
 
-    this->soldierModule->setGMK(newGMK);
+    this->soldierModule->setGK(newGK);
     this->delaySendFakeGPS = true;
 
 }
@@ -719,11 +648,11 @@ void SoldiersMissionPage::parseGPSData()
     }
 }
 
-void SoldiersMissionPage::onCommanderSwitchEvent(SwitchCommander& payload)
+void SoldiersMissionPage::onCommanderSwitchEvent(JsonDocument& payload)
 {
     Serial.println("Received share");
     char sharePath[25];
-    snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", payload.soldiersID);
+    snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", payload["soldiersID"]);
     Serial.println(sharePath);
 
     File currentShare = FFat.open(sharePath, FILE_WRITE);
@@ -734,20 +663,19 @@ void SoldiersMissionPage::onCommanderSwitchEvent(SwitchCommander& payload)
         return;
     }
 
-    for(auto &pt : payload.shamirPart) 
+    for(const std::pair<uint16_t, uint16_t>& pt : payload["shamirPart"].to<JsonArray>()) 
     {
         currentShare.printf("%u,%u\n", pt.first, pt.second);
     }
 
     currentShare.close();
 
-    payload.shamirPart.clear();
 
-    this->soldierModule->updateInsertionOrderByForbidden(payload.compromisedSoldiers);
-    this->soldierModule->updateInsertionOrderByForbidden(payload.missingSoldiers);
+    this->soldierModule->updateInsertionOrderByForbidden(payload["compromisedSoldiers"].to<JsonArray>());
+    this->soldierModule->updateInsertionOrderByForbidden(payload["missingSoldiers"].to<JsonArray>());
 }
 
-void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload, bool skipEvent)
+void SoldiersMissionPage::onSoldierTurnToCommanderEvent(JsonDocument& payload, bool skipEvent)
 {
 
     Serial.println("onSoldierTurnToCommanderEvent");
@@ -800,18 +728,35 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(SwitchCommander& payload
     command->setDirectCommander(!skipEvent);
     Serial.println("command");
 
-    //Because of the initial duplicate
     this->soldierModule->removeSoldier(this->soldierModule->getSoldierNumber());
+    JsonArray compromisedSoldiersArr = payload["compromisedSoldiers"].as<JsonArray>();
+    JsonArray missingSoldiersArr = payload["missingSoldiers"].as<JsonArray>();
 
-    command->setComp(payload.compromisedSoldiers);
+    std::vector<uint8_t> compromisedSoldiers;
+    compromisedSoldiers.reserve(compromisedSoldiersArr.size());
+
+    for (JsonVariant v : compromisedSoldiersArr) 
+    {
+        int x = v.as<int>();
+        compromisedSoldiers.push_back(static_cast<uint8_t>(x));
+    }
+
+    command->setComp(compromisedSoldiers);
+
+    compromisedSoldiers.clear();
+    compromisedSoldiers.reserve(missingSoldiersArr.size());
+    for (JsonVariant v : missingSoldiersArr) 
+    {
+        int x = v.as<int>();
+        compromisedSoldiers.push_back(static_cast<uint8_t>(x));
+    }
+
     command->setSoldiers(this->soldierModule->getSoldiers());
     command->setCommanders(this->soldierModule->getCommanders());
     command->setInsertionOrders(this->soldierModule->getCommandersInsertionOrder());
-    command->setMissing(payload.missingSoldiers);
+    command->setMissing(compromisedSoldiers);
 
     Serial.println("command->setInsertionOrders");
-    payload.compromisedSoldiers.clear();
-    payload.missingSoldiers.clear();
     this->soldierModule->clear();
 
     Serial.println("soldierModule->clear()");
@@ -859,7 +804,7 @@ void SoldiersMissionPage::transmitSkipCommanderMessage()
 
 }
 
-void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, size_t len, SwitchCommander* scPayload)
+void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, size_t len, JsonDocument* scPayload)
 {
     Serial.println("onCommanderSwitchDataReceived");
 
@@ -933,7 +878,7 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
         {
             Serial.println("I should be commander now after the previous skipped!");
 
-            canBeCommander = this->canBeCommander(*scPayload, true);
+            canBeCommander = this->canBeCommander(scPayload, true);
 
             if(canBeCommander)
             {
@@ -973,7 +918,7 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
     }
 }
 
-bool SoldiersMissionPage::canBeCommander(SwitchCommander& payload, bool skipEvent)
+bool SoldiersMissionPage::canBeCommander(JsonDocument* payload, bool skipEvent)
 {
     Serial.println("CanBeCommander");
     if(!this->soldierModule->areCoordsValid(this->soldierModule->getSoldierNumber(), true))
@@ -983,16 +928,31 @@ bool SoldiersMissionPage::canBeCommander(SwitchCommander& payload, bool skipEven
     }
 
     std::pair<float,float> selfCoord;
+    JsonArray soldiersCoordsIDS = (*payload)["soldiersCoordsIDS"].to<JsonArray>();
+    JsonArray soldiersCoords = (*payload)["soldiersCoords"].to<JsonArray>();
 
-    for (uint8_t i = 0; i < payload.soldiersCoordsIDS.size(); ++i) 
+    for (uint8_t i = 0; i < soldiersCoordsIDS.size(); ++i) 
     {
-        if (payload.soldiersCoordsIDS[i] == this->soldierModule->getSoldierNumber()) 
+        if (soldiersCoordsIDS[i].as<uint8_t>() == this->soldierModule->getSoldierNumber()) 
         {
-            selfCoord = payload.soldiersCoords.at(i);
+            float x = soldiersCoordsIDS[i][0].as<float>();
+            float y = soldiersCoordsIDS[i][1].as<float>();
+            selfCoord = {x, y};
         }
     }
 
-    float score = this->leadershipEvaluator.calculateScore(payload.soldiersCoords, selfCoord);
+    std::vector<std::pair<float, float>> coordsVector;
+    coordsVector.reserve(soldiersCoords.size());
+    for (JsonArray row : soldiersCoords) 
+    {
+        if (row.size() >= 2) {
+            float x = row[0].as<float>();
+            float y = row[1].as<float>();
+            coordsVector.emplace_back(x, y);
+        }
+    }
+
+    float score = this->leadershipEvaluator.calculateScore(coordsVector, selfCoord);
     Serial.printf("Score is: %.5f\n", score);
     if(score < 0.5)
     {
@@ -1000,7 +960,7 @@ bool SoldiersMissionPage::canBeCommander(SwitchCommander& payload, bool skipEven
         // Cannot be commander -> pass
     }
 
-    this->onSoldierTurnToCommanderEvent(payload, skipEvent);
+    this->onSoldierTurnToCommanderEvent(*payload, skipEvent);
 
     return true;
 

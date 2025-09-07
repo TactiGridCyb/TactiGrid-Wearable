@@ -312,7 +312,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     crypto::ByteVec pt;
 
     try {
-        pt = crypto::CryptoModule::decrypt(this->commanderModule->getGMK(), ct);
+        pt = crypto::CryptoModule::decrypt(this->commanderModule->getGK(), ct);
     } catch (const std::exception& e)
     {
         Serial.printf("Decryption failed: %s\n", e.what());
@@ -328,7 +328,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         
     }
 
-    DynamicJsonDocument cordDoc(256);
+    JsonDocument cordDoc;
     DeserializationError e = deserializeJson(cordDoc, String((const char*)pt.data(), pt.size()));
     if (e) { Serial.println("coords JSON parse failed"); return; }
 
@@ -794,8 +794,7 @@ void CommandersMissionPage::switchCommanderEvent()
     this->loraModule->setOnReadData(nullptr);
 
     Serial.println("switchCommanderEvent");
-    SwitchCommander payload;
-    payload.msgID = 0x02;
+
     //Split here the log file, its path is this->logFilePath
     std::vector<String> sharePaths;
 
@@ -805,23 +804,28 @@ void CommandersMissionPage::switchCommanderEvent()
     this->missingSoldierTimer = nullptr;
     this->selfLogTimer = nullptr;
 
-    FocusOnMessage fomPayload;
-    fomPayload.msgID = 0x08;
+    JsonDocument switchCommanderDoc;
+    switchCommanderDoc["msgID"] = 0x08;
+    String switchCommanderJson;
 
-    std::string ansBuffer;
-    ansBuffer += static_cast<char>(fomPayload.msgID);
+    serializeJson(switchCommanderDoc, switchCommanderJson);
+    crypto::ByteVec payload(switchCommanderJson.begin(), switchCommanderJson.end());
+    crypto::Ciphertext ct = crypto::CryptoModule::encrypt(this->commanderModule->getGK(), payload);
 
-    std::string base64Payload = crypto::CryptoModule::base64Encode(
-    reinterpret_cast<const uint8_t*>(ansBuffer.data()), ansBuffer.size());
+    String msg = crypto::CryptoModule::encodeCipherText(ct);
     
     for(uint8_t i = 0; i < 4; ++i)
     {
         this->loraModule->cancelReceive();
-        this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+        this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length());
 
         delay(100);
     }
 
+    switchCommanderJson.clear();
+    switchCommanderDoc.clear();
+    payload.clear();
+    msg.clear();
     
     uint8_t nextID = -1;
     String newCommandersName = "";
@@ -830,6 +834,8 @@ void CommandersMissionPage::switchCommanderEvent()
         nextID = this->commanderModule->getCommandersInsertionOrder().at(1);
         newCommandersName = String(this->commanderModule->getCommanders().at(nextID).name.c_str());
     }
+
+    switchCommanderDoc["msgID"] = 0x02;
 
     JsonDocument doc;
     doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
@@ -917,25 +923,21 @@ void CommandersMissionPage::switchCommanderEvent()
             continue;
         }
 
+        msg.clear();
+        payload.clear();
+        switchCommanderDoc.clear();
+        switchCommanderJson.clear();
+
         Serial.printf("Sending to soldier %d\n", soldier);
-        payload.soldiersID = soldier;
-        payload.shamirPart.clear();
-        payload.compromisedSoldiers.clear();
-        payload.missingSoldiers.clear();
-        payload.soldiersCoordsIDS.clear();
-        payload.soldiersCoords.clear();
+        std::vector<std::pair<uint16_t, uint16_t>> shamirPart;
 
-        payload.compromisedSoldiers = this->commanderModule->getComp();
-        payload.compromisedSoldiersLength = payload.compromisedSoldiers.size();
+        switchCommanderDoc["msgID"] = 0x02;
+        switchCommanderDoc["soldiersID"] = soldier;
 
-        payload.missingSoldiers = this->commanderModule->getMissing();
-        payload.missingSoldiersLength = payload.missingSoldiers.size();
-
-        payload.soldiersCoordsIDS = soldiersCoordsIDS;
-        payload.soldiersCoordsIDSLength = soldiersCoordsIDS.size();
-
-        payload.soldiersCoords = soldiersCoords;
-        payload.soldiersCoordsLength = soldiersCoords.size();
+        switchCommanderDoc["compromisedSoldiers"] = this->commanderModule->getComp();
+        switchCommanderDoc["missingSoldiers"] = this->commanderModule->getMissing();
+        switchCommanderDoc["soldiersCoordsIDS"] = soldiersCoordsIDS;
+        switchCommanderDoc["soldiersCoords"] = soldiersCoords;
 
         File currentShamir = FFat.open(sharePaths[index].c_str(), FILE_READ);
         if (!currentShamir) 
@@ -954,49 +956,24 @@ void CommandersMissionPage::switchCommanderEvent()
             uint16_t x = (uint16_t)line.substring(0, comma).toInt();
             uint16_t y = (uint16_t)line.substring(comma + 1).toInt();
 
-            payload.shamirPart.emplace_back(x, y);
+            shamirPart.emplace_back(x, y);
         }
         
         currentShamir.close();
 
         FFatHelper::deleteFile(sharePaths[index].c_str());
 
-        uint16_t shamirPartsLen = payload.shamirPart.size();
-        payload.shamirPartLength = shamirPartsLen;
+        serializeJson(switchCommanderDoc, switchCommanderJson);
+        payload.assign(switchCommanderJson.begin(), switchCommanderJson.end());
 
-        std::string buffer;
-        buffer += static_cast<char>(payload.msgID);
-        buffer += static_cast<char>(payload.soldiersID);
-        buffer += static_cast<char>((shamirPartsLen >> 8) & 0xFF);
-        buffer += static_cast<char>(shamirPartsLen & 0xFF);
-        
-        for (auto &pt : payload.shamirPart) 
-        {
-            buffer.push_back((char)((pt.first >> 8) & 0xFF));
-            buffer.push_back((char)(pt.first & 0xFF));
-            buffer.push_back((char)((pt.second >> 8) & 0xFF));
-            buffer.push_back((char)(pt.second & 0xFF));
-        }
-        
-        buffer += static_cast<char>(payload.compromisedSoldiersLength);
-        buffer.append(reinterpret_cast<const char*>(payload.compromisedSoldiers.data()), payload.compromisedSoldiers.size());
-        buffer += static_cast<char>(payload.missingSoldiersLength);
-        buffer.append(reinterpret_cast<const char*>(payload.missingSoldiers.data()), payload.missingSoldiers.size());
-
-        buffer += static_cast<char>(payload.soldiersCoordsIDSLength);
-        buffer.append(reinterpret_cast<const char*>(payload.soldiersCoordsIDS.data()), payload.soldiersCoordsIDS.size());
-        buffer += static_cast<char>(payload.soldiersCoordsLength);
-        buffer.append(reinterpret_cast<const char*>(payload.soldiersCoords.data()), payload.soldiersCoords.size() * sizeof(std::pair<float,float>));
-
-        std::string base64Payload = crypto::CryptoModule::base64Encode(
-            reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
-
-        Serial.printf("PAYLOAD SENT (base64): %d %d %d %d %d\n", shamirPartsLen, payload.compromisedSoldiersLength, payload.missingSoldiersLength, payload.soldiersCoordsIDSLength, payload.soldiersCoordsLength);
-        Serial.println(base64Payload.c_str());
+        Serial.println(switchCommanderJson.c_str());
         Serial.println("SENDING base64Payload");
+        
+        ct = crypto::CryptoModule::encrypt(this->commanderModule->getGK(), payload);
+        msg = crypto::CryptoModule::encodeCipherText(ct);
 
         this->loraModule->cancelReceive();
-        this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+        this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length());
     
         ++index;
 
@@ -1005,19 +982,20 @@ void CommandersMissionPage::switchCommanderEvent()
 
     delay(5000);
 
-    FinishedSplittingShamir ans;
-    ans.msgID = 0x07;
+    switchCommanderDoc.clear();
+    switchCommanderJson.clear();
+    msg.clear();
+    payload.clear();
 
-    std::string buffer;
-    buffer += static_cast<char>(ans.msgID);
-    
-    base64Payload.clear();
-    
-    base64Payload = crypto::CryptoModule::base64Encode(
-    reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
-        
+    switchCommanderDoc["msgID"] = 0x07;
+    serializeJson(switchCommanderDoc, switchCommanderJson);
+    payload.assign(switchCommanderJson.begin(), switchCommanderJson.end());
+
+    ct = crypto::CryptoModule::encrypt(this->commanderModule->getGK(), payload);
+    msg = crypto::CryptoModule::encodeCipherText(ct);
+
     this->loraModule->cancelReceive();
-    this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(base64Payload.c_str()), base64Payload.length());
+    this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length());
 
     delay(1000);
 

@@ -178,7 +178,7 @@ public:
         return this->soldiers;
     }
 
-    void updateInsertionOrderByForbidden(const std::vector<uint8_t>& forb)
+    void updateInsertionOrderByForbidden(const JsonArray& forb)
     {
         this->commandersInsertionOrder.erase(
             std::remove_if(this->commandersInsertionOrder.begin(), this->commandersInsertionOrder.end(), [&](uint8_t val) 
