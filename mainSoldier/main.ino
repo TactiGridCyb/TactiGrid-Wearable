@@ -80,7 +80,7 @@ void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiMod
 
     loraModule->setup(true);
 
-    fhfModule = std::make_unique<FHFModule>(soldiersModule->getFrequencies());
+    fhfModule = std::make_unique<FHFModule>(soldiersModule->getFrequencies(), (uint16_t)(soldiersModule->getIntervalMS() / 1000));
 
     wifiModule = std::move(currentWifiModule);
 

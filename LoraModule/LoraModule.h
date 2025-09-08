@@ -68,6 +68,7 @@ public:
     float getCurrentFreq() const;
 
     bool isCurrentlyReadingFile();
+    
 
 private:
     bool tryStartOp(Op desired);

@@ -83,7 +83,7 @@ void transferFromMainToReceiveCoordsPage()
     Serial.println("transferFromMainToSendCoordsPage");
     loraModule = std::make_shared<LoraModule>(433.5);
     gpsModule = std::make_shared<GPSModule>();
-    fhfModule = std::make_unique<FHFModule>(commandersModule->getFrequencies());
+    fhfModule = std::make_unique<FHFModule>(commandersModule->getFrequencies(), (uint16_t)(commandersModule->getIntervalMS() / 1000));
 
 
     loraModule->setup(true);
