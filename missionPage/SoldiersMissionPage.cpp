@@ -673,11 +673,9 @@ void SoldiersMissionPage::onCommanderSwitchEvent(JsonDocument& payload)
     }
 
     JsonArray arr = payload["shamirPart"].as<JsonArray>();
-    for (JsonArray row : arr) 
+    for (const auto& row : arr) 
     {
-        uint16_t x = row[0].as<uint16_t>();
-        uint16_t y = row[1].as<uint16_t>();
-        currentShare.printf("%u,%u\n", x, y);
+        currentShare.printf("%u,%u\n", payload["soldiersID"].as<uint8_t>(), row.as<uint16_t>());
     }
 
     currentShare.close();
@@ -1044,7 +1042,8 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
         return;
     }
 
-    std::vector<std::pair<uint16_t, uint16_t>> shamirPart;
+    JsonArray parts = shamirAnsDoc.createNestedArray("shamirPart");
+
     while (currentShamir.available()) 
     {
         String line = currentShamir.readStringUntil('\n');
@@ -1054,20 +1053,12 @@ void SoldiersMissionPage::receiveShamirRequest(const uint8_t* data, size_t len)
         uint16_t x = (uint16_t)line.substring(0, comma).toInt();
         uint16_t y = (uint16_t)line.substring(comma + 1).toInt();
 
-        shamirPart.emplace_back(x, y);
+        parts.add(y);
     }
 
     currentShamir.close();
     FFatHelper::deleteFile(sharePath);
     
-    JsonArray parts = shamirAnsDoc.createNestedArray("shamirPart");
-    for (const auto& pt : shamirPart) 
-    {
-        JsonArray p = parts.createNestedArray();
-        p.add(static_cast<uint16_t>(pt.first));
-        p.add(static_cast<uint16_t>(pt.second));
-    }
-
     String shamirAnsJson;
     serializeJson(shamirAnsDoc, shamirAnsJson);
     

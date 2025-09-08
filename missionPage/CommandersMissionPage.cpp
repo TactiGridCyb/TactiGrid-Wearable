@@ -957,7 +957,7 @@ void CommandersMissionPage::switchCommanderEvent()
         switchCommanderJson.clear();
 
         Serial.printf("Sending to soldier %d\n", soldier);
-        std::vector<std::pair<uint16_t, uint16_t>> shamirPart;
+        std::vector<uint16_t> shamirPart;
 
         switchCommanderDoc["msgID"] = 0x02;
         switchCommanderDoc["soldiersID"] = soldier;
@@ -979,6 +979,8 @@ void CommandersMissionPage::switchCommanderEvent()
             row.add(p.second);
         }
 
+        JsonArray parts = switchCommanderDoc.createNestedArray("shamirPart");
+
         File currentShamir = FFat.open(sharePaths[index].c_str(), FILE_READ);
         if (!currentShamir) 
         {
@@ -996,19 +998,16 @@ void CommandersMissionPage::switchCommanderEvent()
             uint16_t x = (uint16_t)line.substring(0, comma).toInt();
             uint16_t y = (uint16_t)line.substring(comma + 1).toInt();
 
-            shamirPart.emplace_back(x, y);
+            parts.add(y);
         }
 
         currentShamir.close();
 
         FFatHelper::deleteFile(sharePaths[index].c_str());
 
-        JsonArray parts = switchCommanderDoc.createNestedArray("shamirPart");
         for (const auto& pt : shamirPart) 
         {
-            JsonArray row = parts.createNestedArray();
-            row.add(static_cast<uint16_t>(pt.first));
-            row.add(static_cast<uint16_t>(pt.second));
+            parts.add(pt);
         }
 
         serializeJson(switchCommanderDoc, switchCommanderJson);
@@ -1139,7 +1138,7 @@ void CommandersMissionPage::onFinishedSplittingShamirReceived(const uint8_t* dat
         return;
     }
 
-    std::vector<std::pair<uint16_t, uint16_t>> shamirPart;
+    JsonArray parts = sendShamirDoc.createNestedArray("shamirPart");
     while (currentShamir.available()) 
     {
         String line = currentShamir.readStringUntil('\n');
@@ -1149,20 +1148,12 @@ void CommandersMissionPage::onFinishedSplittingShamirReceived(const uint8_t* dat
         uint16_t x = (uint16_t)line.substring(0, comma).toInt();
         uint16_t y = (uint16_t)line.substring(comma + 1).toInt();
 
-        shamirPart.emplace_back(x, y);
+        parts.add(y);
     }
 
     currentShamir.close();
 
     FFatHelper::deleteFile(sharePath);
-
-    JsonArray parts = sendShamirDoc.createNestedArray("shamirPart");
-    for (const auto& pt : shamirPart) 
-    {
-        JsonArray p = parts.createNestedArray();
-        p.add(static_cast<uint16_t>(pt.first));
-        p.add(static_cast<uint16_t>(pt.second));
-    }
 
     String sendShamirJson;
     serializeJson(sendShamirDoc, sendShamirJson);
@@ -1221,21 +1212,12 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
 
     size_t idx = 2;
 
-    std::vector<std::pair<uint16_t, uint16_t>> shamirPart;
     JsonArray shamirPartArr = shamirReceivedDoc["shamirPart"].as<JsonArray>();
-    shamirPart.reserve(shamirPartArr.size());
-
-    for (const auto& v : shamirPartArr) 
-    {
-        uint16_t x = v[0].as<uint16_t>();
-        uint16_t y = v[1].as<uint16_t>();
-        shamirPart.emplace_back(x, y);
-    }
 
     Serial.printf("Deserialized sendShamir: msgID=%d, soldiersID=%d, shamirPart size=%zu\n",
-                  msgID, soldiersID, shamirPart.size());
+                  msgID, soldiersID, shamirPartArr.size());
 
-    if(shamirPart.size() == 0)
+    if(shamirPartArr.size() == 0)
     {
         return;
     }
@@ -1254,27 +1236,18 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
             return;
         }
 
-        uint16_t bytesWritten = 0;
-        for (auto &pt : shamirPart) 
+        uint16_t x = soldiersID;
+
+        for (JsonVariant v : shamirPartArr) 
         {
-            currentShare.printf("%u,%u\n", pt.first, pt.second);
-            bytesWritten++;
+            uint16_t y = v.as<uint16_t>();
+            currentShare.printf("%u,%u\n", x, y);
         }
 
-        if (bytesWritten != shamirPart.size()) 
-        {
-            Serial.printf("⚠️  Only wrote %u/%u bytes to \"%s\"\n",
-                        (unsigned)bytesWritten, (unsigned)shamirPart.size(), sharePath);
-        } 
-        else 
-        {
-            Serial.printf("✅ Wrote %u bytes to \"%s\"\n",
-                        (unsigned)bytesWritten, sharePath);
-            
-            this->shamirPartsCollected++;
-            this->didntSendShamir.erase(this->didntSendShamir.begin());
-        }
 
+        this->shamirPartsCollected++;
+        this->didntSendShamir.erase(this->didntSendShamir.begin());
+        
         currentShare.close();
         this->shamirPaths.push_back(sharePath);
     }

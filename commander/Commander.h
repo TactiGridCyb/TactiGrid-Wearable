@@ -26,7 +26,7 @@ struct SwitchGMK{
 struct SwitchCommander{
     uint8_t msgID;
     uint8_t soldiersID;
-    std::vector<std::pair<uint16_t,uint16_t>> shamirPart;
+    std::vector<uint16_t> shamirPart;
     std::vector<uint8_t> compromisedSoldiers;
     std::vector<uint8_t> missingSoldiers;
     std::vector<uint8_t> soldiersCoordsIDS;
@@ -41,7 +41,7 @@ struct requestShamir{
 struct sendShamir{
     uint8_t msgID;
     uint8_t soldiersID;
-    std::vector<std::pair<uint16_t,uint16_t>> shamirPart;
+    std::vector<uint16_t> shamirPart;
 };
 
 struct SkipCommander{
