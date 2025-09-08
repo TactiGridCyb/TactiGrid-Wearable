@@ -231,7 +231,7 @@ void CommandersMissionPage::createPage() {
                     lv_async_call([](void* user_data) {
                         auto* me = static_cast<CommandersMissionPage*>(user_data);
 
-                        std::pair<float, float> selfCoords = me->commanderModule->getLocation(me->commanderModule->getCommanderNumber(), true);
+                        std::pair<float, float> selfCoords = me->commanderModule->getLocation(me->commanderModule->getCommanderNumber(), false);
                         
                         std::vector<uint8_t> coordsIDS;
                         std::vector<std::pair<float, float>> coords;
@@ -240,7 +240,7 @@ void CommandersMissionPage::createPage() {
                         
                         float score = me->leadershipEvaluator.calculateScore(coords, selfCoords);
                         Serial.printf("Score is: %.5f\n", score);
-                        if(score < 0.5)
+                        if(score < 2)
                         {
                             me->switchCommanderEvent();
                         }
