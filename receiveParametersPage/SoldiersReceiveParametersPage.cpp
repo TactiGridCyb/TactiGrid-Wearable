@@ -132,7 +132,7 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
 
     updateLabel(3);
 
-    const uint16_t intervalMs = doc["intervalMs"].as<uint16_t>();
+    const uint16_t intervalMs = doc["fhfInterval"].as<uint16_t>();
 
     updateLabel(4);
 

@@ -191,7 +191,10 @@ void SoldiersMissionPage::createPage()
             watch.clearPMU();
         }
 
-        self->gpsModule->updateCoords();
+        if(!self->fakeGPS)
+        {
+            self->gpsModule->updateCoords();
+        }
     }, 100, this);
     
 }
@@ -257,7 +260,6 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     else if(dataReceivedJson["msgID"].as<uint8_t>() == 0x01)
     {
         this->simulateZero = false;
-
         this->onGMKSwitchEvent(dataReceivedJson);
 
         Serial.printf("Deserialized SwitchGMK: msgID=%d, soldiersID=%d, salt size=%zu\n",

@@ -98,10 +98,10 @@ class LVGLPage {
         {
             if (simulateZero)
             {
-                return 0;
+                return 1;
             }
 
-            return rand() % 101 + 50;
+            return rand() % 101 + 2;
         }
 
     protected:

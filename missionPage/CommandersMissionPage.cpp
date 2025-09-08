@@ -479,7 +479,18 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     this->commanderModule->updateReceivedData(newG->soldiersID, marker_lat, marker_lon);
     const std::vector<uint8_t>& comp = this->commanderModule->getComp();
 
-    if(newG->heartRate == 0 && std::find(comp.begin(), comp.end(), newG->soldiersID) == comp.end())
+    if((newG->heartRate > 1 && newG->heartRate < 30) || newG->heartRate > 160)
+    {
+        JsonDocument sosDoc;
+
+        sosDoc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
+        sosDoc["eventName"] = "SOS";
+        sosDoc["SOSID"] = newG->soldiersID;
+
+        FFatHelper::appendJSONEvent(this->logFilePath.c_str(), sosDoc);
+    }
+
+    if(newG->heartRate == 1 && std::find(comp.begin(), comp.end(), newG->soldiersID) == comp.end())
     {
         Serial.println("CompromisedEvent");
         this->commanderModule->setCompromised(newG->soldiersID);
@@ -511,13 +522,6 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 
         delay(10);
-
-        doc.clear();
-        doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
-        doc["eventName"] = "SOS";
-        doc["SOSID"] = newG->soldiersID;
-
-        FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 
         return;
     }
