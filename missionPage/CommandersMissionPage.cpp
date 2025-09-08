@@ -131,6 +131,7 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
                 Serial.println(k);
             }
 
+
             if(this->commanderModule->isDirectCommander())
             {
                 
@@ -490,6 +491,15 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
         doc["eventName"] = "compromisedSoldier";
         doc["compromisedID"] = newG->soldiersID;
+
+        FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
+
+        delay(10);
+
+        doc.clear();
+        doc["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
+        doc["eventName"] = "SOS";
+        doc["SOSID"] = newG->soldiersID;
 
         FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 
@@ -1321,7 +1331,15 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
         this->loraModule->cancelReceive();
         this->loraModule->sendFile(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length());
         
+        JsonDocument finializedCommanderEvent;
+        finializedCommanderEvent["timestamp"] = CommandersMissionPage::getCurrentTimeStamp().c_str();
+        finializedCommanderEvent["eventName"] = "finalizedCommander";
+        finializedCommanderEvent["finalizedID"] = this->commanderModule->getCommanderNumber();
+
+        FFatHelper::appendJSONEvent(this->logFilePath.c_str(), finializedCommanderEvent);
+        
         delay(2000);
+
 
         this->commanderSwitchEvent = false;
 
