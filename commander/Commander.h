@@ -86,13 +86,28 @@ public:
         return GK;
     }
 
+    const crypto::Key256& getCompSalt() const
+    {
+        return CompSalt;
+    }
+
 
     const crypto::Key256& getCompGMK() const {
-        return CompGMK;
+        return CompGK;
     }
     const uint16_t getIntervalMS() const
     {
         return intervalMS;
+    }
+
+    const uint64_t getCompMillis() const
+    {
+        return CompMillis;
+    }
+
+    const std::string getCompInfo() const
+    {
+        return compInfo;
     }
 
     const std::vector<uint8_t>& getComp();
@@ -106,6 +121,7 @@ public:
     void setCurrentHeartRate(uint16_t heartRate);
     void setGMK(const crypto::Key256& gmk);
     void setGK(const crypto::Key256& gk);
+    void setCompSalt(const crypto::Key256& compSalt);
     void setCompGMK(const crypto::Key256& gmk);
     void setCompromised(const uint8_t id);
     void setComp(const std::vector<uint8_t>& comp);
@@ -147,12 +163,24 @@ private:
         return key;
     }();
 
-    crypto::Key256 CompGMK = []() {
+    crypto::Key256 CompGK = []() {
         crypto::Key256 key{};
         const char* raw = "11111111111111111111111111111111"; 
         std::memcpy(key.data(), raw, 32);
         return key;
     }();
+
+    crypto::Key256 CompSalt = []{
+        crypto::Key256 k{};
+        const char* s = "COMP_SALT_V1";
+        std::memcpy(k.data(), s, 32);
+        return k;
+    }();
+
+
+    uint64_t CompMillis = 10000;
+
+    std::string compInfo = "comp info!!";
 
     void addComp(const uint8_t id);
     bool isMissing(uint8_t id);

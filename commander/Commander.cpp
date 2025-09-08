@@ -110,7 +110,12 @@ void Commander::setMissing(uint8_t id)
 }
 
 void Commander::setCompGMK(const crypto::Key256& gmk) {
-    this->CompGMK = gmk;
+    this->CompGK = gmk;
+}
+
+void Commander::setCompSalt(const crypto::Key256& compSalt)
+{
+    this->CompSalt = compSalt;
 }
 
 uint16_t Commander::getCommanderNumber() const {

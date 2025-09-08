@@ -389,7 +389,7 @@ void SoldiersMissionPage::onGMKSwitchEvent(JsonDocument payload)
 
     bool success = certModule::decryptWithPrivateKey(this->soldierModule->getPrivateKey(), vectorSalt, decryptedSalt);
 
-    if (!success) 
+    if (!success)
     {
         Serial.println("Decryption failed in onGMKSwitchEvent");
         return;

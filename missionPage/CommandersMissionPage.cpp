@@ -466,9 +466,24 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     {
         Serial.println("CompromisedEvent");
         this->commanderModule->setCompromised(newG->soldiersID);
+
+        const auto& commanders = this->commanderModule->getCommanders();
+        const auto& soldiers = this->commanderModule->getSoldiers();
+
+        std::string who;
+        if (auto it = commanders.find(newG->soldiersID); it != commanders.end()) 
+        {
+            who = it->second.name;
+        } else if (auto it2 = soldiers.find(newG->soldiersID); it2 != soldiers.end()) 
+        {
+            who = it2->second.name;
+        } else 
+        {
+            who = "ID " + std::to_string(newG->soldiersID);
+        }
+
         delay(500);
-        const std::string newEventText = "Compromised Soldier Event - " + 
-        this->commanderModule->getCommanders().at(newG->soldiersID).name;
+        const std::string newEventText = "Compromised Soldier Event - " + who;
         this->switchGMKEvent(newEventText.c_str(), newG->soldiersID);
         
         JsonDocument doc;
@@ -705,7 +720,7 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     switchGKDoc["info"] = info;
     switchGKDoc["millis"] = millis();
     
-    const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), switchGKDoc["millis"], info, salt, this->commanderModule->getCommanderNumber());
+    const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), switchGKDoc["millis"].as<uint64_t>(), info, salt, this->commanderModule->getCommanderNumber());
     Serial.printf("NEW GMK: %s\n", crypto::CryptoModule::keyToHex(newGMK).c_str());
 
     std::unordered_map<uint8_t, bool> allSoldiers;
@@ -728,9 +743,16 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
 
     crypto::Key256 saltAsKey;
     std::copy(salt.begin(), salt.end(), saltAsKey.begin());
+    
 
     const std::string saltRaw(reinterpret_cast<const char*>(saltAsKey.data()), saltAsKey.size());
-    const std::string saltHex = crypto::CryptoModule::key256ToAsciiString(saltAsKey);
+
+    const crypto::Key256& compSalt = this->commanderModule->getCompSalt();
+    const std::string compSaltRaw(reinterpret_cast<const char*>(compSalt.data()), compSalt.size());
+
+    const crypto::Key256 newCompGK = crypto::CryptoModule::deriveGK(this->commanderModule->getCompGMK(), this->commanderModule->getCompMillis(), this->commanderModule->getCompInfo(),
+                                   crypto::ByteVec(compSaltRaw.begin(), compSaltRaw.end()),
+                                   this->commanderModule->getCommanderNumber());
 
     for (const auto& soldier : allSoldiers) 
     {
@@ -740,6 +762,15 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
         {
             continue;
         }
+
+        if(soldier.first == soldiersIDMoveToComp)
+        {
+            switchGKDoc["info"].clear();
+            switchGKDoc["info"] = this->commanderModule->getCompInfo();
+            switchGKDoc["millis"] = this->commanderModule->getCompMillis();
+        }
+
+        const std::string& saltToSendRaw = soldier.first == soldiersIDMoveToComp ? compSaltRaw : saltRaw;
                 
         switchGKDoc["soldiersID"] = soldier.first;
         Serial.printf("%d\n", switchGKDoc["soldiersID"]);
@@ -748,12 +779,12 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
         if(soldier.second)
         {
             certModule::encryptWithPublicKey(this->commanderModule->getSoldiers().at(switchGKDoc["soldiersID"].as<uint8_t>()).cert,
-            saltRaw, saltCipher);
+            saltToSendRaw, saltCipher);
         }
         else
         {
             certModule::encryptWithPublicKey(this->commanderModule->getCommanders().at(switchGKDoc["soldiersID"].as<uint8_t>()).cert,
-            saltRaw, saltCipher);
+            saltToSendRaw, saltCipher);
         }
 
         switchGKDoc.remove("salt");
@@ -780,7 +811,10 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     }
     
     this->commanderSwitchEvent = prevCommanderSwitchEvent;
+
     this->commanderModule->setGK(newGMK);
+    this->commanderModule->setCompGMK(newCompGK);
+
     LVGLPage::restartInfoBoxFadeout(this->infoBox, 1000, 5000, infoBoxText);
 }
 
@@ -1247,7 +1281,7 @@ void CommandersMissionPage::onShamirPartReceived(const uint8_t* data, size_t len
 
         this->shamirPartsCollected++;
         this->didntSendShamir.erase(this->didntSendShamir.begin());
-        
+
         currentShare.close();
         this->shamirPaths.push_back(sharePath);
     }

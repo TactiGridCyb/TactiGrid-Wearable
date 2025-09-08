@@ -52,6 +52,7 @@
         "cstdarg": "cpp",
         "string": "cpp",
         "sstream": "cpp",
-        "*.tpp": "cpp"
+        "*.tpp": "cpp",
+        "bitset": "cpp"
     }
 }
