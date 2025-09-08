@@ -67,9 +67,9 @@ class Commander : public PersonBase
 {
 public:
     Commander(const std::string& name,
-                    const mbedtls_x509_crt& publicCert,
-                    const mbedtls_pk_context& privateKey,
-                    const mbedtls_x509_crt& publicCA,
+                    mbedtls_x509_crt publicCert,
+                    mbedtls_pk_context privateKey,
+                    mbedtls_x509_crt publicCA,
                     uint16_t soldierNumber, uint16_t intervalMS);
 
     const std::string& getName() const;

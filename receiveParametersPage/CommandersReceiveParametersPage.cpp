@@ -155,6 +155,8 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
         intervalMs
     );
 
+    this->commanderModule->setGMK(GMK);
+
     this->commanderModule->appendFrequencies(freqs);
 
   
@@ -212,9 +214,9 @@ void CommandersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     updateLabel(5);
 
 
-    mbedtls_x509_crt_free(&ownCert);
-    mbedtls_x509_crt_free(&caCert);
-    mbedtls_pk_free(&privKey);
+    // mbedtls_x509_crt_free(&ownCert);
+    // mbedtls_x509_crt_free(&caCert);
+    // mbedtls_pk_free(&privKey);
 
     if (this->commanderModule) {
         Serial.println("Soldier parameters:");

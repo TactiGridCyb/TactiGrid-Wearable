@@ -61,7 +61,7 @@ SoldiersMissionPage::SoldiersMissionPage(std::shared_ptr<LoraModule> loraModule,
     this->mainPage = lv_scr_act();
 
     Serial.printf("lv_scr_act: %p\n", (void*)this->mainPage);
-
+    Serial.printf("CURRENT GK: %s\n", crypto::CryptoModule::keyToHex(this->soldierModule->getGK()).c_str());
     this->fakeGPS = fakeGPS;
     this->commanderSwitchEvent = commanderChange;
     this->prevCommanderSwitchEvent = commanderSwitchEvent;
@@ -397,7 +397,9 @@ void SoldiersMissionPage::onGMKSwitchEvent(JsonDocument payload)
     
     const crypto::ByteVec saltVec(decryptedSalt.begin(), decryptedSalt.end());
 
-    const crypto::Key256 newGK = crypto::CryptoModule::deriveGK(this->soldierModule->getGMK(), payload["millis"], payload["info"], saltVec, this->soldierModule->getCommandersInsertionOrder().at(0));
+    const crypto::Key256 newGK = crypto::CryptoModule::deriveGK(this->soldierModule->getGMK(), payload["millis"].as<uint64_t>(), payload["info"], saltVec, this->soldierModule->getCommandersInsertionOrder().at(0));
+    
+    //TODO - payload["info"]
     Serial.printf("NEW GMK: %s\n", crypto::CryptoModule::keyToHex(newGK).c_str());
 
     this->soldierModule->setGK(newGK);
@@ -727,6 +729,8 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(JsonDocument& payload, b
     this->soldierModule->getCAPublicCert(),
     this->soldierModule->getSoldierNumber(), this->soldierModule->getIntervalMS());
 
+    command->setGMK(this->soldierModule->getGMK());
+    command->setGK(this->soldierModule->getGK());
     command->setDirectCommander(!skipEvent);
     Serial.println("command");
 
@@ -759,7 +763,6 @@ void SoldiersMissionPage::onSoldierTurnToCommanderEvent(JsonDocument& payload, b
     command->setMissing(compromisedSoldiers);
 
     Serial.println("command->setInsertionOrders");
-    this->soldierModule->clear();
 
     Serial.println("soldierModule->clear()");
     this->destroyPage();
@@ -862,7 +865,7 @@ void SoldiersMissionPage::onCommanderSwitchDataReceived(const uint8_t* data, siz
         return;
     }
 
-    if(msgID == 0x05 && commmanderSwitchDoc["soldiersID"].as<uint8_t>() == this->soldierModule->getSoldierNumber())
+    if(msgID == 0x05)
     {
         uint8_t commandersID = commmanderSwitchDoc["commandersID"].as<uint8_t>();
         Serial.printf("Received SkipCommander! %d %d\n", msgID, commandersID);

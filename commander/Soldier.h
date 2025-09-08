@@ -10,9 +10,9 @@
 class Soldier : public PersonBase {
 public:
     Soldier(const std::string& name,
-            const mbedtls_x509_crt& publicCert,
-            const mbedtls_pk_context& privateKey,
-            const mbedtls_x509_crt& caPublicCert,
+            mbedtls_x509_crt publicCert,
+            mbedtls_pk_context privateKey,
+            mbedtls_x509_crt caPublicCert,
             uint8_t soldierNumber,
             uint16_t intervalMS);
 

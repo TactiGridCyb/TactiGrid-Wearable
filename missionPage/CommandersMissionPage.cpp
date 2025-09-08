@@ -56,7 +56,7 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
         Serial.printf("📻 isCommanderDirect: %s\n", this->commanderModule->isDirectCommander() ? "✅ OK" : "❌ NULL");
 
         Serial.printf("📌 loraModule shared_ptr address: %p\n", this->loraModule.get());
-
+        Serial.printf("CURRENT GK: %s\n", crypto::CryptoModule::keyToHex(this->commanderModule->getGK()).c_str());
         this->mainPage = lv_scr_act();
         this->infoBox = LVGLPage::createInfoBox();
         
@@ -703,9 +703,9 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     randombytes_buf(salt.data(), salt.size());
     
     switchGKDoc["info"] = info;
-    switchGKDoc["millies"] = millis();
+    switchGKDoc["millis"] = millis();
     
-    const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), switchGKDoc["millies"], info, salt, this->commanderModule->getCommanderNumber());
+    const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), switchGKDoc["millis"], info, salt, this->commanderModule->getCommanderNumber());
     Serial.println("newGK");
 
     std::unordered_map<uint8_t, bool> allSoldiers;
@@ -1058,6 +1058,8 @@ void CommandersMissionPage::switchCommanderEvent()
      this->commanderModule->getCAPublicCert(), this->commanderModule->getCommanderNumber(),
      this->commanderModule->getIntervalMS());
 
+    sold->setGMK(this->commanderModule->getGMK());
+    sold->setGK(this->commanderModule->getGK());
     sold->setInsertionOrders(this->commanderModule->getCommandersInsertionOrder());
     sold->setCommanders(this->commanderModule->getCommanders());
 
@@ -1067,7 +1069,6 @@ void CommandersMissionPage::switchCommanderEvent()
 
     Serial.println("destroyPage");
 
-    this->commanderModule->clear();
     this->ballColors.clear();
     this->markers.clear();
     this->labels.clear();

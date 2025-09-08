@@ -129,6 +129,7 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     );
 
     this->soldierModule->appendFrequencies(freqs);
+    this->soldierModule->setGMK(GMK);
 
     for (auto v : doc["soldiers"].as<JsonArray>()) {
         const std::string pem = v.as<std::string>();
@@ -189,9 +190,9 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     Serial.println("Private Key PEM:");
     Serial.println(certModule::privateKeyToString(privKey).c_str());
     
-    mbedtls_x509_crt_free(&ownCert);
-    mbedtls_x509_crt_free(&caCert);
-    mbedtls_pk_free(&privKey);
+    // mbedtls_x509_crt_free(&ownCert);
+    // mbedtls_x509_crt_free(&caCert);
+    // mbedtls_pk_free(&privKey);
 
 
     if (this->soldierModule) {
