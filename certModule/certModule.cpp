@@ -39,66 +39,102 @@ certModule::~certModule() {
 }
 
 bool certModule::loadFromSoldier(const Soldier& soldier){
-    // 0) Initialize all contexts
+    mbedtls_pk_free(&privateKey);
+    mbedtls_x509_crt_free(&certificate);
+    mbedtls_x509_crt_free(&caCertificate);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+
     mbedtls_pk_init(&privateKey);
     mbedtls_x509_crt_init(&certificate);
     mbedtls_x509_crt_init(&caCertificate);
     mbedtls_ctr_drbg_init(&ctr_drbg);
     mbedtls_entropy_init(&entropy);
 
-    // 1) Seed the DRBG
-    int ret = mbedtls_ctr_drbg_seed(
-        &ctr_drbg,
-        mbedtls_entropy_func,
-        &entropy,
-        nullptr, 0
-    );
+    int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, nullptr, 0);
     if (ret != 0) {
-        char err[100];
-        mbedtls_strerror(ret, err, sizeof(err));
-        Serial.printf("❌ CTR_DRBG seed failed: -0x%04X (%s)\n", -ret, err);
+        Serial.printf("❌ CTR_DRBG seed failed: -0x%04X\n", -ret);
         return false;
     }
 
-    // load all necessary parameters
-    this->privateKey = soldier.getPrivateKey();
-    this->certificate = soldier.getPublicCert();
-    this->caCertificate = soldier.getCAPublicCert();
+    std::string privPem = privateKeyToString(soldier.getPrivateKey());
+    if (privPem.empty()) { Serial.println("❌ Soldier private key to PEM failed"); return false; }
+    ret = mbedtls_pk_parse_key(&privateKey,
+                               reinterpret_cast<const unsigned char*>(privPem.c_str()),
+                               privPem.size() + 1, nullptr, 0);
+    if (ret != 0) {
+        Serial.printf("❌ pk_parse_key: -0x%04X\n", -ret); return false;
+    }
 
-    Serial.println("✅ Successfully loaded private key, certificate, and CA cert from soldier");
+    std::string certPem = certToString(soldier.getPublicCert());
+    ret = mbedtls_x509_crt_parse(&certificate,
+                                 reinterpret_cast<const unsigned char*>(certPem.c_str()),
+                                 certPem.size() + 1);
+    if (ret != 0) {
+        Serial.printf("❌ x509_crt_parse(cert): -0x%04X\n", -ret); return false;
+    }
+
+    std::string caPem = certToString(soldier.getCAPublicCert());
+    ret = mbedtls_x509_crt_parse(&caCertificate,
+                                 reinterpret_cast<const unsigned char*>(caPem.c_str()),
+                                 caPem.size() + 1);
+    if (ret != 0) {
+        Serial.printf("❌ x509_crt_parse(CA): -0x%04X\n", -ret); return false;
+    }
+
+    Serial.println("✅ Loaded (deep-copied) key/certs from soldier");
     return true;
 }
+
 
 bool certModule::loadFromCommander(const Commander& commander){
-    // 0) Initialize all contexts
+    mbedtls_pk_free(&privateKey);
+    mbedtls_x509_crt_free(&certificate);
+    mbedtls_x509_crt_free(&caCertificate);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+
     mbedtls_pk_init(&privateKey);
     mbedtls_x509_crt_init(&certificate);
     mbedtls_x509_crt_init(&caCertificate);
     mbedtls_ctr_drbg_init(&ctr_drbg);
     mbedtls_entropy_init(&entropy);
 
-    // 1) Seed the DRBG
-    int ret = mbedtls_ctr_drbg_seed(
-        &ctr_drbg,
-        mbedtls_entropy_func,
-        &entropy,
-        nullptr, 0
-    );
+    int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, nullptr, 0);
     if (ret != 0) {
-        char err[100];
-        mbedtls_strerror(ret, err, sizeof(err));
-        Serial.printf("❌ CTR_DRBG seed failed: -0x%04X (%s)\n", -ret, err);
+        Serial.printf("❌ CTR_DRBG seed failed: -0x%04X\n", -ret);
         return false;
     }
 
-    // load all necessary parameters
-    this->privateKey = commander.getPrivateKey();
-    this->certificate = commander.getPublicCert();
-    this->caCertificate = commander.getCAPublicCert();
+    std::string privPem = privateKeyToString(commander.getPrivateKey());
+    if (privPem.empty()) { Serial.println("❌ Commander private key to PEM failed"); return false; }
+    ret = mbedtls_pk_parse_key(&privateKey,
+                               reinterpret_cast<const unsigned char*>(privPem.c_str()),
+                               privPem.size() + 1, nullptr, 0);
+    if (ret != 0) {
+        Serial.printf("❌ pk_parse_key: -0x%04X\n", -ret); return false;
+    }
 
-    Serial.println("✅ Successfully loaded private key, certificate, and CA cert from commander");
+    std::string certPem = certToString(commander.getPublicCert());
+    ret = mbedtls_x509_crt_parse(&certificate,
+                                 reinterpret_cast<const unsigned char*>(certPem.c_str()),
+                                 certPem.size() + 1);
+    if (ret != 0) {
+        Serial.printf("❌ x509_crt_parse(cert): -0x%04X\n", -ret); return false;
+    }
+
+    std::string caPem = certToString(commander.getCAPublicCert());
+    ret = mbedtls_x509_crt_parse(&caCertificate,
+                                 reinterpret_cast<const unsigned char*>(caPem.c_str()),
+                                 caPem.size() + 1);
+    if (ret != 0) {
+        Serial.printf("❌ x509_crt_parse(CA): -0x%04X\n", -ret); return false;
+    }
+
+    Serial.println("✅ Loaded (deep-copied) key/certs from commander");
     return true;
 }
+
 
 bool certModule::verifyCertificate(mbedtls_x509_crt* certToVerify, mbedtls_x509_crt* caCert)
 {
@@ -175,18 +211,35 @@ bool certModule::decryptWithPrivateKey(const mbedtls_pk_context& privateKey,
                                        const std::vector<uint8_t>& input,
                                        std::string& output)
 {
-    int ret;
-    size_t outputLen = 0;
+    mbedtls_entropy_context entropy;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_entropy_init(&entropy);
+    mbedtls_ctr_drbg_init(&ctr_drbg);
 
-    size_t keyLen = mbedtls_pk_get_len(const_cast<mbedtls_pk_context*>(&privateKey));
+    const char* pers = "pk_decrypt";
+    int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
+                                    (const unsigned char*)pers, strlen(pers));
+    if (ret != 0) 
+    {
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        mbedtls_entropy_free(&entropy);
+        return false;
+    }
+
+    const size_t keyLen = mbedtls_pk_get_len(const_cast<mbedtls_pk_context*>(&privateKey));
     std::vector<unsigned char> buffer(keyLen);
+    size_t outputLen = 0;
 
     ret = mbedtls_pk_decrypt(const_cast<mbedtls_pk_context*>(&privateKey),
                              input.data(), input.size(),
                              buffer.data(), &outputLen, buffer.size(),
-                             nullptr, nullptr);
-    if (ret != 0) {
-        Serial.printf("❌ Private key decryption failed: -0x%04X\n", -ret);
+                             mbedtls_ctr_drbg_random, &ctr_drbg);
+
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+
+    if (ret != 0) 
+    {
         return false;
     }
 

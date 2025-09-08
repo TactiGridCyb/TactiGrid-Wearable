@@ -706,7 +706,7 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     switchGKDoc["millis"] = millis();
     
     const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), switchGKDoc["millis"], info, salt, this->commanderModule->getCommanderNumber());
-    Serial.println("newGK");
+    Serial.printf("NEW GMK: %s\n", crypto::CryptoModule::keyToHex(newGMK).c_str());
 
     std::unordered_map<uint8_t, bool> allSoldiers;
 
@@ -729,6 +729,9 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     crypto::Key256 saltAsKey;
     std::copy(salt.begin(), salt.end(), saltAsKey.begin());
 
+    const std::string saltRaw(reinterpret_cast<const char*>(saltAsKey.data()), saltAsKey.size());
+    const std::string saltHex = crypto::CryptoModule::key256ToAsciiString(saltAsKey);
+
     for (const auto& soldier : allSoldiers) 
     {
         switchGKJson.clear();
@@ -740,17 +743,22 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
                 
         switchGKDoc["soldiersID"] = soldier.first;
         Serial.printf("%d\n", switchGKDoc["soldiersID"]);
+        crypto::ByteVec saltCipher;
 
         if(soldier.second)
         {
-            certModule::encryptWithPublicKey(this->commanderModule->getSoldiers().at(switchGKDoc["soldiersID"]).cert,
-            crypto::CryptoModule::key256ToAsciiString(saltAsKey), salt);
+            certModule::encryptWithPublicKey(this->commanderModule->getSoldiers().at(switchGKDoc["soldiersID"].as<uint8_t>()).cert,
+            saltRaw, saltCipher);
         }
         else
         {
-            certModule::encryptWithPublicKey(this->commanderModule->getCommanders().at(switchGKDoc["soldiersID"]).cert,
-            crypto::CryptoModule::key256ToAsciiString(saltAsKey), salt);
+            certModule::encryptWithPublicKey(this->commanderModule->getCommanders().at(switchGKDoc["soldiersID"].as<uint8_t>()).cert,
+            saltRaw, saltCipher);
         }
+
+        switchGKDoc.remove("salt");
+        JsonArray sarr = switchGKDoc.createNestedArray("salt");
+        for (uint8_t b : saltCipher) sarr.add(b);
 
         serializeJson(switchGKDoc, switchGKJson);
         Serial.println("crypto::CryptoModule::key256ToAsciiString");
@@ -762,7 +770,7 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
         msg = crypto::CryptoModule::encodeCipherText(ct);
         Serial.printf("SALT SENT: %s\n", crypto::CryptoModule::key256ToAsciiString(saltAsKey).c_str());
 
-        Serial.printf("PAYLOAD SENT (base64): %s %d\n", msg.c_str(), msg.length());
+        Serial.printf("PAYLOAD SENT (base64): %s %d\n", switchGKJson.c_str(), msg.length());
 
         Serial.println("SENDING base64Payload");
         this->loraModule->cancelReceive();

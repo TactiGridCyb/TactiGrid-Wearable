@@ -265,6 +265,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
                    dataReceivedJson["salt"].to<JsonArray>().size());
 
         this->commanderSwitchEvent = this->prevCommanderSwitchEvent;
+        this->syncFreq = true;
     }
     else if(dataReceivedJson["msgID"].as<uint8_t>() == 0x02)
     {
@@ -378,6 +379,8 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
 void SoldiersMissionPage::onGMKSwitchEvent(JsonDocument payload)
 {
+    Serial.printf("Decryption failed in onGMKSwitchEvent111222 %d\n",this->soldierModule->getCommandersInsertionOrder().size());
+    
     std::string decryptedSalt;
     std::vector<uint8_t> vectorSalt;
     JsonArray arr = payload["salt"].as<JsonArray>();
@@ -395,9 +398,14 @@ void SoldiersMissionPage::onGMKSwitchEvent(JsonDocument payload)
     Serial.println("ENCRYPTED SALT: ");
     Serial.printf("NEW SALT SET: %s\n", decryptedSalt.c_str());
     
-    const crypto::ByteVec saltVec(decryptedSalt.begin(), decryptedSalt.end());
+    for(const auto& v : this->soldierModule->getCommandersInsertionOrder())
+    {
+        Serial.printf("%d\n", v);
+    }
 
-    const crypto::Key256 newGK = crypto::CryptoModule::deriveGK(this->soldierModule->getGMK(), payload["millis"].as<uint64_t>(), payload["info"], saltVec, this->soldierModule->getCommandersInsertionOrder().at(0));
+    crypto::ByteVec saltVec(reinterpret_cast<const uint8_t*>(decryptedSalt.data()), reinterpret_cast<const uint8_t*>(decryptedSalt.data()) + decryptedSalt.size());
+    const std::string infoStr = payload["info"].as<const char*>();
+    const crypto::Key256 newGK = crypto::CryptoModule::deriveGK(this->soldierModule->getGMK(), payload["millis"].as<uint64_t>(), infoStr, saltVec, this->soldierModule->getCommandersInsertionOrder().at(0));
     
     //TODO - payload["info"]
     Serial.printf("NEW GMK: %s\n", crypto::CryptoModule::keyToHex(newGK).c_str());

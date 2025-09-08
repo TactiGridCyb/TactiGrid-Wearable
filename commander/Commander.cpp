@@ -18,14 +18,32 @@ Commander::Commander(const std::string& name,
     mbedtls_x509_crt_init(&this->ownCertificate);
     mbedtls_pk_init(&this->privateKey);
 
-    this->ownCertificate = publicCert; 
-    mbedtls_x509_crt_init(&publicCert);
+    int ret = mbedtls_x509_crt_parse(&this->ownCertificate,
+                                     publicCert.raw.p, publicCert.raw.len);
+    if (ret != 0) {
+        Serial.printf("❌ x509 copy (own) failed: -0x%04X\n", -ret);
+    }
 
-    this->caCertificate = publicCA; 
-    mbedtls_x509_crt_init(&publicCA);
+    ret = mbedtls_x509_crt_parse(&this->caCertificate,
+                                 publicCA.raw.p, publicCA.raw.len);
+    if (ret != 0) {
+        Serial.printf("❌ x509 copy (ca) failed: -0x%04X\n", -ret);
+    }
 
-    this->privateKey = privateKey; 
-    mbedtls_pk_init(&privateKey);
+    unsigned char pemBuf[4096];
+    ret = mbedtls_pk_write_key_pem(&privateKey, pemBuf, sizeof(pemBuf));
+    if (ret != 0) 
+    {
+        Serial.printf("❌ pk_write_key_pem failed: -0x%04X \n", -ret);
+    } else {
+        ret = mbedtls_pk_parse_key(&this->privateKey,
+                                   pemBuf, strlen((char*)pemBuf) + 1,
+                                   nullptr, 0);
+        if (ret != 0) 
+        {
+            Serial.printf("❌ pk_parse_key(copy) failed: -0x%04X\n", -ret);
+        }
+    }
 }
 
 const std::string& Commander::getName() const {
