@@ -47,6 +47,8 @@ CommandersMissionPage::CommandersMissionPage(std::shared_ptr<LoraModule> loraMod
 
         this->initialShamirReceived = false;
         
+        this->leadershipEvaluator = LeadershipEvaluator();
+
         Serial.printf("🔍 Checking modules for %d:\n", this->commanderModule->getCommanderNumber());
         Serial.printf("📡 loraModule: %s\n", this->loraModule ? "✅ OK" : "❌ NULL");
         Serial.printf("🌐 wifiModule: %s\n", this->wifiModule ? "✅ OK" : "❌ NULL");
@@ -228,7 +230,21 @@ void CommandersMissionPage::createPage() {
                 {
                     lv_async_call([](void* user_data) {
                         auto* me = static_cast<CommandersMissionPage*>(user_data);
-                        me->switchCommanderEvent();
+
+                        std::pair<float, float> selfCoords = me->commanderModule->getLocation(me->commanderModule->getCommanderNumber(), true);
+                        
+                        std::vector<uint8_t> coordsIDS;
+                        std::vector<std::pair<float, float>> coords;
+
+                        me->fillIDSCoords(coordsIDS, coords);
+                        
+                        float score = me->leadershipEvaluator.calculateScore(coords, selfCoords);
+                        Serial.printf("Score is: %.5f\n", score);
+                        if(score < 0.5)
+                        {
+                            me->switchCommanderEvent();
+                        }
+
 
                     }, me);
                 }
@@ -863,6 +879,42 @@ void CommandersMissionPage::missingSoldierEvent(uint8_t soldiersID, bool isComma
     FFatHelper::appendJSONEvent(this->logFilePath.c_str(), doc);
 }
 
+void CommandersMissionPage::fillIDSCoords(std::vector<uint8_t>& coordsIDS, std::vector<std::pair<float, float>>& coords)
+{
+    coordsIDS.clear();
+    coords.clear();
+
+    for (const auto& [k, v] : this->commanderModule->getCommanders()) 
+    {
+
+        if(this->commanderModule->areCoordsValid(k, false))
+        {
+            coords.emplace_back(this->commanderModule->getLocation(k, false));
+            coordsIDS.emplace_back(k);
+
+            Serial.printf("Pushing back {%.5f %.5f} %d\n", this->commanderModule->getLocation(k, false).first, this->commanderModule->getLocation(k, false).second, k);
+        }
+        
+    }
+
+    for (const auto& [k, v] : this->commanderModule->getSoldiers()) 
+    {
+
+        if(this->commanderModule->areCoordsValid(k, true))
+        {
+            coords.emplace_back(this->commanderModule->getLocation(k, true));
+            coordsIDS.emplace_back(k);
+
+            Serial.printf("Pushing back {%.5f %.5f} %d\n", this->commanderModule->getLocation(k, true).first, this->commanderModule->getLocation(k, true).second, k);
+        }
+    }
+
+    for(uint8_t idx = 0; idx < coordsIDS.size(); ++idx)
+    {
+        Serial.printf("ID and coord commander -> %d { %.3f %.3f }\n", coordsIDS.at(idx), coords.at(idx).first, coords.at(idx).second);
+    }
+}
+
 void CommandersMissionPage::switchCommanderEvent()
 {
     this->commanderSwitchEvent = true;
@@ -927,19 +979,13 @@ void CommandersMissionPage::switchCommanderEvent()
     std::vector<std::pair<float,float>> soldiersCoords;
     std::vector<uint8_t> soldiersCoordsIDS;
 
+    this->fillIDSCoords(soldiersCoordsIDS, soldiersCoords);
+
     for (const auto& [k, v] : this->commanderModule->getCommanders()) 
     {
         if(!this->commanderModule->isComp(k))
         {
             allSoldiers.push_back(k);
-        }
-
-        if(this->commanderModule->areCoordsValid(k, false))
-        {
-            soldiersCoords.emplace_back(this->commanderModule->getLocation(k, false));
-            soldiersCoordsIDS.emplace_back(k);
-
-            Serial.printf("Pushing back {%.5f %.5f} %d\n", this->commanderModule->getLocation(k, false).first, this->commanderModule->getLocation(k, false).second, k);
         }
         
     }
@@ -950,20 +996,6 @@ void CommandersMissionPage::switchCommanderEvent()
         {
             allSoldiers.push_back(k);
         }
-
-
-        if(this->commanderModule->areCoordsValid(k, true))
-        {
-            soldiersCoords.emplace_back(this->commanderModule->getLocation(k, true));
-            soldiersCoordsIDS.emplace_back(k);
-
-            Serial.printf("Pushing back {%.5f %.5f} %d\n", this->commanderModule->getLocation(k, true).first, this->commanderModule->getLocation(k, true).second, k);
-        }
-    }
-
-    for(uint8_t idx = 0; idx < soldiersCoords.size(); ++idx)
-    {
-        Serial.printf("ID and coord commander -> %d { %.3f %.3f }\n", soldiersCoordsIDS.at(idx), soldiersCoords.at(idx).first, soldiersCoords.at(idx).second);
     }
 
     Serial.println("allSoldiers:");

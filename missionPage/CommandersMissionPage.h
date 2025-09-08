@@ -14,6 +14,7 @@
 #include <ShamirHelper.h>
 #include <FHFModule.h>
 #include "../certModule/certModule.h"
+#include "../score-function/LeadershipEvaluator.h"
 
 
 class CommandersMissionPage : public LVGLPage {
@@ -89,6 +90,7 @@ private:
     lv_timer_t* regularLoopTimer;
     lv_timer_t* shamirTimeoutTimer;
     lv_timer_t* selfLogTimer;
+    LeadershipEvaluator leadershipEvaluator;
 
     std::unordered_map<uint16_t, lv_color_t> ballColors;
     std::unordered_map<uint16_t, lv_obj_t*> labels;
@@ -104,6 +106,7 @@ private:
 
     void switchGMKEvent(const char* infoBoxText, uint8_t soldiersIDMoveToComp = -1);
     void missingSoldierEvent(uint8_t soldiersID, bool isCommander);
+    void fillIDSCoords(std::vector<uint8_t>& coordsIDS, std::vector<std::pair<float, float>>& coords);
     void switchCommanderEvent();
 
     void sendNextShamirRequest();    
