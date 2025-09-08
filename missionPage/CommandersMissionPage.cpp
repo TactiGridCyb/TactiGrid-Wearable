@@ -748,7 +748,8 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     randombytes_buf(salt.data(), salt.size());
     
     switchGKDoc["info"] = info;
-    switchGKDoc["millis"] = millis();
+    uint64_t currentMillis = millis();
+    switchGKDoc["millis"] = currentMillis;
     
     const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), switchGKDoc["millis"].as<uint64_t>(), info, salt, this->commanderModule->getCommanderNumber());
     Serial.printf("NEW GMK: %s\n", crypto::CryptoModule::keyToHex(newGMK).c_str());
@@ -795,15 +796,20 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
         {
             continue;
         }
-
+        std::string saltToSendRaw;
         if(soldier.first == soldiersIDMoveToComp)
         {
-            switchGKDoc["info"].clear();
+            
             switchGKDoc["info"] = this->commanderModule->getCompInfo();
             switchGKDoc["millis"] = this->commanderModule->getCompMillis();
+            saltToSendRaw = compSaltRaw;
         }
-
-        const std::string& saltToSendRaw = soldier.first == soldiersIDMoveToComp ? compSaltRaw : saltRaw;
+        else
+        {
+            switchGKDoc["info"] = info;
+            switchGKDoc["millis"] = currentMillis;
+            saltToSendRaw = saltRaw;
+        }
                 
         switchGKDoc["soldiersID"] = soldier.first;
         Serial.printf("%d\n", switchGKDoc["soldiersID"]);
