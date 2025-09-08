@@ -722,6 +722,7 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     
     const crypto::Key256 newGMK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), switchGKDoc["millis"].as<uint64_t>(), info, salt, this->commanderModule->getCommanderNumber());
     Serial.printf("NEW GMK: %s\n", crypto::CryptoModule::keyToHex(newGMK).c_str());
+    
 
     std::unordered_map<uint8_t, bool> allSoldiers;
 
@@ -750,9 +751,11 @@ void CommandersMissionPage::switchGMKEvent(const char* infoBoxText, uint8_t sold
     const crypto::Key256& compSalt = this->commanderModule->getCompSalt();
     const std::string compSaltRaw(reinterpret_cast<const char*>(compSalt.data()), compSalt.size());
 
-    const crypto::Key256 newCompGK = crypto::CryptoModule::deriveGK(this->commanderModule->getCompGMK(), this->commanderModule->getCompMillis(), this->commanderModule->getCompInfo(),
+    const crypto::Key256 newCompGK = crypto::CryptoModule::deriveGK(this->commanderModule->getGMK(), this->commanderModule->getCompMillis(), this->commanderModule->getCompInfo(),
                                    crypto::ByteVec(compSaltRaw.begin(), compSaltRaw.end()),
                                    this->commanderModule->getCommanderNumber());
+
+    Serial.printf("NEW COMPGMK: %s\n", crypto::CryptoModule::keyToHex(newCompGK).c_str());
 
     for (const auto& soldier : allSoldiers) 
     {
