@@ -330,7 +330,7 @@ void CommandersMissionPage::onDataReceived(const uint8_t* data, size_t len)
     crypto::ByteVec pt;
 
     try {
-        pt = crypto::CryptoModule::decrypt(this->commanderModule->getGMK(), ct);
+        pt = crypto::CryptoModule::decrypt(this->commanderModule->getGK(), ct);
     } catch (const std::exception& e)
     {
         Serial.printf("Decryption failed: %s\n", e.what());
@@ -990,10 +990,18 @@ void CommandersMissionPage::switchCommanderEvent()
 
             shamirPart.emplace_back(x, y);
         }
-        
+
         currentShamir.close();
 
         FFatHelper::deleteFile(sharePaths[index].c_str());
+
+        JsonArray parts = switchCommanderDoc.createNestedArray("shamirPart");
+        for (const auto& pt : shamirPart) 
+        {
+            JsonArray row = parts.createNestedArray();
+            row.add(static_cast<uint16_t>(pt.first));
+            row.add(static_cast<uint16_t>(pt.second));
+        }
 
         serializeJson(switchCommanderDoc, switchCommanderJson);
         payload.assign(switchCommanderJson.begin(), switchCommanderJson.end());

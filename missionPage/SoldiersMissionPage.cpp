@@ -254,7 +254,7 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
         Serial.println("Message wasn't for me!");
         return;
     }
-    else if(dataReceivedJson["soldiersID"].as<uint8_t>() == 0x01)
+    else if(dataReceivedJson["msgID"].as<uint8_t>() == 0x01)
     {
         this->simulateZero = false;
 
@@ -266,17 +266,17 @@ void SoldiersMissionPage::onDataReceived(const uint8_t* data, size_t len)
 
         this->commanderSwitchEvent = this->prevCommanderSwitchEvent;
     }
-    else if(dataReceivedJson["soldiersID"].as<uint8_t>() == 0x02)
+    else if(dataReceivedJson["msgID"].as<uint8_t>() == 0x02)
     {
         this->loraModule->setOnReadData(nullptr);
         this->loraModule->setOnFileReceived(nullptr);
         this->finishTimer = true;
 
         JsonArray shamirPart = dataReceivedJson["shamirPart"].as<JsonArray>();
-        JsonArray missingSoldiers = dataReceivedJson["missingSoldiers"].to<JsonArray>();
-        JsonArray compromisedSoldiers = dataReceivedJson["compromisedSoldiers"].to<JsonArray>();
-        JsonArray soldiersCoordsIDS = dataReceivedJson["soldiersCoordsIDS"].to<JsonArray>();
-        JsonArray soldiersCoords = dataReceivedJson["soldiersCoords"].to<JsonArray>();
+        JsonArray missingSoldiers = dataReceivedJson["missingSoldiers"].as<JsonArray>();
+        JsonArray compromisedSoldiers = dataReceivedJson["compromisedSoldiers"].as<JsonArray>();
+        JsonArray soldiersCoordsIDS = dataReceivedJson["soldiersCoordsIDS"].as<JsonArray>();
+        JsonArray soldiersCoords = dataReceivedJson["soldiersCoords"].as<JsonArray>();
 
 
         Serial.printf("Important vars: %d %d\n", dataReceivedJson["compromisedSoldiers"], dataReceivedJson["missingSoldiers"]);
@@ -429,7 +429,7 @@ void SoldiersMissionPage::sendCoordinate(float lat, float lon, uint16_t heartRat
     payload.resize(sizeof(SoldiersSentData));
     std::memcpy(payload.data(), &coord, sizeof(SoldiersSentData));
     
-    crypto::Ciphertext ct = crypto::CryptoModule::encrypt(this->soldierModule->getGMK(), payload);
+    crypto::Ciphertext ct = crypto::CryptoModule::encrypt(this->soldierModule->getGK(), payload);
 
     String msg = crypto::CryptoModule::encodeCipherText(ct);
 
@@ -651,7 +651,7 @@ void SoldiersMissionPage::onCommanderSwitchEvent(JsonDocument& payload)
 {
     Serial.println("Received share");
     char sharePath[25];
-    snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", payload["soldiersID"]);
+    snprintf(sharePath, sizeof(sharePath), "/share_%u.txt", payload["soldiersID"].as<uint8_t>());
     Serial.println(sharePath);
 
     File currentShare = FFat.open(sharePath, FILE_WRITE);
@@ -673,8 +673,8 @@ void SoldiersMissionPage::onCommanderSwitchEvent(JsonDocument& payload)
     currentShare.close();
 
 
-    this->soldierModule->updateInsertionOrderByForbidden(payload["compromisedSoldiers"].to<JsonArray>());
-    this->soldierModule->updateInsertionOrderByForbidden(payload["missingSoldiers"].to<JsonArray>());
+    this->soldierModule->updateInsertionOrderByForbidden(payload["compromisedSoldiers"].as<JsonArray>());
+    this->soldierModule->updateInsertionOrderByForbidden(payload["missingSoldiers"].as<JsonArray>());
 }
 
 void SoldiersMissionPage::onSoldierTurnToCommanderEvent(JsonDocument& payload, bool skipEvent)
@@ -936,15 +936,15 @@ bool SoldiersMissionPage::canBeCommander(JsonDocument* payload, bool skipEvent)
     }
 
     std::pair<float,float> selfCoord;
-    JsonArray soldiersCoordsIDS = (*payload)["soldiersCoordsIDS"].to<JsonArray>();
-    JsonArray soldiersCoords = (*payload)["soldiersCoords"].to<JsonArray>();
+    JsonArray soldiersCoordsIDS = (*payload)["soldiersCoordsIDS"].as<JsonArray>();
+    JsonArray soldiersCoords = (*payload)["soldiersCoords"].as<JsonArray>();
 
     for (uint8_t i = 0; i < soldiersCoordsIDS.size(); ++i) 
     {
         if (soldiersCoordsIDS[i].as<uint8_t>() == this->soldierModule->getSoldierNumber()) 
         {
-            float x = soldiersCoordsIDS[i][0].as<float>();
-            float y = soldiersCoordsIDS[i][1].as<float>();
+            float x = soldiersCoords[i][0].as<float>();
+            float y = soldiersCoords[i][1].as<float>();
             selfCoord = {x, y};
         }
     }
@@ -960,6 +960,8 @@ bool SoldiersMissionPage::canBeCommander(JsonDocument* payload, bool skipEvent)
         }
     }
 
+
+    Serial.printf("%.5f %.5f\n", selfCoord.first, selfCoord.second);
     float score = this->leadershipEvaluator.calculateScore(coordsVector, selfCoord);
     Serial.printf("Score is: %.5f\n", score);
     if(score < 0.5)

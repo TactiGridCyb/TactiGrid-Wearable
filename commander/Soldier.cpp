@@ -17,6 +17,7 @@ Soldier::Soldier(const std::string& name,
     mbedtls_x509_crt_init(&this->caCertificate);
     mbedtls_x509_crt_init(&this->ownCertificate);
 
+    Serial.println("Soldier::Soldier1");
     if (mbedtls_x509_crt_parse_der(&this->ownCertificate, publicCert.raw.p, publicCert.raw.len) != 0) {
         throw std::runtime_error("Failed to copy public certificate");
     }
