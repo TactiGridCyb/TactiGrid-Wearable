@@ -22,27 +22,35 @@ class SoldiersReceiveParametersPage : public LVGLPage {
 
         void setOnTransferPage(std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Soldier>)> cb);
 
+        void setOnUploadLogs(std::function<void(std::unique_ptr<WifiModule>)> cb);
+
         static std::string extractPemBlock(const std::string& blob,
                                    const char* header,
                                    const char* footer);
 
     private:
         const std::string certFile = "/cert.txt";
+        const std::string logFilePath = "/log.txt";
+        const std::string caCertPath = "/CAcert.txt";
 
         std::unique_ptr<WifiModule> wifiModule;
         lv_obj_t* mainPage;
         lv_obj_t* openSocketButton;
+        lv_obj_t* uploadLogsButton;
         lv_obj_t* statusLabels[6];
 
         std::unique_ptr<Soldier> soldierModule;
 
         std::function<void(std::unique_ptr<WifiModule>, std::unique_ptr<Soldier>)> onTransferPage;
+        std::function<void(std::unique_ptr<WifiModule>)> onUploadLogs;
 
         const char* messages[6] = {
             "Received Cert", "Received CA Cert", "Received GMK", "Received Freqs", "Received Interval", "Received Commanders Certs"
         };
 
         void onSocketOpened(lv_event_t* event);
+
+        void onMoveToUploadLogsPage(lv_event_t* event);
 
         void updateLabel(uint8_t index);
 };

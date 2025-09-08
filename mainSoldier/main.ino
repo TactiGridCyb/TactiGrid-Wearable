@@ -5,6 +5,7 @@
 #include <LoraModule.h>
 #include <GPSModule.h>
 #include <FHFModule.h>
+#include <CommandersUploadLogPage.h>
 #include "../env.h"
 #include "../diffieHelmanPage/diffieHelmanPageSoldier.h"
 
@@ -19,6 +20,7 @@ std::unique_ptr<SoldiersReceiveParametersPage> receiveParametersPage;
 std::unique_ptr<SoldiersMainPage> soldiersMainPage;
 std::unique_ptr<SoldiersMissionPage> soldiersMissionPage;
 std::unique_ptr<CommandersMissionPage> commandersMissionPage;
+std::unique_ptr<CommandersUploadLogPage> commandersUploadLogPage;
 std::unique_ptr<DiffieHellmanPageSoldier> dhPage;
 
 std::unique_ptr<WifiModule> wifiModule;
@@ -90,6 +92,14 @@ void transferFromMainToSendCoordsPage(std::unique_ptr<WifiModule> currentWifiMod
     soldiersMissionPage->setTransferFunction(transferFromSendCoordsToReceiveCoordsPage);
 }
 
+void transferFromMainToUploadLogsPage(std::unique_ptr<WifiModule> currentWifiModule)
+{
+    commandersUploadLogPage = std::make_unique<CommandersUploadLogPage>(std::move(currentWifiModule), logFilePath);
+    commandersUploadLogPage->createPage();
+
+    receiveParametersPage.reset();
+}
+
 // void transferFromReceiveParametersToMainPage(std::unique_ptr<WifiModule> currentWifiModule, std::unique_ptr<Soldier> soldierModule)
 // {
 //     Serial.println("transferFromReceiveParametersToMainPage");
@@ -157,8 +167,6 @@ void setup()
     FFatHelper::removeFilesIncludeWords("share", "txt");
     FFatHelper::removeFilesStartingWith("log.txt.share");
     FFatHelper::removeFilesStartingWith("test.txt");
-    FFatHelper::deleteFile("/cert.txt");
-    FFatHelper::deleteFile(logFilePath.c_str());
 
     String ssidString(ssid);
     String passwordString(password);
@@ -189,6 +197,7 @@ void setup()
     receiveParametersPage = std::make_unique<SoldiersReceiveParametersPage>(std::move(wifiModule));
     receiveParametersPage->createPage();
     receiveParametersPage->setOnTransferPage(transferFromReceiveParametersToDhPage);
+    receiveParametersPage->setOnUploadLogs(transferFromMainToUploadLogsPage);
 
     FFatHelper::begin();
 
