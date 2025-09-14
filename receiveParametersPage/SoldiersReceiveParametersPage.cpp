@@ -238,6 +238,10 @@ void SoldiersReceiveParametersPage::onSocketOpened(lv_event_t* event)
     Serial.println("CA Certificate PEM:");
     Serial.println(caPem.c_str());
 
+    File CAcertFile = FFat.open(this->caCertPath.c_str(), FILE_WRITE);
+    CAcertFile.print(caPem.c_str());
+    CAcertFile.close();
+
     this->destroyPage();
     Serial.printf("GMK: %s\n", crypto::CryptoModule::key256ToAsciiString(GMK).c_str());
 
