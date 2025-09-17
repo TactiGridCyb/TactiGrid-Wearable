@@ -1,0 +1,234 @@
+#include "Commander.h"
+
+
+Commander::Commander(const std::string& name,
+                               mbedtls_x509_crt publicCert,
+                               mbedtls_pk_context privateKey,
+                               mbedtls_x509_crt publicCA,
+                               uint16_t soldierNumber, uint16_t intervalMS)
+    : name(name),
+      commanderNumber(soldierNumber),
+      currentHeartRate(0),
+      intervalMS(intervalMS)
+{
+    Serial.println("Commander::Commander");
+    this->directCommander = true;
+
+    mbedtls_x509_crt_init(&this->caCertificate);
+    mbedtls_x509_crt_init(&this->ownCertificate);
+    mbedtls_pk_init(&this->privateKey);
+
+    int ret = mbedtls_x509_crt_parse(&this->ownCertificate,
+                                     publicCert.raw.p, publicCert.raw.len);
+    if (ret != 0) {
+        Serial.printf("❌ x509 copy (own) failed: -0x%04X\n", -ret);
+    }
+
+    ret = mbedtls_x509_crt_parse(&this->caCertificate,
+                                 publicCA.raw.p, publicCA.raw.len);
+    if (ret != 0) {
+        Serial.printf("❌ x509 copy (ca) failed: -0x%04X\n", -ret);
+    }
+
+    unsigned char pemBuf[4096];
+    ret = mbedtls_pk_write_key_pem(&privateKey, pemBuf, sizeof(pemBuf));
+    if (ret != 0) 
+    {
+        Serial.printf("❌ pk_write_key_pem failed: -0x%04X \n", -ret);
+    } else {
+        ret = mbedtls_pk_parse_key(&this->privateKey,
+                                   pemBuf, strlen((char*)pemBuf) + 1,
+                                   nullptr, 0);
+        if (ret != 0) 
+        {
+            Serial.printf("❌ pk_parse_key(copy) failed: -0x%04X\n", -ret);
+        }
+    }
+}
+
+const std::string& Commander::getName() const {
+    return name;
+}
+
+const mbedtls_x509_crt& Commander::getPublicCert() const {
+    return ownCertificate;
+}
+
+const mbedtls_x509_crt& Commander::getCAPublicCert() const {
+    return caCertificate;
+}
+
+void Commander::setGMK(const crypto::Key256& gmk) {
+    this->GMK = gmk;
+}
+
+void Commander::setGK(const crypto::Key256& gk)
+{
+    this->GK = gk;
+}
+
+void Commander::setCompromised(const uint8_t id)
+{
+    this->addComp(id);
+
+    if(this->commanders.find(id) != this->commanders.end())
+    {
+        auto it = std::find(this->commandersInsertionOrder.begin(), this->commandersInsertionOrder.end(), id);
+        if (it != this->commandersInsertionOrder.end()) 
+        {
+            this->commandersInsertionOrder.erase(it);
+        }
+    }
+}
+
+void Commander::setComp(const std::vector<uint8_t>& comp)
+{
+    this->comp = comp;
+}
+
+void Commander::setMissing(const std::vector<uint8_t>& missing)
+{
+    this->missing = missing;
+}
+
+void Commander::setMissing(uint8_t id)
+{
+    Serial.println("setMissing");
+    this->missing.push_back(id);
+
+    Serial.println("Started checking");
+    if(this->commanders.find(id) != this->commanders.end())
+    {
+        this->removeCommander(id);
+    }
+    else if(this->soldiers.find(id) != this->soldiers.end())
+    {
+        this->removeSoldier(id);
+    }
+
+    Serial.println("Finished setMissing");
+}
+
+void Commander::setCompGMK(const crypto::Key256& gmk) {
+    this->CompGK = gmk;
+}
+
+void Commander::setCompSalt(const crypto::Key256& compSalt)
+{
+    this->CompSalt = compSalt;
+}
+
+uint16_t Commander::getCommanderNumber() const {
+    return commanderNumber;
+}
+
+uint16_t Commander::getCurrentHeartRate() const {
+    return currentHeartRate;
+}
+
+const std::vector<uint8_t>& Commander::getComp()
+{
+    return this->comp;
+}
+
+
+void Commander::setName(const std::string& name) {
+    this->name = name;
+}
+
+void Commander::setPublicCert(const std::string& publicCert) {
+    mbedtls_x509_crt_free(&ownCertificate);
+    mbedtls_x509_crt_init(&ownCertificate);
+    if (mbedtls_x509_crt_parse(&ownCertificate, reinterpret_cast<const unsigned char*>(publicCert.c_str()), publicCert.size() + 1) != 0) {
+        throw std::runtime_error("Failed to parse public certificate");
+    }
+}
+
+void Commander::setPrivateKey(const std::string& privateKey) {
+    mbedtls_pk_free(&this->privateKey);
+    mbedtls_pk_init(&this->privateKey);
+    if (mbedtls_pk_parse_key(&this->privateKey, reinterpret_cast<const unsigned char*>(privateKey.c_str()), privateKey.size() + 1, nullptr, 0) != 0) {
+        throw std::runtime_error("Failed to parse private key");
+    }
+}
+
+void Commander::setCAPublicCert(const std::string& caPublicCert) {
+    mbedtls_x509_crt_free(&caCertificate);
+    mbedtls_x509_crt_init(&caCertificate);
+    if (mbedtls_x509_crt_parse(&caCertificate, reinterpret_cast<const unsigned char*>(caPublicCert.c_str()), caPublicCert.size() + 1) != 0) {
+        throw std::runtime_error("Failed to parse CA public certificate");
+    }
+}
+
+void Commander::setCommanderNumber(uint16_t commanderNumber) {
+    this->commanderNumber = commanderNumber;
+}
+
+void Commander::setCurrentHeartRate(uint16_t heartRate) {
+    this->currentHeartRate = heartRate;
+}
+
+const mbedtls_pk_context& Commander::getPrivateKey() const
+{
+    return privateKey;
+}
+
+const std::vector<float>& Commander::getFrequencies() const 
+{
+    return frequencies;
+}
+
+const std::vector<uint8_t>& Commander::getMissing() const
+{
+    return this->missing;
+}
+
+bool Commander::isDirectCommander()
+{
+    return this->directCommander;
+}
+
+void Commander::setDirectCommander(bool directCommander)
+{
+    this->directCommander = directCommander;
+}
+
+void Commander::appendFrequencies(const std::vector<float>& freqs) {
+    frequencies.insert(frequencies.end(), freqs.begin(), freqs.end());
+}
+
+void Commander::clear()
+{
+    this->commanders.clear();
+    this->commandersInsertionOrder.clear();
+    this->comp.clear();
+    this->soldiers.clear();
+    this->missing.clear();
+
+    mbedtls_pk_free(&this->privateKey);
+    mbedtls_x509_crt_free(&this->ownCertificate);
+    mbedtls_x509_crt_free(&this->caCertificate);
+    
+}
+
+bool Commander::isComp(uint8_t id)
+{
+    return std::find(this->comp.begin(), this->comp.end(), id) != this->comp.end();
+}
+
+void Commander::addComp(const uint8_t id)
+{
+    this->comp.push_back(id);
+}
+
+bool Commander::isMissing(uint8_t id)
+{
+    auto it = std::find(this->missing.begin(), this->missing.end(), id);
+
+    if(it != this->missing.end())
+    {
+        return true;
+    }
+
+    return false;
+}
